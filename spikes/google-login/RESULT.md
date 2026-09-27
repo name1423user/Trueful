@@ -5,17 +5,18 @@
 ## 1. 環境
 | 項目 | 値 |
 |---|---|
-| 実施日 | |
-| 実施者 | |
-| OS / CPU | |
-| Electron / Chromium | （起動時のログ `[spike] versions:` を転記） |
-| Google アカウント | 試験用 / 個人（どちらかを記入。アドレスは書かない） |
+| 実施日 | 2026-09-27 12:43〜12:53 JST |
+| 実施者 | るりあ（操作）、Claude Code（ログの確認・記入） |
+| OS / CPU | macOS（darwin-arm64）/ Apple Silicon（MacBook Air） |
+| Electron / Chromium | `electron=44.4.5 chrome=152.0.7977.130 os=darwin-arm64` |
+| Google アカウント | 個人 |
 
 ## 2. 手順
 
 ### 準備（1回だけ）
 1. `pnpm --dir spikes/google-login install`
 2. 起動して「Electron failed to install correctly」と出たら、`pnpm --dir spikes/google-login approve-builds` で electron を許可するか、`node spikes/google-login/node_modules/electron/install.js` を実行する。
+   - pnpm 12.3.4 では `package.json` の `pnpm.onlyBuiltDependencies` が効かず、Electron 本体が入らなかった。`install.js` を実行して解決した。
 
 ### 起動モード
 | モード | コマンド | User-Agent |
@@ -50,23 +51,45 @@
 
 | モード | ログイン | 再起動後の保持 | 証拠 |
 |---|---|---|---|
-| A 素の状態 | | | |
-| B `Electron/` を除く | | | |
-| C（任意）Chrome と同じ形 | | | |
+| A 素の状態 | ◯（パスワード） | ◯ | [ログイン後](screenshots/default-4.png)、[再起動後](screenshots/default-6.png) |
+| B `Electron/` を除く | ◯（パスワード） | ◯ | [ログイン後](screenshots/strip-electron-4.png)、[再起動後](screenshots/strip-electron-6.png) |
+| C（任意）Chrome と同じ形 | － | － | B で通ったため省略 |
 
 ### 送信ヘッダー（手順2のログを転記）
 ```
-（A）
-（B）
-（C）
+（A）accounts.google.com（最初の要求）
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) trueful-spike-google-login/0.0.0 Chrome/152.0.7977.130 Electron/44.4.5 Safari/537.36
+（A）apis.google.com（Sec-CH-UA が出た要求）
+sec-ch-ua: "Not?A_Brand";v="24", "Chromium";v="152"
+sec-ch-ua-mobile: ?0
+sec-ch-ua-platform: "macOS"
+
+（B）accounts.google.com（最初の要求）
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) trueful-spike-google-login/0.0.0 Chrome/152.0.7977.130 Safari/537.36
+（B）play.google.com・apis.google.com（Sec-CH-UA が出た要求）
+sec-ch-ua: "Not?A_Brand";v="24", "Chromium";v="152"
+sec-ch-ua-mobile: ?0
+sec-ch-ua-platform: "macOS"
+
+（C）未実施
 ```
 
 ## 4. 所見
-- 拒否された場合: 画面の文言、どの段階（メールアドレスの入力後、パスワードの入力後など）で拒否されたか。
-- 送信ヘッダーに `Sec-CH-UA` が含まれていれば、その中に "Google Chrome" のブランドがあるかどうか。UA を変えても拒否される場合の手がかりになる。
+- **A・B とも拒否されなかった。** "This browser or app may not be secure" は出ていない。
+- **UA によって、Google が出すログイン画面が変わる。**
+  - A（`Electron/` あり）: `flowName=WebLiteSignIn`（簡易版）。パスキー（`challenge/pk`）→ 方法の選択（`challenge/selection`）→ パスワード（`challenge/pwd`）と、段階ごとに URL が変わった。
+  - B（`Electron/` なし）: `flowName=GlifWebSignIn`（Chrome と同じ通常版）。ログインの後に `gds.google.com` の案内画面を経て `myaccount.google.com` に着いた。
+- **パスキーが使えない（A・B 共通）。** パスキーの画面は出るが、Touch ID のダイアログが出ず、何も起きなかった。このため、確認方法の選択からパスワードに切り替えてログインした。
+  - 原因の推測: Electron には、Chrome が持っている macOS のパスキー（Touch ID・iCloud キーチェーン）を使う仕組みがない。試作は未署名なので、署名と権限を付けた場合は確かめていない。
+  - パスキーだけを使うアカウントや、パスキー必須のサイトではログインできない恐れがある。R1 とは別のリスクとして扱う必要がある。
+- **Sec-CH-UA のブランドは `"Not?A_Brand"` と `"Chromium"` だけで、"Google Chrome" はない。** それでも拒否はされなかった。`accounts.google.com` への最初の要求には `Sec-CH-UA` が出ず、一部の要求（`apis.google.com`、B では `play.google.com`）にだけ出た。
+- 再起動後は、どちらのモードも `accounts.google.com` を経ずに `myaccount.google.com` が開いた。`persist:` パーティションでログインが保持される。
+- `sandbox_extension_issue_file failed ... (Operation not permitted)` と `IMKCFRunLoopWakeUpReliable` のログが出たが、動作に影響はなかった（未署名の Electron と macOS の日本語入力による警告と見ている）。
 
 ## 5. 推奨
-（結果を見てから記入: 続行 / 合格ラインの見直し / 代替案）
+- **続行。** Electron 44 で Google にログインでき、再起動後も保持される。合格ラインを見直す必要はない。
+- UA は **B（`Electron/` を除く）を推奨**する。A でも通るが、Google が簡易版のログイン画面に切り替えるため。
+- パスキー（WebAuthn の Touch ID・iCloud キーチェーン）は、別のリスクとして SPEC に足すかどうかを、るりあが判断する。
 
 ## 付記: 開発環境での起動確認（2026-09-27、Claude Code）
 - Linux（コンテナ、Xvfb）で 3 モードとも起動し、User-Agent が上の表のとおりになることを確認した。
