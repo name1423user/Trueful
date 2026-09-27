@@ -89,7 +89,7 @@ sec-ch-ua-platform: "macOS"
 ## 5. 推奨
 - **続行。** Electron 44 で Google にログインでき、再起動後も保持される。合格ラインを見直す必要はない。
 - UA は **B（`Electron/` を除く）を推奨**する。A でも通るが、Google が簡易版のログイン画面に切り替えるため。
-- パスキー（WebAuthn の Touch ID・iCloud キーチェーン）は、別のリスクとして SPEC に足すかどうかを、るりあが判断する。
+- パスキー（WebAuthn の Touch ID・iCloud キーチェーン）は、SPEC 3章に R6 として足した。
 
 ## 付記: 開発環境での起動確認（2026-09-27、Claude Code）
 - Linux（コンテナ、Xvfb）で 3 モードとも起動し、User-Agent が上の表のとおりになることを確認した。
