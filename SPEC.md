@@ -66,13 +66,13 @@ F01〜F17（5章の機能一覧）。
 3. 1章の成功基準（1か月の利用と記録）を満たす。
 
 ### 先に試作で確かめるリスク
-| # | リスク | 確かめること | 失敗したとき |
-|---|---|---|---|
-| R1 | GoogleがElectron内のログインを拒否する（"This browser or app may not be secure"） | Electron 44でGoogleアカウントにログインし、再起動後も保持されるか。User-Agentの調整で通るか | 合格ラインを見直す（るりあが判断） |
-| R2 | MV3拡張がElectronで動かない | 1Password・Bitwarden・React DevTools・翻訳拡張を、ストア導入とunpackedで入れて主要操作が動くか。「全Workspace共通」にした拡張のログインがWorkspace間で共有されるか。デスクトップアプリとの連携（ネイティブメッセージング）とサイドパネル（sidePanel API）が動くか | 動かない拡張を一覧化し、代替を決める。パスワード管理は拡張単体で動けば合格とし、不便ならOS全体の自動入力（1Password Quick Access等）を併用。致命的ならFirefoxフォーク案を再検討 |
-| R3 | ChromiumのPDF表示がElectronで使えない | PDFのURLとローカルPDFを開き、拡大・検索・印刷ができるか | PDF.jsの組み込みを検討 |
-| R4 | 統合検索欄の候補一覧がWebページの層の下に隠れる | 候補一覧を小さな専用のWebContentsViewとして最前面に出し、入力中の表示・キー操作・フォーカスが崩れないか | 入力中だけページ表示領域を候補の高さ分下げる（固定の高さで毎回同じ動き） |
-| R5 | 内蔵広告ブロック（`session.webRequest`）と拡張の `chrome.webRequest` が衝突する | 両方を有効にして、必須の拡張（R2）と広告ブロックがともに動くか | 内蔵広告ブロックを優先し、`chrome.webRequest` に依存する拡張は管理画面で「一部動きません」と表示 |
+| # | リスク | 確かめること | 失敗したとき | 試作の結果 |
+|---|---|---|---|---|
+| R1 | GoogleがElectron内のログインを拒否する（"This browser or app may not be secure"） | Electron 44でGoogleアカウントにログインし、再起動後も保持されるか。User-Agentの調整で通るか | 合格ラインを見直す（るりあが判断） | T0-1 実機確認待ち（[RESULT](spikes/google-login/RESULT.md)） |
+| R2 | MV3拡張がElectronで動かない | 1Password・Bitwarden・React DevTools・翻訳拡張を、ストア導入とunpackedで入れて主要操作が動くか。「全Workspace共通」にした拡張のログインがWorkspace間で共有されるか。デスクトップアプリとの連携（ネイティブメッセージング）とサイドパネル（sidePanel API）が動くか | 動かない拡張を一覧化し、代替を決める。パスワード管理は拡張単体で動けば合格とし、不便ならOS全体の自動入力（1Password Quick Access等）を併用。致命的ならFirefoxフォーク案を再検討 | 未着手 |
+| R3 | ChromiumのPDF表示がElectronで使えない | PDFのURLとローカルPDFを開き、拡大・検索・印刷ができるか | PDF.jsの組み込みを検討 | 未着手 |
+| R4 | 統合検索欄の候補一覧がWebページの層の下に隠れる | 候補一覧を小さな専用のWebContentsViewとして最前面に出し、入力中の表示・キー操作・フォーカスが崩れないか | 入力中だけページ表示領域を候補の高さ分下げる（固定の高さで毎回同じ動き） | 未着手 |
+| R5 | 内蔵広告ブロック（`session.webRequest`）と拡張の `chrome.webRequest` が衝突する | 両方を有効にして、必須の拡張（R2）と広告ブロックがともに動くか | 内蔵広告ブロックを優先し、`chrome.webRequest` に依存する拡張は管理画面で「一部動きません」と表示 | 未着手 |
 
 ## 4. プラットフォームと技術
 
@@ -433,7 +433,7 @@ app/src/
     db/                      # スキーマとマイグレーション
   preload/index.ts           # 用途別の関数だけ公開
   renderer/src/              # React
-spikes/                      # 試作（R1〜R3）。本体に import しない
+spikes/                      # 試作（R1〜R5、T1-3a）。本体に import しない
 docs-ja/ docs-en/            # 既存の文書
 ```
 
