@@ -2,7 +2,7 @@
 
 - 作成: 2026-09-27（要件定義インタビューによる再定義）
 - 更新: 2026-09-27 v2.1（Command Paletteの廃止、統合検索欄、左パネルの2段構成、試作項目の追加を反映）
-- 位置づけ: 既存の `docs-ja/`（哲学・Master Spec・ADR-001〜014・Design System v1.1）の大半を引き継ぎ、差分だけを定義し直す。本書と既存文書が食い違う場合は本書を優先し、該当するADRを改訂する（11章）。
+- 位置づけ: 既存の `docs-ja/`（哲学・Master Spec・ADR-001〜014・Design System v1.1）の大半を引き継ぎ、差分だけを定義し直す。本書と既存文書が食い違う場合は本書を優先し、該当するADRを改訂する（11章）。既存文書は前のリポジトリ（[Trueful/Trueful](https://github.com/Trueful/Trueful)）にあり、`docs-ja/architecture/`（ADR を含む）だけを本リポジトリに取り込んだ（2026-09-27、T1-1a）。それ以外は必要になったときに取り込む。
 - 体制: 実装は Claude Code、設計判断と監査は るりあ。共同開発（メンバー2人）はいったん保留。
 
 ## 1. 概要
@@ -78,12 +78,12 @@ F01〜F17（5章の機能一覧）。
 ## 4. プラットフォームと技術
 
 ### 動作環境と選定理由
-Electron製のデスクトップアプリ（macOS・Windows・Linux）。Chrome拡張を動かせる現実的な基盤はChromiumだけで、既存の仕様とコードを活かせるため。
+Electron製のデスクトップアプリ（macOS・Windows・Linux）。Chrome拡張を動かせる現実的な基盤はChromiumだけで、既存の仕様を活かせるため。
 
 ### 技術スタック
 | 用途 | 採用 | バージョン（2026-09-27時点のnpm最新） |
 |---|---|---|
-| アプリ基盤 | Electron | 44.4.5（既存の ^39 から更新） |
+| アプリ基盤 | Electron | 44.4.5（前のリポジトリの `app/` は ^39 のテンプレートのままだったため引き継がず、本リポジトリに新しく作る） |
 | タブ表示 | WebContentsView | Electron内蔵（BrowserViewは非推奨のため移行） |
 | UI | React | 19.3.0 |
 | 言語 | TypeScript | 5.9系を維持（7.0は周辺ツールの対応確認後） |
@@ -158,7 +158,7 @@ GitHub Releases（配布・更新情報）、Chromeウェブストア（拡張�
 **F01 Workspace**
 - 名前とMode（Production / Development / Testing / Custom）を入力して作成すると、サイドバーに追加され、空のタブが1つ開く。
 - 切替は300ms以内に完了する（性能予算）。
-- フルアクティブなWorkspaceが6個目になると、最も長く使っていないものがDormantになり、BrowserViewの実体が破棄される。再度選ぶと、URLとスクロール位置が戻る。
+- フルアクティブなWorkspaceが6個目になると、最も長く使っていないものがDormantになり、WebContentsViewの実体が破棄される。再度選ぶと、URLとスクロール位置が戻る。
 - Dormantが30日続いたものは表示上アーカイブ扱いになる（DB書き込みなし、ADR-011）。
 - 削除の前に自動スナップショットを1回作成する。
 - Workspaceの切り替えショートカット: macOSは Ctrl+1〜9、Windows・Linuxは Alt+1〜9（左パネルの並び順。設定で変更可）。タブの切り替えはChromeと同じ Cmd/Ctrl+1〜9 のまま。
@@ -166,7 +166,7 @@ GitHub Releases（配布・更新情報）、Chromeウェブストア（拡張�
 **F02 タブとナビゲーション**
 - URL入力で読み込み、戻る・進む・再読み込み・停止ができる。URL以外の文字列は既定の検索エンジンで検索する。
 - タブの新規作成（Cmd/Ctrl+T）、閉じる（Cmd/Ctrl+W）、閉じたタブを戻す（Cmd/Ctrl+Shift+T）ができる。
-- BrowserView実体は全Workspace合計で最大30個。超えたら最も長く未フォーカスのタブから破棄し、URLとタイトルだけ残す。再クリックで再生成する。
+- WebContentsView実体は全Workspace合計で最大30個。超えたら最も長く未フォーカスのタブから破棄し、URLとタイトルだけ残す。再クリックで再生成する。
 
 **F03 ログイン状態の保持**
 - 各Workspaceは `persist:workspace-<id>` パーティションを持つ。WorkspaceAでログインしたサイトは、WorkspaceBではログアウト状態で表示される。
@@ -312,7 +312,7 @@ GitHub Releases（配布・更新情報）、Chromeウェブストア（拡張�
 | 依存ライブラリの汚染 | ロックファイルを固定し、CIで `pnpm audit` を実行。新しい依存の追加はるりあの承認が必要 |
 | 配布ファイルの改ざん | GitHub ReleasesにSHA256のハッシュ値を掲載し、READMEに確認方法を書く |
 
-既存の `security/threat-model.md` に上記を追記する。
+既存の `security/threat-model.md`（前のリポジトリにあり、未取り込み）を取り込んだうえで、上記を追記する。
 
 ### アクセシビリティ
 - ブラウザ自体のUIはキーボード操作だけで完結する。
@@ -422,7 +422,7 @@ MVP完成時の監査チェックリスト:
 
 ## 10. 開発ルール
 
-### ディレクトリ構成（既存を拡張）
+### ディレクトリ構成
 ```
 app/src/
   main/
@@ -435,7 +435,7 @@ app/src/
   preload/index.ts           # 用途別の関数だけ公開
   renderer/src/              # React
 spikes/                      # 試作（R1〜R5、T1-3a）。本体に import しない
-docs-ja/ docs-en/            # 既存の文書
+docs-ja/ docs-en/            # 設計文書（2026-09-27 時点で取り込んだのは docs-ja/architecture/ だけ。残りは前のリポジトリにある）
 ```
 
 ### コードスタイル（例）
