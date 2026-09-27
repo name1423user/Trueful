@@ -63,4 +63,4 @@
 - macOS（darwin-arm64、Electron 44.4.5 / Chromium 152.0.7977.130）で、3つのモードを `reset` してから起動した。起動後に DevTools のプロトコルでタブ A を `example.com` → `en.wikipedia.org` に移動させ、hello 拡張の service worker で `chrome.storage.local` の値を読んだ。
 - 3つのモードすべてで、`webRequestSeen` は記録されなかった（リスナーが呼ばれていない）。同じ service worker からの `chrome.storage.local.set` とバッジの変更は反映された。
 - 「拡張の前」「拡張の後」の両方で、B は `有効にできない: Attempted to register a second handler for '@ghostery/adblocker/inject-cosmetic-filters'` になった。
-- 注意: unpacked の拡張の `background.js` を書き換えても、`reset` するまで古い service worker が動き続けた。
+- 注意: unpacked の拡張の `background.js` を書き換えると、古い service worker が動き続けることがある。`session.clearData()` では消えず、保存場所（userData）を丸ごと消す必要がある（[調査](../webrequest-probe/RESULT.md) 2章）。この付記の hello の結果も古い版を測っていた可能性があるが、調査で測り直した結論は同じだった。

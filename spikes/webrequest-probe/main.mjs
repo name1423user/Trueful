@@ -3,6 +3,7 @@
 // 例: electron . --mv=3 --lib=none --part=persist --adblock=off
 import { app, BaseWindow, WebContentsView, session } from 'electron'
 import path from 'node:path'
+import http from 'node:http'
 
 const arg = (name, def) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? def
 const opt = { mv: arg('mv', '3'), lib: arg('lib', 'none'), part: arg('part', 'persist'), adblock: arg('adblock', 'off') }
@@ -10,20 +11,18 @@ const label = Object.entries(opt).map(([k, v]) => `${k}=${v}`).join(' ')
 
 app.setPath('userData', path.join(app.getPath('appData'), 'trueful-spike-webrequest-probe'))
 const counts = {}
-const record = (msg) => {
-  if (typeof msg !== 'string' || !msg.startsWith('[probe-ext]')) return
-  const name = msg.split(' ')[1]
-  counts[name] = (counts[name] ?? 0) + 1
-}
-
-// MV2 の background page と、拡張のページの console を拾う
-app.on('web-contents-created', (_e, wc) => wc.on('console-message', (e, _lv, message) => record(e.message ?? message)))
+// 拡張は、イベントのたびに http://127.0.0.1:47813/?e=<イベント名> に報告する（fixtures/*/background.js）
+const server = http.createServer((req, res) => {
+  const q = new URL(req.url, 'http://127.0.0.1').searchParams
+  const name = q.get('e')
+  if (name) counts[name] = (counts[name] ?? 0) + 1
+  if (name === '起動' || name === '登録') console.log(`  [probe-ext] ${name} ${q.get('u')}`)
+  res.end()
+})
+server.listen(47813, '127.0.0.1')
 
 async function main() {
   const ses = opt.part === 'default' ? session.defaultSession : session.fromPartition('persist:probe')
-  await ses.clearData() // 前の回の service worker を残さない
-  // MV3 の service worker の console を拾う
-  ses.serviceWorkers.on('console-message', (e, details) => record(e.message ?? details?.message))
 
   if (opt.adblock === 'on') {
     const { ElectronBlocker } = await import('@ghostery/adblocker-electron')
@@ -54,6 +53,7 @@ async function main() {
     await new Promise((r) => setTimeout(r, 2500))
   }
   console.log(`[probe] ${label} ext=${ext.name} 結果=${JSON.stringify(counts)}`)
+  server.close()
   app.quit()
 }
 
