@@ -52,13 +52,21 @@
 
 ## M1 基盤
 
-### T1-1 Electron 44 への更新とWebContentsView移行
-- 目的: サポート対象のElectronに上げ、非推奨APIをなくす。
-- 関係: `app/package.json`、`app/src/main/index.ts`、`docs-ja/architecture/adr/adr-008-browserview.md`（改訂）
-- 受け入れ条件: `electron` が44系。`BrowserView` の使用が0件（`grep -r BrowserView app/src` が空）。既存の三ペイン骨格が表示される。ADR-008を改訂している。
-- 検証: `pnpm typecheck && pnpm build:unpack` と起動確認。
-- 範囲外: 新機能。
+### T1-1a ADR の取り込みと ADR-008 の改訂
+- 目的: 前のリポジトリ（Trueful/Trueful）の設計文書を本リポジトリで参照・改訂できるようにする。
+- 関係: `docs-ja/architecture/`（取り込み）、`docs-ja/architecture/adr/adr-008-browserview.md`（改訂）
+- 受け入れ条件: `docs-ja/architecture/` を、取り込み元のコミットを記録して取り込んでいる。ADR-008 を WebContentsView 採用に改訂している。SPEC・PLAN の「既存の `app/`」を前提にした記述を、実態に合わせている。
+- 検証: 差分の目視（文書のみ）。
+- 範囲外: `docs-ja/` のほかの文書（哲学、Master Spec、Design System 等）の取り込み。必要になったときに行う。
 - 依存: M0
+
+### T1-1b Electron 44 のアプリの土台
+- 目的: 本リポジトリに、Electron 44 で本体の土台（`app/`）を作る。前のリポジトリの `app/` は electron-vite のテンプレートのまま（Electron ^39、三ペインの骨格なし、`sandbox: false`）だったため、構成（electron-vite 5、React 19、TypeScript、ESLint、Prettier）だけを引き継いで作り直す。
+- 関係: `app/package.json`、`app/src/main/index.ts`、`app/src/preload/index.ts`、`app/src/renderer/`
+- 受け入れ条件: `electron` が 44.4.5。`BrowserView` の使用が0件（`grep -r BrowserView app/src` が空）。`sandbox`・`contextIsolation` が有効で、preload から `ipcRenderer` を出していない。上端・左パネル・中央の3つの領域の枠が表示される（中身は空）。pnpm 12 で `pnpm install` だけで Electron 本体が入る。
+- 検証: `pnpm typecheck && pnpm lint && pnpm build:unpack` と起動確認。
+- 範囲外: 新機能、IPC（T1-4）、WebContentsView の配置（M2）。
+- 依存: T1-1a
 
 ### T1-2 テスト基盤とCI
 - 目的: 3OSで自動検証できるようにする。
@@ -66,7 +74,7 @@
 - 受け入れ条件: `pnpm test` と `pnpm test:e2e`（起動してウィンドウが出るだけのE2E 1本）が動く。GitHub Actionsで macos-latest・windows-latest・ubuntu-latest の3つが通る。CIで `pnpm audit` を実行している。
 - 検証: CIの結果画面。
 - 範囲外: 性能計測。
-- 依存: T1-1
+- 依存: T1-1b
 
 ### T1-3a SQLite実装の比較
 - 目的: better-sqlite3 と `node:sqlite` のどちらを使うか決める材料を出す。
