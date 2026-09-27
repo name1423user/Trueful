@@ -1,5 +1,6 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
+import { isExternalUrl } from './window/services/externalUrl'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -18,7 +19,7 @@ function createWindow(): void {
 
   // UI から新しいウィンドウは開かない。http(s) だけ既定のブラウザに渡す
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:\/\//.test(url)) shell.openExternal(url)
+    if (isExternalUrl(url)) shell.openExternal(url)
     return { action: 'deny' }
   })
 

@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 12.3.4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm exec electron-vite build
+
+      # Ubuntu 24.04 は非特権のユーザー名前空間を制限していて、Chromium のサンドボックスが起動しない。
+      # sandbox を無効にする代わりに、CI の中だけ制限を緩める
+      - name: E2E (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          xvfb-run -a pnpm test:e2e
+      - name: E2E
+        if: runner.os != 'Linux'
+        run: pnpm test:e2e
+
+      - name: 起動した画面のスクリーンショット
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshots-${{ matrix.os }}
+          path: app/test-results/
+          if-no-files-found: ignore
+
+      - name: 依存の脆弱性の確認
+        if: runner.os == 'Linux'
+        run: pnpm audit
