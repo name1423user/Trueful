@@ -1,4 +1,7 @@
-# pnpm 11 以降は、依存のインストール時スクリプトを allowBuilds で許可する（package.json の pnpm.onlyBuiltDependencies は効かない）
+# pnpm 11 以降は、依存のインストール時スクリプトを allowBuilds で許可する（package.json の pnpm.onlyBuiltDependencies は効かない）。
+# 許可も拒否もしていないスクリプトがあると、pnpm 12 は install をエラーで止める
 allowBuilds:
   electron: true
   esbuild: true
+  # electron-builder が使う Windows の Squirrel 形式のインストーラー用。Trueful では使わないので実行しない
+  electron-winstaller: false
