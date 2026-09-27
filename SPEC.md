@@ -324,7 +324,7 @@ GitHub Releases（配布・更新情報）、Chromeウェブストア（拡張�
 MVPは日本語UIのみ。文字列は最初から辞書ファイル経由で表示し、英語追加時に文字列を探して回らなくて済む構造にする。
 
 ### 法令・規約・OSS
-- ライセンス: GPL-3.0（`electron-chrome-extensions` がGPL-3.0のため）。LICENSEの変更前に、既存コードに貢献したメンバーの同意を得る。
+- ライセンス: GPL-3.0（`electron-chrome-extensions` がGPL-3.0のため）。本リポジトリに LICENSE を置いた（2026-09-27）。前のリポジトリのコードは引き継いでいないため、メンバーの同意は不要と、るりあが判断した。
 - 脆弱性の報告先: GitHubのPrivate vulnerability reporting。`SECURITY.md` に明記する。
 - READMEに開発体制（実装はClaude Code、設計と監査はるりあ）を明記する。方針転換はQiitaの新しい番外編で説明する。
 - コントリビュート方針: 共同開発保留中のため、MVPまでは外部からのPRを受け付けず、Issueのみ受け付ける。`CONTRIBUTING.md` に明記する。
@@ -489,7 +489,6 @@ Tauri、Chromiumフォーク、Firefoxフォーク（条件付き保留）、MIT
 ### 未決事項と期限
 | 事項 | 担当 | 期限 |
 |---|---|---|
-| メンバーへのライセンス変更の同意 | るりあ | LICENSE変更の前 |
 | R1失敗時の合格ラインの見直し | るりあ | 試作（M0）の直後 |
 | R2で動かない拡張の代替 | るりあ（Claudeが案を出す） | 試作（M0）の直後 |
 | AI開示方針の番外編 | るりあ | MVP公開の前 |
