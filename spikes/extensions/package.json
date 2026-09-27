@@ -1,0 +1,25 @@
+{
+  "name": "trueful-spike-extensions",
+  "version": "0.0.0",
+  "private": true,
+  "description": "T0-2: electron-chrome-extensions と electron-chrome-web-store で必要な拡張が動くかの試作",
+  "type": "module",
+  "main": "main.mjs",
+  "scripts": {
+    "start": "electron .",
+    "start:unpacked": "electron . --load-unpacked=fixtures/hello-extension",
+    "reset": "electron . --reset"
+  },
+  "dependencies": {
+    "electron-chrome-extensions": "4.9.0",
+    "electron-chrome-web-store": "0.13.0"
+  },
+  "devDependencies": {
+    "electron": "44.4.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron"
+    ]
+  }
+}
