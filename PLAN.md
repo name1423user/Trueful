@@ -58,7 +58,7 @@
 - 受け入れ条件: `docs-ja/architecture/` を、取り込み元のコミットを記録して取り込んでいる。ADR-008 を WebContentsView 採用に改訂している。SPEC・PLAN の「既存の `app/`」を前提にした記述を、実態に合わせている。
 - 検証: 差分の目視（文書のみ）。
 - 範囲外: `docs-ja/` のほかの文書（哲学、Master Spec、Design System 等）の取り込み。必要になったときに行う。
-- 依存: M0
+- 依存: なし（文書のみ。2026-09-27 に、るりあが M0 から外すと判断）
 
 ### T1-1b Electron 44 のアプリの土台
 - 目的: 本リポジトリに、Electron 44 で本体の土台（`app/`）を作る。前のリポジトリの `app/` は electron-vite のテンプレートのまま（Electron ^39、三ペインの骨格なし、`sandbox: false`）だったため、構成（electron-vite 5、React 19、TypeScript、ESLint、Prettier）だけを引き継いで作り直す。
