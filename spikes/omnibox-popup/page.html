@@ -1,0 +1,17 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'" />
+<title>試験用ページ</title>
+<style>body { font: 16px system-ui, sans-serif; padding: 16px; } p:nth-child(odd) { background: #f4f4f4; }</style>
+<h1>試験用ページ（候補一覧の下になる側）</h1>
+<!-- autofocus: 読み込み時にページがフォーカスを奪わないかを見る -->
+<p>ページ内の入力欄: <input placeholder="ページの入力欄" autofocus /> <textarea placeholder="ページのテキストエリア"></textarea></p>
+<div id="rows"></div>
+<script>
+  // 長いページにして、候補一覧の下の文字が透けないか・スクロールしても崩れないかを見る
+  for (let i = 1; i <= 80; i++) {
+    const p = document.createElement('p')
+    p.textContent = `${i} 行目: 候補一覧はこの文章の上に重なるはず（overlay）、または押し下げられるはず（push）。`
+    document.getElementById('rows').append(p)
+  }
+</script>

@@ -1,0 +1,26 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'" />
+<title>候補一覧</title>
+<style>
+  body { margin: 0; background: #fff; font: 14px system-ui, sans-serif; border: 1px solid #999; box-sizing: border-box; height: 100vh; }
+  ul { margin: 0; padding: 2px 0; } li { list-style: none; height: 28px; line-height: 28px; padding: 0 8px; white-space: nowrap; overflow: hidden; }
+  li.selected { background: #ffe08a; } /* 選択中は Blue を使わない（Blue は Production の Mode 色専用） */
+</style>
+<ul id="list"></ul>
+<script>
+  const list = document.getElementById('list')
+  window.spike.onState(({ seq, items, index }) => {
+    list.replaceChildren(
+      ...items.map((label, i) => {
+        const li = document.createElement('li')
+        li.textContent = label
+        if (i === index) li.className = 'selected'
+        li.addEventListener('mousedown', () => window.spike.pick(i))
+        return li
+      }),
+    )
+    // 描画が画面に出たあとで Main に知らせる（候補の更新にかかった時間の計測用）
+    if (seq) requestAnimationFrame(() => setTimeout(() => window.spike.ack(seq)))
+  })
+</script>

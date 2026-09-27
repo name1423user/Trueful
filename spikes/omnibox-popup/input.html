@@ -1,0 +1,15 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'" />
+<title>検索欄</title>
+<style>
+  body { margin: 0; padding: 8px; background: #eee; font: 14px system-ui, sans-serif; }
+  input { box-sizing: border-box; width: 100%; height: 28px; padding: 0 8px; font-size: 14px; }
+</style>
+<input id="q" placeholder="ここに入力（上下キーで選択、Enter で決定、Esc で閉じる）" autofocus />
+<script>
+  const q = document.getElementById('q'); q.addEventListener('input', () => window.spike.input(q.value))
+  // 上下・Enter・Esc は検索欄で受け、Main 経由で候補一覧に伝える（候補一覧にはフォーカスを移さない）
+  const KEYS = { ArrowUp: 'up', ArrowDown: 'down', Enter: 'enter', Escape: 'escape' }
+  q.addEventListener('keydown', (e) => KEYS[e.key] && (e.preventDefault(), window.spike.key(KEYS[e.key])))
+</script>
