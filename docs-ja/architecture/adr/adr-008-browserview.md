@@ -16,9 +16,9 @@
 - `<webview>` を使わない理由は改訂前と同じ。Electron 公式が非推奨の方向で、性能とセキュリティに既知の課題が多い。
 - WebContentsView は、BrowserView と同じくネイティブなプロセス分離を持ち、Workspace ごとの session partition と自然に組み合わせられる。
 - M0 の試作で確かめた（2026-09-27）:
-  - T0-1〜T0-5 の試作は、すべて BaseWindow と WebContentsView で作り、`sandbox: true`・`contextIsolation: true` のまま動いた。
-  - 検索候補の一覧を専用の WebContentsView にして最後に `addChildView` すると、ページの上に重なり、ウィンドウの移動・リサイズにも追従した（`spikes/omnibox-popup/RESULT.md`）。
-  - Chromium の PDF ビューアは、WebContentsView の中でそのまま動いた（`spikes/pdf/RESULT.md`）。
+  - T0-1〜T0-5 の試作は、すべて BaseWindow と WebContentsView で、`sandbox: true`・`contextIsolation: true` のまま作り、起動できた。各試作の機能の結果は、それぞれの RESULT.md に書く（実機確認が済んでいないものもある）。
+  - 検索候補の一覧を専用の WebContentsView にして最後に `addChildView` すると、ページの上に重なった。自動の確認では、候補の更新・上下キー・Esc が動いた（`spikes/omnibox-popup/RESULT.md`）。重なりとウィンドウの移動・リサイズへの追従の実機確認は、この改訂の時点ではまだ記録されていない。
+  - Chromium の PDF ビューアは、WebContentsView の中で表示できた（`spikes/pdf/RESULT.md`。検索と印刷には条件がある）。
 
 ## 注意点（試作で分かったこと）
 
@@ -27,4 +27,4 @@
 
 ## 改訂履歴
 
-- 2026-09-27：BrowserView から WebContentsView に改訂（T1-1）。改訂前の決定は「タブ表示に BrowserView を採用し、`<webview>` タグは使わない」。
+- 2026-09-27：BrowserView から WebContentsView に改訂（T1-1a）。改訂前の決定は「タブ表示に BrowserView を採用し、`<webview>` タグは使わない」。

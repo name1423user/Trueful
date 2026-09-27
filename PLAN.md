@@ -64,7 +64,7 @@
 - 目的: 本リポジトリに、Electron 44 で本体の土台（`app/`）を作る。前のリポジトリの `app/` は electron-vite のテンプレートのまま（Electron ^39、三ペインの骨格なし、`sandbox: false`）だったため、構成（electron-vite 5、React 19、TypeScript、ESLint、Prettier）だけを引き継いで作り直す。
 - 関係: `app/package.json`、`app/src/main/index.ts`、`app/src/preload/index.ts`、`app/src/renderer/`
 - 受け入れ条件: `electron` が 44.4.5。`BrowserView` の使用が0件（`grep -r BrowserView app/src` が空）。`sandbox`・`contextIsolation` が有効で、preload から `ipcRenderer` を出していない。上端・左パネル・中央の3つの領域の枠が表示される（中身は空）。pnpm 12 で `pnpm install` だけで Electron 本体が入る。
-- 検証: `pnpm typecheck && pnpm lint && pnpm build:unpack` と起動確認。
+- 検証: `pnpm typecheck && pnpm lint && pnpm build:unpack` と起動確認。起動した画面のスクリーンショットを PR に付ける。`pnpm test` は T1-2 までは対象外。差分が300行を超える見込みなら、設定ファイルだけの PR と画面の PR に分ける。
 - 範囲外: 新機能、IPC（T1-4）、WebContentsView の配置（M2）。
 - 依存: T1-1a
 
@@ -131,7 +131,7 @@
 - 依存: T2-2
 
 ### T2-5 休止・復帰・アーカイブ・削除と上限（F01の残り、F02の上限）
-- 受け入れ条件: F01の休止・復帰・アーカイブ・削除、F02のBrowserView実体30個の上限を満たす。ADR-011の境界値（5個目と6個目、29個目と31個目）を単体テストで確認。
+- 受け入れ条件: F01の休止・復帰・アーカイブ・削除、F02のWebContentsView実体30個の上限を満たす。ADR-011の境界値（5個目と6個目、29個目と31個目）を単体テストで確認。
 - 検証: `pnpm test && pnpm test:e2e`
 - 依存: T2-4
 

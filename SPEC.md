@@ -78,7 +78,7 @@ F01〜F17（5章の機能一覧）。
 ## 4. プラットフォームと技術
 
 ### 動作環境と選定理由
-Electron製のデスクトップアプリ（macOS・Windows・Linux）。Chrome拡張を動かせる現実的な基盤はChromiumだけで、既存の仕様とコードを活かせるため。
+Electron製のデスクトップアプリ（macOS・Windows・Linux）。Chrome拡張を動かせる現実的な基盤はChromiumだけで、既存の仕様を活かせるため。
 
 ### 技術スタック
 | 用途 | 採用 | バージョン（2026-09-27時点のnpm最新） |
@@ -158,7 +158,7 @@ GitHub Releases（配布・更新情報）、Chromeウェブストア（拡張�
 **F01 Workspace**
 - 名前とMode（Production / Development / Testing / Custom）を入力して作成すると、サイドバーに追加され、空のタブが1つ開く。
 - 切替は300ms以内に完了する（性能予算）。
-- フルアクティブなWorkspaceが6個目になると、最も長く使っていないものがDormantになり、BrowserViewの実体が破棄される。再度選ぶと、URLとスクロール位置が戻る。
+- フルアクティブなWorkspaceが6個目になると、最も長く使っていないものがDormantになり、WebContentsViewの実体が破棄される。再度選ぶと、URLとスクロール位置が戻る。
 - Dormantが30日続いたものは表示上アーカイブ扱いになる（DB書き込みなし、ADR-011）。
 - 削除の前に自動スナップショットを1回作成する。
 - Workspaceの切り替えショートカット: macOSは Ctrl+1〜9、Windows・Linuxは Alt+1〜9（左パネルの並び順。設定で変更可）。タブの切り替えはChromeと同じ Cmd/Ctrl+1〜9 のまま。
@@ -166,7 +166,7 @@ GitHub Releases（配布・更新情報）、Chromeウェブストア（拡張�
 **F02 タブとナビゲーション**
 - URL入力で読み込み、戻る・進む・再読み込み・停止ができる。URL以外の文字列は既定の検索エンジンで検索する。
 - タブの新規作成（Cmd/Ctrl+T）、閉じる（Cmd/Ctrl+W）、閉じたタブを戻す（Cmd/Ctrl+Shift+T）ができる。
-- BrowserView実体は全Workspace合計で最大30個。超えたら最も長く未フォーカスのタブから破棄し、URLとタイトルだけ残す。再クリックで再生成する。
+- WebContentsView実体は全Workspace合計で最大30個。超えたら最も長く未フォーカスのタブから破棄し、URLとタイトルだけ残す。再クリックで再生成する。
 
 **F03 ログイン状態の保持**
 - 各Workspaceは `persist:workspace-<id>` パーティションを持つ。WorkspaceAでログインしたサイトは、WorkspaceBではログアウト状態で表示される。
@@ -312,7 +312,7 @@ GitHub Releases（配布・更新情報）、Chromeウェブストア（拡張�
 | 依存ライブラリの汚染 | ロックファイルを固定し、CIで `pnpm audit` を実行。新しい依存の追加はるりあの承認が必要 |
 | 配布ファイルの改ざん | GitHub ReleasesにSHA256のハッシュ値を掲載し、READMEに確認方法を書く |
 
-既存の `security/threat-model.md` に上記を追記する。
+既存の `security/threat-model.md`（前のリポジトリにあり、未取り込み）を取り込んだうえで、上記を追記する。
 
 ### アクセシビリティ
 - ブラウザ自体のUIはキーボード操作だけで完結する。
@@ -422,7 +422,7 @@ MVP完成時の監査チェックリスト:
 
 ## 10. 開発ルール
 
-### ディレクトリ構成（既存を拡張）
+### ディレクトリ構成
 ```
 app/src/
   main/
@@ -435,7 +435,7 @@ app/src/
   preload/index.ts           # 用途別の関数だけ公開
   renderer/src/              # React
 spikes/                      # 試作（R1〜R5、T1-3a）。本体に import しない
-docs-ja/ docs-en/            # 既存の文書
+docs-ja/ docs-en/            # 設計文書（2026-09-27 時点で取り込んだのは docs-ja/architecture/ だけ。残りは前のリポジトリにある）
 ```
 
 ### コードスタイル（例）

@@ -1,5 +1,7 @@
 # ADR（アーキテクチャ決定記録）一覧
 
+> 出どころ: `docs-ja/architecture/` は前のリポジトリ [Trueful/Trueful](https://github.com/Trueful/Trueful) のコミット `25d338f` から取り込んだ（2026-09-27、T1-1a）。以後の改訂は本リポジトリで行う。
+
 | ADR | タイトル | ステータス |
 |---|---|---|
 | [ADR-001](./adr-001-electron.md) | 実行基盤は Electron + Chromium | 決定済み |
