@@ -2,9 +2,23 @@
   "manifest_version": 3,
   "name": "Trueful spike: hello",
   "version": "0.0.1",
-  "description": "T0-2 の unpacked 読み込みと sidePanel の確認用",
-  "permissions": ["storage", "sidePanel"],
-  "action": { "default_popup": "popup.html", "default_title": "hello" },
-  "side_panel": { "default_path": "popup.html" },
-  "background": { "service_worker": "background.js" }
+  "description": "T0-2 の unpacked 読み込みと sidePanel、T0-5 の chrome.webRequest の確認用",
+  "permissions": [
+    "storage",
+    "sidePanel",
+    "webRequest"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "hello"
+  },
+  "side_panel": {
+    "default_path": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "host_permissions": [
+    "<all_urls>"
+  ]
 }
