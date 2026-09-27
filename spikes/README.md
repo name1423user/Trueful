@@ -17,4 +17,4 @@ SPEC 3章のリスク R1〜R5 と、T1-3a の SQLite 比較を確かめる使い
 | T0-2 | R2 拡張機能 | `extensions/` |
 | T0-3 | R3 PDF 表示 | `pdf/` |
 | T0-4 | R4 検索候補の重ね表示 | `omnibox-popup/` |
-| T0-5 | R5 広告ブロックと拡張の共存 | `adblock-extensions/`（未着手） |
+| T0-5 | R5 広告ブロックと拡張の共存 | `adblock-extensions/`（結果のみ。コードは `extensions/` の `--adblock=`） |

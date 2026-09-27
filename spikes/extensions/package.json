@@ -8,9 +8,12 @@
   "scripts": {
     "start": "electron .",
     "start:unpacked": "electron . --load-unpacked=fixtures/hello-extension",
+    "start:adblock-before": "electron . --adblock=before --load-unpacked=fixtures/hello-extension",
+    "start:adblock-after": "electron . --adblock=after --load-unpacked=fixtures/hello-extension",
     "reset": "electron . --reset"
   },
   "dependencies": {
+    "@ghostery/adblocker-electron": "2.18.2",
     "electron-chrome-extensions": "4.9.0",
     "electron-chrome-web-store": "0.13.0"
   },

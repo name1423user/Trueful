@@ -3,12 +3,20 @@
 import { app, BaseWindow, WebContentsView, Menu, ipcMain, session } from 'electron'
 import { ElectronChromeExtensions } from 'electron-chrome-extensions'
 import { installChromeWebStore } from 'electron-chrome-web-store'
+import { ElectronBlocker } from '@ghostery/adblocker-electron'
 import fs from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 
 const arg = (name) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3)
 const unpackedDir = arg('load-unpacked')
+// T0-5（R5）: 内蔵広告ブロック（session.webRequest）を、拡張より先に有効にするか後にするか
+const adblock = arg('adblock') ?? 'off'
+if (!['off', 'before', 'after'].includes(adblock)) {
+  console.error(`[spike] --adblock は off / before / after のどれか: ${adblock}`)
+  process.exit(1)
+}
+let blocker
 
 app.setPath('userData', path.join(app.getPath('appData'), 'trueful-spike-extensions'))
 const SCREENSHOT_DIR = path.join(import.meta.dirname, 'screenshots', 'raw')
@@ -75,6 +83,17 @@ async function createTab(id) {
   const ses = session.fromPartition(TABS[id])
   // T0-1 の推奨に合わせて Electron/ を除く（ストアの「Chrome に追加」の判定にも効く）
   ses.setUserAgent(ses.getUserAgent().replace(/\sElectron\/\S+/, ''))
+  const enableAdblock = (when) => {
+    if (adblock !== when) return
+    try {
+      blocker.enableBlockingInSession(ses)
+      console.log(`[spike] 広告ブロック（${id}）: 有効（拡張の${when === 'before' ? '前' : '後'}）`)
+    } catch (err) {
+      // 2つめのセッションでは ipcMain.handle の二重登録で失敗する（RESULT.md 4章）
+      console.log(`[spike] 広告ブロック（${id}）: 有効にできない: ${err.message}`)
+    }
+  }
+  enableAdblock('before')
   const view = new WebContentsView({
     webPreferences: { session: ses, contextIsolation: true, sandbox: true, nodeIntegration: false },
   })
@@ -94,6 +113,7 @@ async function createTab(id) {
     console.log(`[spike] unpacked を読み込み（${id}）: ${ext.name} ${ext.id}`)
   }
   for (const ext of ses.extensions.getAllExtensions()) console.log(`[spike] 拡張（${id}）: ${ext.name} ${ext.version} ${ext.id}`)
+  enableAdblock('after')
 
   views[id] = view
   win.contentView.addChildView(view)
@@ -146,6 +166,11 @@ function buildMenu() {
 async function main() {
   console.log(`[spike] versions: electron=${process.versions.electron} chrome=${process.versions.chrome} os=${process.platform}-${process.arch}`)
   console.log(`[spike] userData: ${app.getPath('userData')}`)
+  if (adblock !== 'off') {
+    blocker = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetch)
+    const seen = new Set()
+    blocker.on('request-blocked', ({ hostname }) => !seen.has(hostname) && seen.add(hostname) && console.log(`[spike] 遮断: ${hostname}`))
+  }
   win = new BaseWindow({ width: 1200, height: 850 })
   toolbar = new WebContentsView({
     webPreferences: { preload: writeToolbarPreload(), contextIsolation: true, sandbox: true, nodeIntegration: false },
