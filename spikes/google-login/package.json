@@ -1,0 +1,22 @@
+{
+  "name": "trueful-spike-google-login",
+  "version": "0.0.0",
+  "private": true,
+  "description": "T0-1: Electron 44 の WebContentsView で Google にログインできるかの試作",
+  "type": "module",
+  "main": "main.mjs",
+  "scripts": {
+    "start": "electron . --ua=default",
+    "start:strip": "electron . --ua=strip-electron",
+    "start:chrome-like": "electron . --ua=chrome-like",
+    "reset": "electron . --reset"
+  },
+  "devDependencies": {
+    "electron": "44.4.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron"
+    ]
+  }
+}
