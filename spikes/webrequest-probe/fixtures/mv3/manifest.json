@@ -1,0 +1,8 @@
+{
+  "manifest_version": 3,
+  "name": "probe-mv3",
+  "version": "0.0.1",
+  "permissions": ["webRequest", "webNavigation"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js" }
+}

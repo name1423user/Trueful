@@ -52,7 +52,7 @@
 
 ## 4. 所見
 - **Ghostery は2つめのセッションで有効にできない。** `enableBlockingInSession` がセッションごとに `ipcMain.handle('@ghostery/adblocker/inject-cosmetic-filters', …)` を登録するため、2つめで `Attempted to register a second handler` になり、そのセッションでは遮断も効かない。Workspace ごとにセッションを分ける Trueful では、そのままでは使えない。対策の候補: 見た目の遮断（cosmetic filters）の IPC を自前で1回だけ登録する、ネットワークの遮断だけを各セッションの `webRequest` に自分でつなぐ、など。
-- **拡張の `chrome.webRequest` は、広告ブロックがなくても呼ばれなかった。** MV3 の service worker で登録した `onBeforeRequest` のリスナーが、ページを移動しても一度も呼ばれない。storage・バッジ・権限（`webRequest`、`<all_urls>`）は正常だった。このため、「広告ブロックの `session.webRequest` が拡張の `chrome.webRequest` を上書きするか」という仮説は、この構成では確かめられない。拡張の `chrome.webRequest` が動く条件（MV2 の background page なら動くか、ライブラリなしの Electron なら動くか）は、別の試作で確かめる必要がある。
+- **拡張の `chrome.webRequest` は、広告ブロックがなくても呼ばれなかった。** 追加の調査（[webrequest-probe の報告](../webrequest-probe/RESULT.md)）で原因を切り分けた。Electron 44 は、MV3 の拡張（service worker）に `chrome.webRequest` のイベントを届けない（ライブラリやセッションと関係なく 0 件）。MV2 の拡張（background page）には届き、Ghostery を有効にすると 0 件になった。R5 の仮説（`session.webRequest` による上書き）は、MV2 で確かめられた。
 - `session.webRequest` は、イベントごとにリスナーを1つしか持てない（Ghostery のソースのコメントでも確認）。Ghostery は `onBeforeRequest` と `onHeadersReceived` を使う。本体で別の用途（ログなど）に同じイベントを使うと、どちらかが上書きされる。
 - Ghostery 自体の遮断は動いた。タブ A で `play.google.com`（ウェブストア）と `en.wikipedia.org`（ウィキペディア上の要求）への要求を遮断した。
 

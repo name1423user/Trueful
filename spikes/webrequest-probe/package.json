@@ -1,0 +1,24 @@
+{
+  "name": "trueful-spike-webrequest-probe",
+  "version": "0.0.0",
+  "private": true,
+  "description": "T0-5 の追加調査: 拡張の chrome.webRequest が呼ばれない原因の切り分け",
+  "type": "module",
+  "main": "main.mjs",
+  "scripts": {
+    "probe": "node run-matrix.mjs"
+  },
+  "dependencies": {
+    "@ghostery/adblocker-electron": "2.18.2",
+    "electron-chrome-extensions": "4.9.0",
+    "electron-chrome-web-store": "0.13.0"
+  },
+  "devDependencies": {
+    "electron": "44.4.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron"
+    ]
+  }
+}
