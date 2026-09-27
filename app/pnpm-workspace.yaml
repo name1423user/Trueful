@@ -1,0 +1,4 @@
+# pnpm 11 以降は、依存のインストール時スクリプトを allowBuilds で許可する（package.json の pnpm.onlyBuiltDependencies は効かない）
+allowBuilds:
+  electron: true
+  esbuild: true
