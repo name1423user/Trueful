@@ -1,0 +1,21 @@
+{
+  "name": "trueful-spike-omnibox-popup",
+  "version": "0.0.0",
+  "private": true,
+  "description": "T0-4: 統合検索欄の候補一覧を Webページの上に出せるかの試作",
+  "type": "module",
+  "main": "main.mjs",
+  "scripts": {
+    "start": "electron . --mode=overlay",
+    "start:overlay": "electron . --mode=overlay",
+    "start:push": "electron . --mode=push"
+  },
+  "devDependencies": {
+    "electron": "44.4.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron"
+    ]
+  }
+}
