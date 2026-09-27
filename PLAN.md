@@ -1,0 +1,241 @@
+# Trueful 実装計画（MVP）
+
+- 前提: `SPEC.md` を正とする。各タスクは Claude Code の1セッションで完了し、1つのPRになる大きさ。
+- 各タスクの共通の完了条件: 受け入れ条件をすべて満たし、`pnpm typecheck && pnpm lint && pnpm test` が通り、差分が300行以内で、PRに合否表・スクリーンショット・るりあ向けの解説・別セッションのレビュー結果を付け、るりあの監査を通ってマージされる。
+- 依存: 「依存」欄のタスクがマージされるまで着手しない。
+
+## M0 試作（最も不確かな部分を先に確かめる）
+
+本体とは別の `spikes/` で、Electron 44 の最小アプリを使う。結果は `spikes/<名前>/RESULT.md` に書き、SPEC 3章のリスク表を更新する。
+
+### T0-1 Googleログインの試作（R1）
+- 目的: Electron 44 のWebContentsViewでGoogleにログインでき、再起動後も保持されるか確かめる。
+- 関係: `spikes/google-login/`
+- 受け入れ条件: 素の状態、User-Agentから `Electron/` を除いた状態の2通りで、ログイン可否と保持の可否を記録している。拒否された場合は画面のスクリーンショットがある。
+- 検証: `pnpm --dir spikes/google-login start` を手で実行し、RESULT.mdの手順どおりに確認。
+- 範囲外: 本体への組み込み。
+- 依存: なし
+
+### T0-2 拡張機能の試作（R2）
+- 目的: `electron-chrome-extensions` と `electron-chrome-web-store` で、必要な拡張が動くか確かめる。
+- 関係: `spikes/extensions/`
+- 受け入れ条件: 1Password、Bitwarden、React DevTools、翻訳拡張（1つ）について、ストア導入の可否、主要操作（ログインフォームへの入力、DevToolsパネル表示、翻訳の実行）の可否を表にしている。unpackedの読み込みも1つ確認している。2つのパーティションに同じ拡張を読み込んだとき、ログイン状態が共有されるかを記録している。デスクトップアプリとの連携（ネイティブメッセージング）と、サイドパネル（sidePanel API）の可否も記録している。
+- 検証: RESULT.mdの手順を手で実行。
+- 範囲外: 適用範囲のUI。
+- 依存: なし
+
+### T0-3 PDF表示の試作（R3）
+- 目的: ChromiumのPDFビューアがElectron 44で使えるか確かめる。
+- 関係: `spikes/pdf/`
+- 受け入れ条件: URLとローカルファイルの両方で、表示・拡大・ページ内検索・印刷の可否を記録している。
+- 検証: RESULT.mdの手順を手で実行。
+- 範囲外: 本体への組み込み。
+- 依存: なし
+
+### T0-4 検索候補の重ね表示の試作（R4）
+- 目的: 統合検索欄の候補一覧を、Webページの上に出せるか確かめる。
+- 関係: `spikes/omnibox-popup/`
+- 受け入れ条件: 候補一覧を小さな専用のWebContentsViewとして最前面に出し、入力中に候補が更新される、上下キーで選べる、Escで閉じる、ウィンドウの移動・リサイズで位置がずれない、の4点を記録している。代替案（ページを固定の高さだけ下げる）も同じ4点で比べている。
+- 検証: RESULT.mdの手順を手で実行。
+- 範囲外: 候補の中身。
+- 依存: なし
+
+### T0-5 広告ブロックと拡張の共存の試作（R5）
+- 目的: `@ghostery/adblocker-electron` と `electron-chrome-extensions` を同時に使えるか確かめる。
+- 関係: `spikes/adblock-extensions/`
+- 受け入れ条件: 両方を有効にした状態で、広告テスト用ページの遮断と、T0-2で動いた拡張の主要操作の両方を確認している。動かなくなったものがあれば、原因のAPIを記録している。
+- 検証: RESULT.mdの手順を手で実行。
+- 範囲外: 本体への組み込み。
+- 依存: T0-2
+
+**M0のデモ**: 5つのRESULT.mdを並べ、るりあがR1〜R5の対応（続行・合格ライン見直し・代替案）を決める。決定をSPEC 11章に記録してからM1に進む。
+
+## M1 基盤
+
+### T1-1 Electron 44 への更新とWebContentsView移行
+- 目的: サポート対象のElectronに上げ、非推奨APIをなくす。
+- 関係: `app/package.json`、`app/src/main/index.ts`、`docs-ja/architecture/adr/adr-008-browserview.md`（改訂）
+- 受け入れ条件: `electron` が44系。`BrowserView` の使用が0件（`grep -r BrowserView app/src` が空）。既存の三ペイン骨格が表示される。ADR-008を改訂している。
+- 検証: `pnpm typecheck && pnpm build:unpack` と起動確認。
+- 範囲外: 新機能。
+- 依存: M0
+
+### T1-2 テスト基盤とCI
+- 目的: 3OSで自動検証できるようにする。
+- 関係: `app/vitest.config.ts`、`app/playwright.config.ts`、`.github/workflows/ci.yml`
+- 受け入れ条件: `pnpm test` と `pnpm test:e2e`（起動してウィンドウが出るだけのE2E 1本）が動く。GitHub Actionsで macos-latest・windows-latest・ubuntu-latest の3つが通る。CIで `pnpm audit` を実行している。
+- 検証: CIの結果画面。
+- 範囲外: 性能計測。
+- 依存: T1-1
+
+### T1-3a SQLite実装の比較
+- 目的: better-sqlite3 と `node:sqlite` のどちらを使うか決める材料を出す。
+- 関係: `spikes/sqlite-compare/`
+- 受け入れ条件: Electron 44 上で両方を動かし、3OSのCIでのビルド可否、再ビルドの要否、1万件の挿入と検索の時間、`node:sqlite` の安定度（Node.jsでの扱い）を表にしている。
+- 検証: CIの結果と表。
+- 範囲外: スキーマの実装。
+- 依存: T1-2
+
+### T1-3 SQLiteのスキーマとマイグレーション
+- 目的: SPEC 6章のテーブルを作り、バージョン管理する。
+- 関係: `app/src/main/db/`
+- 受け入れ条件: T1-3aで決めた実装を使う。空のDBから最新スキーマを作れる。マイグレーションのバージョンが記録される。起動時にバックアップを1世代作る。各テーブルの作成と、既存 `workspace` 列の定義がADRと一致することを単体テストで確認。
+- 検証: `pnpm test`
+- 範囲外: データの読み書きAPI。
+- 依存: T1-3a
+
+### T1-4 IPC基盤と設定（F14の土台）
+- 目的: 型付きのIPCと `settings.json` の読み書きを用意する。
+- 関係: `app/src/main/ipc/`、`app/src/preload/index.ts`、`app/src/main/settings/`
+- 受け入れ条件: チャネルは1か所で定義され、受信側で引数を検証する。不正な引数は拒否されエラーが返る（IPCテスト）。`settings.json` が壊れていたら既定値で起動し、通知する。`contextIsolation`・`sandbox` が有効であることをテストで確認。
+- 検証: `pnpm test`
+- 範囲外: 設定画面のUI。
+- 依存: T1-3
+
+**M1のデモ**: 3OSのCIが緑。アプリが起動し、DBと `settings.json` が作られる。
+
+## M2 中核（Workspaceとブラウジング）
+
+### T2-1 Workspaceの作成・一覧・切替（F01の一部）
+- 関係: `app/src/main/workspace/`（services / flows）、`workspaceDB.ts`
+- 受け入れ条件: F01の「作成」「切替300ms以内」を満たす。Workspace 0個のときに作成画面が出る。二重作成を防ぐ。
+- 検証: `pnpm test && pnpm test:e2e`
+- 範囲外: 休止・アーカイブ。
+- 依存: T1-4
+
+### T2-2 タブとナビゲーション（F02）
+- 関係: `app/src/main/tab/`、`app/src/renderer/src/components/AddressBar`
+- 受け入れ条件: F02の受け入れ条件をすべて満たす。WebContentsViewの位置とサイズは、Rendererの空divからIPCで報告される。
+- 検証: `pnpm test:e2e`
+- 範囲外: 拡張ボタン。
+- 依存: T2-1
+
+### T2-3 パーティションとログイン保持（F03）
+- 受け入れ条件: F03の受け入れ条件を満たす（Googleの条件はM0の決定に従う）。WorkspaceAのCookieがBから見えないことをE2Eで確認。
+- 検証: `pnpm test:e2e`
+- 依存: T2-2
+
+### T2-4 左パネル（F15の前半）
+- 関係: `app/src/renderer/src/components/ActivityBar`、`SidePanel`、`WorkspaceRow`、`TabItem`、`CurrentWorkspaceBadge`
+- 受け入れ条件: 1段目・2段目、今のWorkspaceだけ展開、破棄済みタブの表示、2段目の開閉（Cmd/Ctrl+B、960px未満で自動）、選択色がグレー系、を満たす。ライト・ダークの両方でコントラストAA。キーボードだけで操作できる。
+- 検証: `pnpm test:e2e` とスクリーンショット（ライト・ダーク × 2段目の開閉）
+- 範囲外: 拡張の配置3方式と最近使ったタブ列（T3-8）。
+- 依存: T2-2
+
+### T2-5 休止・復帰・アーカイブ・削除と上限（F01の残り、F02の上限）
+- 受け入れ条件: F01の休止・復帰・アーカイブ・削除、F02のBrowserView実体30個の上限を満たす。ADR-011の境界値（5個目と6個目、29個目と31個目）を単体テストで確認。
+- 検証: `pnpm test && pnpm test:e2e`
+- 依存: T2-4
+
+### T2-6 タブのWorkspace間移動と切替ショートカット（F17、F01の一部）
+- 関係: `app/src/main/workspace/flows/`、`app/src/renderer/src/components/MoveTabMenu`
+- 受け入れ条件: F17をすべて満たす。F01のWorkspace切替ショートカット（macOS: Ctrl+1〜9、Windows・Linux: Alt+1〜9）が動き、Chromeと同じタブ切替（Cmd/Ctrl+1〜9）と衝突しない。
+- 検証: `pnpm test && pnpm test:e2e`
+- 依存: T2-5
+
+**M2のデモ**: 3つのWorkspaceを作り、それぞれ別アカウントでログインし、切り替えても混ざらないことを動画で示す。
+
+## M3 日常機能
+
+### T3-1 閲覧履歴（F09）
+- 受け入れ条件: F09をすべて満たす。10万件のダミーデータで検索が16ms以内（単体テストで計測）。
+- 依存: T2-3
+
+### T3-2 ブックマークと取り込み（F08）
+- 受け入れ条件: F08をすべて満たす。3OSのChromeプロファイルの場所を扱う。取り込みは1トランザクション。サンプルの `Bookmarks` とHTMLで単体テスト。
+- 依存: T2-4
+
+### T3-3 ダウンロード管理（F07）
+- 受け入れ条件: F07をすべて満たす。フォルダ名の無害化と連番を単体テストで確認。
+- 依存: T2-3
+
+### T3-4 PDF閲覧（F06）
+- 受け入れ条件: F06をすべて満たす（M0の結果に従う）。
+- 依存: T2-2
+
+### T3-5 内蔵広告ブロック（F05）
+- 受け入れ条件: F05をすべて満たす。拡張の `webRequest` と衝突しない方式であることをRESULT.md（T0-2）と照合して説明している。
+- 依存: T2-3
+
+### T3-6 拡張機能（F04）
+- 受け入れ条件: F04をすべて満たす。T0-2で動いた拡張が本体でも同じ結果になる。
+- 検証: `pnpm test:e2e` と手動確認の動画
+- 依存: T3-5、M0の決定
+
+### T3-7 サイトの権限とエラー画面（F16）
+- 受け入れ条件: F16をすべて満たす。
+- 依存: T2-3
+
+### T3-8 拡張の配置3方式と最近使ったタブ列（F15の後半）
+- 関係: `app/src/renderer/src/components/ExtensionButtons`、`RecentTabsStrip`、設定
+- 受け入れ条件: F15の拡張の配置3方式（既定は1段目）、最近使ったタブ列（2段目を畳んだときだけ、最大5枚）を満たす。3方式×2段目の開閉の6通りでE2Eが通り、切り替えでページがちらつかない。
+- 検証: `pnpm test:e2e` と6通りのスクリーンショット
+- 依存: T2-4、T3-6
+
+**M3のデモ**: パスワード管理の拡張でログインし、PDFを開き、ファイルをダウンロードし、ブックマークと履歴から戻る、を一続きで動画にする。
+
+## M4 Truefulらしさ
+
+### T4-1 統合検索欄の基盤（F10の前半）
+- 関係: `app/src/main/omnibox/`（候補の提供元ごとにservicesを分ける: tabs、history、bookmarks、workspaces）、候補一覧のView（T0-4で決めた方式）
+- 受け入れ条件: URL入力、Web検索、タブ・履歴・ブックマーク・Workspaceの候補、候補の並び順（他のWorkspaceにMode色の印）、キーボード操作を満たす。候補の更新16ms以内をE2Eで計測。
+- 依存: T3-1、T3-2、M0の決定（T0-4）
+
+### T4-1b 操作・その場の答え・近道（F10の後半）
+- 関係: `app/src/main/omnibox/`（commands、answers、shortcuts）、操作の定義ファイル
+- 受け入れ条件: Truefulの操作が言い換えの語で見つかる。その場の答え（Unix時刻、計算、色、Base64、URLエンコード、UUID）と近道（localhost、gh、npm、mdn）を単体テストで確認。言い換え語の初期セットはるりあの承認済み。
+- 依存: T4-1
+
+### T4-2 起動時の復元とDeveloper Home（F11）
+- 受け入れ条件: F11をすべて満たす。時刻をモックして「1時間以内」「超過」「表示しない設定」の3通りをテスト。
+- 依存: T2-5
+
+### T4-3 クラッシュからの復元（F12）
+- 受け入れ条件: F12をすべて満たす。ADR-012の3パターンを再現するテストがある。
+- 依存: T4-2
+
+### T4-4 設定画面（F14）
+- 受け入れ条件: F14をすべて満たす。画面での変更と `settings.json` の手編集の両方が反映される。
+- 依存: T4-2、T3-6
+
+**M4のデモ**: 1章のシナリオ1〜3を通しで実演する。
+
+## M5 仕上げと試用開始
+
+### T5-1 配布と更新通知（F13）
+- 関係: `electron-builder.yml`、`.github/workflows/release.yml`
+- 受け入れ条件: タグを打つと3OSのインストーラ（dmg/zip、NSIS、AppImage）とSHA256がGitHub Releasesに上がる。F13をすべて満たす。
+- 依存: T4-4
+
+### T5-2 性能予算のCI化
+- 受け入れ条件: 起動2秒、切替300ms、Palette 16msを計測し、超えたらCIが失敗する。
+- 依存: T5-1
+
+### T5-3 OSS文書
+- 受け入れ条件: LICENSE（GPL-3.0、メンバーの同意を得た後）、SECURITY.md、CONTRIBUTING.md、READMEの開発体制と未署名アプリの起動方法、threat-model.mdの追記、ADR-006の改訂、ADR-015（Command Paletteの廃止）、Design System v1.2（左パネルの構成、選択色）、`roadmap/mvp-scope.md` と `tools/command-palette-tools.md` の更新が揃っている。
+- 依存: なし（LICENSE部分のみ、るりあの同意取得後）
+
+### T5-4 監査と試用開始
+- 受け入れ条件: SPEC 9章の監査チェックリストをすべて満たし、`docs-ja/trial/chrome-return-log.md` を作って1か月の試用を始める。
+- 依存: T5-1、T5-2、T5-3
+
+## MVP機能とタスクの対応
+| 機能 | タスク |
+|---|---|
+| F01 | T2-1、T2-5、T2-6 |
+| F02 | T2-2、T2-5 |
+| F03 | T2-3 |
+| F04 | T0-2、T3-6 |
+| F05 | T0-5、T3-5 |
+| F06 | T0-3、T3-4 |
+| F07 | T3-3 |
+| F08 | T3-2 |
+| F09 | T3-1 |
+| F10 | T0-4、T4-1、T4-1b |
+| F11 | T4-2 |
+| F12 | T4-3 |
+| F13 | T5-1 |
+| F14 | T1-4、T4-4 |
+| F15 | T2-4、T3-8 |
+| F16 | T3-7 |
+| F17 | T2-6 |
