@@ -1,0 +1,22 @@
+{
+  "name": "trueful-spike-pdf",
+  "version": "0.0.0",
+  "private": true,
+  "description": "T0-3: Electron 44 の WebContentsView で Chromium の PDF ビューアが使えるかの試作",
+  "type": "module",
+  "main": "main.mjs",
+  "scripts": {
+    "start": "electron . --plugins=true --open=fixtures/sample.pdf",
+    "start:url": "electron . --plugins=true --open=https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf --find=Dummy",
+    "start:no-plugins": "electron . --plugins=false --open=fixtures/sample.pdf",
+    "start:url:no-plugins": "electron . --plugins=false --open=https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf --find=Dummy"
+  },
+  "devDependencies": {
+    "electron": "44.4.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron"
+    ]
+  }
+}
