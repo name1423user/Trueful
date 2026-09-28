@@ -9,6 +9,8 @@ export function WorkspaceList(props: {
   currentId: number | null
   onSwitch: (id: number) => void
   onAdd: () => void
+  // 一覧の下に並べるもの（今の Workspace のタブ列）
+  children?: React.ReactNode
 }): React.JSX.Element {
   const { t } = useTranslation()
   return (
@@ -34,6 +36,7 @@ export function WorkspaceList(props: {
           {t('workspace.add')}
         </button>
       )}
+      {props.children}
     </nav>
   )
 }

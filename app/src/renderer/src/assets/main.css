@@ -45,25 +45,36 @@ body {
 .app-shell {
   display: grid;
   grid-template-columns: 240px 1fr;
-  grid-template-rows: 44px 1fr;
+  /* minmax(0, 1fr): 左パネルの中身が増えても行が伸びない（ページの場所がずれないように） */
+  grid-template-rows: 44px minmax(0, 1fr);
   grid-template-areas:
     'top top'
     'left content';
   height: 100%;
 }
 
+/* 上端: 今の Workspace・アドレスバー・エラー */
 .top-bar {
   grid-area: top;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 8px;
   border-bottom: 1px solid var(--border);
 }
 
 .left-panel {
   grid-area: left;
+  min-height: 0;
+  overflow-y: auto;
   border-right: 1px solid var(--border);
 }
 
 .content {
   grid-area: content;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
   background: var(--surface);
 }
 
@@ -159,4 +170,116 @@ body {
 .workspace-create .actions {
   display: flex;
   gap: 8px;
+}
+
+.current-workspace {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  width: 224px;
+  flex: none;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.address-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.address-bar button {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.address-bar button:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.address-bar input {
+  flex: 1;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+}
+
+/* 左パネルのタブ列 */
+.tab-section {
+  border-top: 1px solid var(--border);
+  padding: 8px;
+}
+
+.tab-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tab-item {
+  display: flex;
+  align-items: center;
+}
+
+.tab-row,
+.tab-new,
+.tab-close {
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tab-row {
+  flex: 1;
+  min-width: 0;
+  padding: 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
+.tab-row[aria-current='true'] {
+  background: var(--selected);
+}
+
+.tab-close {
+  width: 24px;
+  height: 24px;
+  color: var(--text-muted);
+}
+
+.tab-new {
+  width: 100%;
+  padding: 8px;
+  color: var(--text-muted);
+  text-align: left;
+}
+
+/* ページを置く場所（Main の WebContentsView がここに重なる） */
+.page-area {
+  width: 100%;
+  height: 100%;
+}
+
+.switch-error {
+  margin: 0;
+  flex: none;
 }
