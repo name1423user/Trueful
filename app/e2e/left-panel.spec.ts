@@ -10,6 +10,7 @@ test('左パネル: 1段目に今の Workspace の頭文字と Mode 色、2段�
     await window.getByRole('button', { name: '作成' }).click()
     await window.getByRole('button', { name: 'Workspace を追加' }).click()
     await window.getByLabel('名前').fill('beta')
+    await window.getByLabel('Custom').check()
     await window.getByRole('button', { name: '作成' }).click()
 
     // 1段目（幅 48px）: 今の Workspace（beta、Custom）の頭文字と Mode 色
