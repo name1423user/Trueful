@@ -24,6 +24,11 @@ IPCはinvoke型（request/response）を採用。詳細は [ADR-007](./adr/adr-0
 | `workspace:list` | R→M | Workspace の一覧（左パネルの並び順）と、今の Workspace の id（F01） |
 | `workspace:create` | R→M | 名前（1〜100文字、前後の空白は除く）と Mode で作り、今の Workspace にする。同じ `requestId` の二度目は、中身（名前・Mode）を見ずに最初の結果を返す |
 | `workspace:switch` | R→M | 切り替える（ない id は `not-found`） |
+| `tab:list` | R→M | Workspace のタブ（並び順）と選択中のタブの id（F02。選択中は最後に選んだタブ）。タブが1つもなければ空のタブを開いてから返す |
+| `tab:create` | R→M | 空のタブを一番右に開いて選ぶ（Cmd/Ctrl+T） |
+| `tab:close` | R→M | タブを閉じる（Cmd/Ctrl+W）。選択中を閉じたら、その前に選んでいたタブを選ぶ（使った順）。最後の1つを閉じたら空のタブを開く。閉じた後のタブ列を返す。`workspaceId` とタブの持ち主が違えば `not-found` |
+| `tab:reopenClosed` | R→M | 最後に閉じたタブを、閉じたときと同じ「左から何番目」に戻して選ぶ（足りなければ右端。Cmd/Ctrl+Shift+T）。控えは Workspace ごとにメモリだけ、25 個まで。空のタブは積まない。なければ `null` |
+| `tab:activate` | R→M | タブを選ぶ。`workspaceId` とタブの持ち主が違えば `not-found` |
 
 エラーの `code`: `forbidden-sender`（送り元が UI でない）、`invalid-args`（引数が不正）、`not-found`（対象がない）、`unavailable`（DB などの準備ができていない）、`internal`（そのほか）。
 

@@ -1,4 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite'
+import { inTransaction } from '../../db/services/transaction'
+import { insertTab, NEW_TAB_URL } from '../../tab/services/tabDB'
 import {
   getWorkspace,
   insertWorkspace,
@@ -16,20 +18,7 @@ export class WorkspaceNotFoundError extends Error {
   }
 }
 
-// 1つのトランザクションで実行する（途中で失敗したら何も残さない）
-function inTransaction<T>(db: DatabaseSync, fn: () => T): T {
-  db.exec('BEGIN IMMEDIATE')
-  try {
-    const result = fn()
-    db.exec('COMMIT')
-    return result
-  } catch (e) {
-    if (db.isTransaction) db.exec('ROLLBACK')
-    throw e
-  }
-}
-
-// Workspace を作り、そのまま開く（F01）。
+// Workspace を作り、そのまま開く（F01）。作ると空のタブが1つ開く。
 // prepare（パーティションの残りの削除と、マニフェストの書き込み）は行を足したのと同じトランザクションの中で行う。
 // prepare が失敗したら行も取り消す（DB にあるのにファイルがない Workspace を作らない）。
 // そのときは、その id を飛ばす（同じ id で同じ残りのフォルダに当たって、失敗し続けないため）。
@@ -54,6 +43,7 @@ export function createWorkspaceFlow(
         return inTransaction(db, () => {
           const created = insertWorkspace(db, { name, mode }, now)
           setCurrentWorkspaceId(db, created.id)
+          insertTab(db, { workspaceId: created.id, url: NEW_TAB_URL }, now)
           preparing = created.id
           prepare(created)
           return created

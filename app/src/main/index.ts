@@ -7,7 +7,9 @@ import { channelNames } from './ipc/channelNames'
 import { createIpc, isFromAppMainFrame } from './ipc/handle'
 import { IpcHandlerError } from './ipc/channels'
 import { settingsGet, settingsUpdate } from './ipc/settingsChannels'
+import { tabActivate, tabClose, tabCreate, tabList, tabReopenClosed } from './ipc/tabChannels'
 import { workspaceCreate, workspaceList, workspaceSwitch } from './ipc/workspaceChannels'
+import { TabFlows, TabNotFoundError } from './tab/flows/tabFlows'
 import {
   createWorkspaceFlow,
   switchWorkspace,
@@ -19,7 +21,11 @@ import {
   purgeWorkspaceTrash
 } from './workspace/flows/workspaceFileFlows'
 import type { WorkspaceRoots } from './workspace/services/workspaceFiles'
-import { getCurrentWorkspaceId, listWorkspaces } from './workspace/services/workspaceDB'
+import {
+  getCurrentWorkspaceId,
+  getWorkspace,
+  listWorkspaces
+} from './workspace/services/workspaceDB'
 import { SettingsStore } from './settings/flows/settingsStore'
 import { isAppUrl } from './window/services/appUrl'
 import { isExternalUrl } from './window/services/externalUrl'
@@ -163,6 +169,43 @@ app.whenReady().then(() => {
       if (e instanceof WorkspaceNotFoundError) throw new IpcHandlerError('not-found', e.message)
       throw e
     }
+  })
+
+  // タブ（F02）。ない Workspace・タブは not-found で返す
+  const tabs = new TabFlows()
+  const notFoundAs = <T>(fn: () => T): T => {
+    try {
+      return fn()
+    } catch (e) {
+      if (e instanceof TabNotFoundError) throw new IpcHandlerError('not-found', e.message)
+      throw e
+    }
+  }
+  const getWorkspaceDatabase = async (workspaceId: number): Promise<DatabaseSync> => {
+    const db = await getDatabase()
+    if (!getWorkspace(db, workspaceId)) {
+      throw new IpcHandlerError('not-found', `Workspace ${workspaceId} がない`)
+    }
+    return db
+  }
+  handle(tabList, async ({ workspaceId }) =>
+    tabs.list(await getWorkspaceDatabase(workspaceId), workspaceId)
+  )
+  handle(tabCreate, async ({ workspaceId }) =>
+    tabs.create(await getWorkspaceDatabase(workspaceId), workspaceId)
+  )
+  handle(tabClose, async ({ workspaceId, id }) => {
+    const db = await getWorkspaceDatabase(workspaceId)
+    return notFoundAs(() => tabs.close(db, workspaceId, id))
+  })
+  handle(
+    tabReopenClosed,
+    async ({ workspaceId }) =>
+      tabs.reopenClosed(await getWorkspaceDatabase(workspaceId), workspaceId) ?? null
+  )
+  handle(tabActivate, async ({ workspaceId, id }) => {
+    const db = await getWorkspaceDatabase(workspaceId)
+    return notFoundAs(() => tabs.activate(db, workspaceId, id))
   })
 
   createWindow()

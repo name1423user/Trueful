@@ -39,18 +39,27 @@ test('Workspace が0個なら作成画面を出し、作ると一覧に出る。
       .toContain('案件B')
 
     // 案件A に切り替える。クリック（入力の遅れは含まない）から、今の Workspace の表示が変わり、
-    // その次のフレームが描かれるまで（paint を含む）の時間を測る
+    // その次のフレームが描かれるまで（paint を含む）の時間を測る。
+    // ウィンドウが前面にないと Chromium がフレームを間引くので、測る前に前面に出す（CI の macOS）
+    await app.evaluate(({ BrowserWindow }) => {
+      const w = BrowserWindow.getAllWindows()[0]
+      w?.show()
+      w?.focus()
+    })
     const switchMs = await window.evaluate(async () => {
-      const row = document.querySelectorAll<HTMLButtonElement>('.workspace-row')[0]
+      const row = document.querySelectorAll<HTMLButtonElement>('.workspace-row')[0]!
+      // 変化は DOM の変更で拾う（フレームごとに見に行くと、その間隔の分だけ遅く測れてしまう）
+      const changed = new Promise<void>((resolve) => {
+        const observer = new MutationObserver(() => {
+          if (row.getAttribute('aria-current') !== 'true') return
+          observer.disconnect()
+          resolve()
+        })
+        observer.observe(row, { attributes: true, attributeFilter: ['aria-current'] })
+      })
       const started = performance.now()
       row.click()
-      await new Promise<void>((resolve) => {
-        const check = (): void =>
-          row.getAttribute('aria-current') === 'true'
-            ? resolve()
-            : void requestAnimationFrame(check)
-        check()
-      })
+      await changed
       await new Promise((resolve) => requestAnimationFrame(resolve))
       return performance.now() - started
     })

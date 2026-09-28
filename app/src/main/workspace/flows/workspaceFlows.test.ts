@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { migrations } from '../../db/migrations'
 import { migrate } from '../../db/services/migrate'
+import { listTabs, NEW_TAB_URL } from '../../tab/services/tabDB'
 import { getCurrentWorkspaceId, listWorkspaces } from '../services/workspaceDB'
 import { createWorkspaceFlow, switchWorkspace, WorkspaceNotFoundError } from './workspaceFlows'
 
@@ -24,6 +25,12 @@ describe('Workspace の作成', () => {
     expect(b).toMatchObject({ mode: 'development', status: 'active', lastUsedTimeMs: 2000 })
     expect(getCurrentWorkspaceId(db)).toBe(b.id)
     expect(a.id).not.toBe(b.id)
+  })
+
+  it('作ると空のタブが1つ開く（F01）', async () => {
+    const create = createWorkspaceFlow()
+    const a = await create(db, { name: '案件A', mode: 'custom', requestId: 'r1' }, 1000)
+    expect(listTabs(db, a.id)).toMatchObject([{ url: NEW_TAB_URL, lastActiveTimeMs: 1000 }])
   })
 
   it('同じ依頼（requestId）が二度届いても、1つしか作らない', async () => {
@@ -68,6 +75,7 @@ describe('Workspace の作成', () => {
     )
     expect(listWorkspaces(db)).toHaveLength(0)
     expect(getCurrentWorkspaceId(db)).toBeNull()
+    expect(db.prepare('SELECT count(*) AS n FROM tab').get()).toEqual({ n: 0 }) // 空のタブも取り消す
     const created = await create(db, { name: 'A', mode: 'custom', requestId: 'r1' })
     expect(created.id).toBe(2)
     expect(prepared).toEqual([1, 2])
