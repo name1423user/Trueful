@@ -48,5 +48,9 @@
     "stop": "読み込みを止める",
     "address": "アドレス",
     "addressPlaceholder": "URL を入力、または検索"
+  },
+  "panel": {
+    "railLabel": "パネルの切り替え",
+    "tabs": "タブ"
   }
 }

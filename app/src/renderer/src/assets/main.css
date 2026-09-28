@@ -12,6 +12,11 @@
   --mode-development: #16a34a;
   --mode-testing: #d97706;
   --mode-custom: #71717a;
+  /* Mode 色の上に置く文字の色（コントラスト 4.5:1 以上になる方） */
+  --on-mode-production: #ffffff;
+  --on-mode-development: #18181b;
+  --on-mode-testing: #18181b;
+  --on-mode-custom: #ffffff;
   font-family: Meiryo, 'Hiragino Sans', system-ui, sans-serif;
   color: var(--text);
 }
@@ -28,6 +33,10 @@
     --mode-development: #4ade80;
     --mode-testing: #fbbf24;
     --mode-custom: #a1a1aa;
+    --on-mode-production: #18181b;
+    --on-mode-development: #18181b;
+    --on-mode-testing: #18181b;
+    --on-mode-custom: #18181b;
   }
 }
 
@@ -44,12 +53,13 @@ body {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  /* 1段目（48px）・2段目（240px）・中央（F15） */
+  grid-template-columns: 48px 240px minmax(0, 1fr);
   /* minmax(0, 1fr): 左パネルの中身が増えても行が伸びない（ページの場所がずれないように） */
   grid-template-rows: 44px minmax(0, 1fr);
   grid-template-areas:
-    'top top'
-    'left content';
+    'rail top top'
+    'rail left content';
   height: 100%;
 }
 
@@ -68,6 +78,66 @@ body {
   min-height: 0;
   overflow-y: auto;
   border-right: 1px solid var(--border);
+}
+
+/* 1段目: 今の Workspace の頭文字と Mode 色、2段目の切り替え */
+.activity-bar {
+  grid-area: rail;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-right: 1px solid var(--border);
+}
+
+.workspace-badge {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-weight: bold;
+}
+
+/* Mode 色の上の文字は、Mode ごとに白・黒のうちコントラストが足りる方（AA） */
+.workspace-badge.mode-production {
+  color: var(--on-mode-production);
+}
+.workspace-badge.mode-development {
+  color: var(--on-mode-development);
+}
+.workspace-badge.mode-testing {
+  color: var(--on-mode-testing);
+}
+.workspace-badge.mode-custom {
+  color: var(--on-mode-custom);
+}
+
+.activity-button {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.activity-button[aria-pressed='true'] {
+  background: var(--selected);
+  color: var(--text);
+}
+
+/* 読み上げには使うが、画面には出さない */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .content {
@@ -218,10 +288,9 @@ body {
   font: inherit;
 }
 
-/* 左パネルのタブ列 */
+/* 左パネルのタブ列（今の Workspace の行の下に入れ子で出す） */
 .tab-section {
-  border-top: 1px solid var(--border);
-  padding: 8px;
+  padding: 0 0 8px 16px;
 }
 
 .tab-list {
