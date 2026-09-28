@@ -4,7 +4,8 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   main: {},
-  preload: {},
+  // preload は sandbox で動くので、electron 以外を require できない。依存は外に出さずに束ねる
+  preload: { build: { externalizeDeps: false } },
   renderer: {
     resolve: {
       alias: {
