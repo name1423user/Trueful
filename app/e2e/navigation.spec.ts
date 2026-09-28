@@ -16,11 +16,13 @@ test('UI のウィンドウは、自分の画面の外へ移動しない', async
       }
     })
 
-    await window.evaluate(() => {
-      location.href = 'https://example.com/'
-    })
+    // 先に file:// へ移動させ、次に https へ移動させる。移動の要求は順に処理されるので、
+    // https が openExternal に届いた時点で、file:// の移動も止め終わっている
     await window.evaluate(() => {
       location.href = 'file:///etc/hosts'
+    })
+    await window.evaluate(() => {
+      location.href = 'https://example.com/'
     })
     await expect
       .poll(() => app.evaluate(() => (globalThis as { opened?: string[] }).opened))

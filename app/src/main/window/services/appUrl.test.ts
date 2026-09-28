@@ -9,6 +9,15 @@ describe('isAppUrl', () => {
     expect(isAppUrl(built, built)).toBe(true)
     expect(isAppUrl(`${built}#/settings`, built)).toBe(true)
     expect(isAppUrl('file:///etc/passwd', built)).toBe(false)
+    // host 付きの file URL（Windows の UNC）は、パスが同じでも許さない
+    expect(
+      isAppUrl('file://evil.example/opt/Trueful/resources/app/out/renderer/index.html', built)
+    ).toBe(false)
+    const win = 'file:///C:/Trueful/resources/app/out/renderer/index.html'
+    expect(isAppUrl(win, win)).toBe(true)
+    expect(
+      isAppUrl('file://evil.example/C:/Trueful/resources/app/out/renderer/index.html', win)
+    ).toBe(false)
     expect(isAppUrl('https://example.com/', built)).toBe(false)
   })
 

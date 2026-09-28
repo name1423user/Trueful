@@ -49,7 +49,8 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   // UI のセッション（既定のセッション）は、カメラ・通知などの権限をすべて拒否する。
-  // Web ページ用のセッションの権限は、M2 以降で別に決める
+  // Web ページ用のセッションの権限は、M2 以降で別に決める。
+  // UI の renderer では Clipboard API や全画面も使えなくなるので、クリップボードは IPC 経由で Main の clipboard を使う
   session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) =>
     callback(false)
   )

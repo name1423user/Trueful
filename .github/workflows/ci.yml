@@ -39,7 +39,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
-      - run: pnpm exec electron-vite build
+      # ビルドは test:e2e の中で行う
 
       # Ubuntu 24.04 は非特権のユーザー名前空間を制限していて、Chromium のサンドボックスが起動しない。
       # sandbox を無効にする代わりに、CI の中だけ制限を緩める
