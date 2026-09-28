@@ -47,6 +47,9 @@
 
 ### テーブル
 
+下の SQL は、いつも最新のスキーマを表す（版を上げたら、ここも直す）。`app/src/main/db/migrations/schema.test.ts` が、すべてのマイグレーションを適用した DB と、この SQL を実行した DB の構造（テーブル・索引・トリガーの定義と列）を比べる。
+
+<!-- latest-schema -->
 ```sql
 -- Workspace（F01）。status・last_used_time_ms・dormanted_time_ms は ADR-012 の定義のとおり
 CREATE TABLE workspace (
@@ -253,7 +256,7 @@ workspace_snapshot（外部キーなし。削除された Workspace の控え）
 - Workspace を作るときに、同じ id のパーティションのフォルダが残っていたら、先に消す（DB をバックアップから戻したときに、番号が使い回されるため）。
 
 ### マイグレーション
-- 版は `PRAGMA user_version` に記録する（0 は空の DB）。上の DDL が版 1。
+- 版は `PRAGMA user_version` に記録する（0 は空の DB）。上の DDL が版 1。版 1 のマイグレーションは、DDL の後で `app_state` に1行（`id = 1`）を入れる。コードは `app/src/main/db/migrations/0001_initial.ts`。
 - 起動時に、今の版より新しいマイグレーションを、番号順に1つずつ適用する。1つのマイグレーションは1つのトランザクションで、最後に `user_version` を上げる。途中で失敗したら、その版の変更はすべて取り消される。
 - 表を作り直す種類のマイグレーション（列の型や制約を変える）は、トランザクションの外で `PRAGMA foreign_keys = OFF` にしてから行い、終わったら `PRAGMA foreign_key_check` で問題がないことを確かめてから `ON` に戻す（`foreign_keys` はトランザクションの中では変えられない）。
 - DB の版がアプリより新しい（古いアプリで開いた）ときは、DB に触らずにエラーを表示する。
