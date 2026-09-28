@@ -1,6 +1,6 @@
 import type { IpcMain, IpcMainInvokeEvent, WebContents } from 'electron'
 import type { z } from 'zod'
-import type { ChannelDef, IpcErrorCode, IpcResult } from './channels'
+import { IpcHandlerError, type ChannelDef, type IpcErrorCode, type IpcResult } from './channels'
 
 type IpcMainLike = Pick<IpcMain, 'handle'>
 type SenderLike = Pick<IpcMainInvokeEvent, 'sender' | 'senderFrame'>
@@ -54,6 +54,7 @@ export function createIpc(ipc: IpcMainLike, isTrustedSender: (event: SenderLike)
         structuredClone(value)
         return { ok: true, value } satisfies IpcResult<Result>
       } catch (e) {
+        if (e instanceof IpcHandlerError) return fail(e.code, `${def.name}: ${e.message}`)
         console.error(`[main] IPC ${def.name} に失敗`, e)
         return fail('internal', `${def.name}: Main で処理に失敗した`)
       }

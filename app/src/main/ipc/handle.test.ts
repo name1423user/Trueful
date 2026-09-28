@@ -1,7 +1,7 @@
 import type { IpcMainInvokeEvent } from 'electron'
 import { describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
-import { defineChannel } from './channels'
+import { defineChannel, IpcHandlerError } from './channels'
 import { createIpc, isFromAppMainFrame } from './handle'
 
 const APP_URL = 'file:///app/out/renderer/index.html'
@@ -82,6 +82,13 @@ describe('createIpc の handle', () => {
     const result = await invoke({ text: 'hi' })
     expect(result).toMatchObject({ ok: false, error: { code: 'internal' } })
     expect(JSON.stringify(result)).not.toContain('secret')
+  })
+
+  it('ハンドラが IpcHandlerError を投げたら、その種類（not-found など）で返す', async () => {
+    const { invoke } = register(() => {
+      throw new IpcHandlerError('not-found', 'ない')
+    })
+    expect(await invoke({ text: 'hi' })).toMatchObject({ ok: false, error: { code: 'not-found' } })
   })
 
   it('IPC で運べない戻り値（関数など）は、例外ではなく internal で返す', async () => {
