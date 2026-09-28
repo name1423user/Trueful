@@ -31,12 +31,22 @@ test('戻る・進む、window.open は新しいタブ、メニューのショ�
       await api.view.setBounds({ x: 0, y: 80, width: 800, height: 600 })
       return r.value.id
     })
-    const tabs = (): Promise<{ activeUrl: string; urls: string[]; activeId: number }> =>
+    const tabs = (): Promise<{
+      activeUrl: string
+      activeTitle: string
+      urls: string[]
+      activeId: number
+    }> =>
       window.evaluate(async (id) => {
         const r = await (window as unknown as { trueful: Window['trueful'] }).trueful.tab.list(id)
         if (!r.ok) throw new Error(r.error.message)
         const active = r.value.tabs.find((t) => t.id === r.value.activeId)!
-        return { activeUrl: active.url, urls: r.value.tabs.map((t) => t.url), activeId: active.id }
+        return {
+          activeUrl: active.url,
+          activeTitle: active.title,
+          urls: r.value.tabs.map((t) => t.url),
+          activeId: active.id
+        }
       }, ws)
     const tabId = (await tabs()).activeId
     const navigate = (input: string): Promise<unknown> =>
@@ -52,15 +62,17 @@ test('戻る・進む、window.open は新しいタブ、メニューのショ�
         [ws, tabId, action] as const
       )
 
-    // 戻る・進む
+    // 戻る・進む（URL は開いた時点で記録されるので、読み込みの完了はタイトルで待つ）
     await navigate(`${origin}/a`)
-    await expect.poll(async () => (await tabs()).activeUrl).toBe(`${origin}/a`)
+    await expect.poll(async () => (await tabs()).activeTitle).toBe('page /a')
     await navigate(`${origin}/b`)
-    await expect.poll(async () => (await tabs()).activeUrl).toBe(`${origin}/b`)
+    await expect.poll(async () => (await tabs()).activeTitle).toBe('page /b')
     await control('back')
     await expect.poll(async () => (await tabs()).activeUrl).toBe(`${origin}/a`)
+    await expect.poll(async () => (await tabs()).activeTitle).toBe('page /a')
     await control('forward')
     await expect.poll(async () => (await tabs()).activeUrl).toBe(`${origin}/b`)
+    await expect.poll(async () => (await tabs()).activeTitle).toBe('page /b')
 
     // window.open は、同じ Workspace の新しいタブで開き、Renderer に知らせる
     const changed = window.evaluate(
