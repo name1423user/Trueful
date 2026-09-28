@@ -29,7 +29,9 @@ function createWindow(): void {
       // セキュリティの設定は無効にしない（CLAUDE.md の境界線）
       contextIsolation: true,
       sandbox: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      // 用途別の関数だけを window.trueful に公開する（app/src/preload）
+      preload: join(__dirname, '../preload/index.js')
     }
   })
 

@@ -2,9 +2,10 @@ import { resolve } from 'path'
 import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 
-// preload は IPC の基盤（T1-4）で足す
 export default defineConfig({
   main: {},
+  // preload は sandbox で動くので、electron 以外を require できない。依存は外に出さずに束ねる
+  preload: { build: { externalizeDeps: false } },
   renderer: {
     resolve: {
       alias: {
