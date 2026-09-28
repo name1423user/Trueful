@@ -13,7 +13,11 @@ export const workspaceCreate = defineChannel<Workspace>()(
   channelNames.workspaceCreate,
   z
     .object({
-      name: z.string().trim().min(1).max(100),
+      // 長さは文字数で数える（DB の CHECK の length() と SPEC の「1〜100文字」に合わせる。絵文字も1文字）
+      name: z
+        .string()
+        .trim()
+        .refine((s) => [...s].length >= 1 && [...s].length <= 100),
       mode: z.enum(WORKSPACE_MODES),
       requestId: z.uuid()
     })

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { launchApp } from './launchApp'
 
-test('UI から Workspace を作り、一覧し、切り替えられる（二度押しでも1つ、切り替えは 300ms 以内）', async () => {
+test('preload の API で Workspace を作り、一覧し、切り替えられる（二度押しでも1つ、切り替えは 300ms 以内）', async () => {
   const { app, cleanup } = await launchApp()
   try {
     const window = await app.firstWindow()

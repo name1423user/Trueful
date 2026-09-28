@@ -110,12 +110,12 @@
 - 受け入れ条件: F01の「作成」「切替300ms以内」を満たす。Workspace 0個のときに作成画面が出る。二重作成を防ぐ。
 - 検証: `pnpm test && pnpm test:e2e`
 - 範囲外: 休止・アーカイブ。
-- 分割（2026-09-28）: T2-1a Main 側（DB・作成と切替の流れ・IPC）、T2-1b 画面（Workspace 0個の作成画面、一覧と切替、UI の辞書）。
+- 分割（2026-09-28）: T2-1a Main 側（DB・作成と切替の流れ・IPC）、T2-1b 画面（Workspace 0個の作成画面、一覧と切替、UI の辞書。切替300msは画面の切り替えを含めてここで計測する）、T2-1c マニフェストとフォルダ（ADR-013 の COM・USER 側の json、Workspace のフォルダ構成、作成時に同じ id のパーティションが残っていたら消す。data-schema.md の「Workspace の削除」）。F01 の「作ると空のタブが1つ開く」は T2-2 で満たす。
 - 依存: T1-4
 
 ### T2-2 タブとナビゲーション（F02）
 - 関係: `app/src/main/tab/`、`app/src/renderer/src/components/AddressBar`
-- 受け入れ条件: F02の受け入れ条件をすべて満たす。WebContentsViewの位置とサイズは、Rendererの空divからIPCで報告される。
+- 受け入れ条件: F02の受け入れ条件をすべて満たす。WebContentsViewの位置とサイズは、Rendererの空divからIPCで報告される。Workspaceを作ると空のタブが1つ開く（F01）。
 - 検証: `pnpm test:e2e`
 - 範囲外: 拡張ボタン。
 - 依存: T2-1

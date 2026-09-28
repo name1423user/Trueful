@@ -113,15 +113,20 @@ app.whenReady().then(() => {
   handle(settingsGet, () => store.get())
   handle(settingsUpdate, (patch) => store.update(patch))
 
-  // Workspace（F01）。DB の準備が終わってから答える
+  // Workspace（F01）。DB の準備が終わってから答える。準備に失敗していたら unavailable で返す
+  const getDatabase = async (): Promise<DatabaseSync> => {
+    const db = await databaseReady.catch(() => undefined)
+    if (!db || !db.isOpen) throw new IpcHandlerError('unavailable', 'DB を使えない')
+    return db
+  }
   const createWorkspace = createWorkspaceFlow()
   handle(workspaceList, async () => {
-    const db = await databaseReady
+    const db = await getDatabase()
     return { workspaces: listWorkspaces(db), currentId: getCurrentWorkspaceId(db) }
   })
-  handle(workspaceCreate, async (input) => createWorkspace(await databaseReady, input))
+  handle(workspaceCreate, async (input) => createWorkspace(await getDatabase(), input))
   handle(workspaceSwitch, async ({ id }) => {
-    const db = await databaseReady
+    const db = await getDatabase()
     try {
       return switchWorkspace(db, id)
     } catch (e) {

@@ -20,7 +20,9 @@ export function defineChannel<Result>() {
 
 // 例外は IPC を越えられないので、成功か失敗かを判別できる形（ok で絞り込まないと value を読めない）で返す。
 // message はログ用。画面に出すときは code から辞書を引く（UI の文字列は辞書経由、CLAUDE.md）
-export type IpcErrorCode = 'forbidden-sender' | 'invalid-args' | 'not-found' | 'internal'
+// unavailable: DB などの準備ができていない（F12 で復元するまでの間）
+export type IpcErrorCode =
+  'forbidden-sender' | 'invalid-args' | 'not-found' | 'unavailable' | 'internal'
 
 // ハンドラが、失敗の種類を Renderer に伝えたいときに投げる（それ以外の例外は internal になる）
 export class IpcHandlerError extends Error {

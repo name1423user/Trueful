@@ -29,28 +29,35 @@ function inTransaction<T>(db: DatabaseSync, fn: () => T): T {
 }
 
 // Workspace を作り、そのまま開く（F01）。
-// 同じ requestId の依頼がもう一度届いたら（ボタンの二度押し・送り直し）、作らずに最初の結果を返す
-export function createWorkspaceFlow(): (
+// 同じ requestId の依頼がもう一度届いたら（ボタンの二度押し・送り直し）、作らずに最初の結果を返す。
+// 作成中の Promise を覚えるので、afterCreate（マニフェストやフォルダの準備。T2-1c）が非同期でも、
+// 同時に届いた2回目は同じ結果を待つ。requestId が同じなら、名前や Mode の違いは見ない（ipc-spec.md）
+export function createWorkspaceFlow(
+  afterCreate: (workspace: Workspace) => Promise<void> = async () => {}
+): (
   db: DatabaseSync,
   input: { name: string; mode: WorkspaceMode; requestId: string },
   now?: number
-) => Workspace {
-  const done = new Map<string, number>()
+) => Promise<Workspace> {
+  const requests = new Map<string, Promise<Workspace>>()
   return (db, { name, mode, requestId }, now = Date.now()) => {
-    const earlier = done.get(requestId)
-    if (earlier !== undefined) {
-      const existing = getWorkspace(db, earlier)
-      if (existing) return existing
-    }
-    const workspace = inTransaction(db, () => {
-      const created = insertWorkspace(db, { name, mode }, now)
-      setCurrentWorkspaceId(db, created.id)
-      return created
-    })
-    done.set(requestId, workspace.id)
+    const earlier = requests.get(requestId)
+    if (earlier) return earlier
+    const creating = (async () => {
+      const workspace = inTransaction(db, () => {
+        const created = insertWorkspace(db, { name, mode }, now)
+        setCurrentWorkspaceId(db, created.id)
+        return created
+      })
+      await afterCreate(workspace)
+      return workspace
+    })()
+    requests.set(requestId, creating)
+    // 失敗した依頼は忘れる（送り直せば作り直す）
+    creating.catch(() => requests.delete(requestId))
     // 覚えておく依頼の数を限る（二度押しを防げれば足りる）
-    if (done.size > 100) done.delete(done.keys().next().value!)
-    return workspace
+    if (requests.size > 100) requests.delete(requests.keys().next().value!)
+    return creating
   }
 }
 
