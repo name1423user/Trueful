@@ -1,0 +1,10 @@
+# 改行は、どの OS でチェックアウトしても LF に揃える。
+# Windows で CRLF になると、prettier の警告が大量に出て、文書を読むテストも失敗するため
+* text=auto eol=lf
+
+# バイナリ（改行を変換しない）
+*.png binary
+*.jpg binary
+*.ico binary
+*.icns binary
+*.pdf binary
