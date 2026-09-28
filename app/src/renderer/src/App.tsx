@@ -17,6 +17,7 @@ function App(): React.JSX.Element {
   const [adding, setAdding] = useState(false)
   const [switchError, setSwitchError] = useState<IpcErrorCode>()
   const [panelView, setPanelView] = useState<PanelView>('tabs')
+  const [collapsed, setCollapsed] = useSidePanelCollapsed()
   const tabs = useTabs(state.status === 'ready' ? state.currentId : null)
   // 作成画面を閉じたら、フォーカスを左パネルの今の Workspace に戻す（キーボードで続けて操作できるように）。
   // 新しい一覧が画面に反映された後（effect）で探す。rAF では描き直しより先に動くことがある
@@ -24,8 +25,19 @@ function App(): React.JSX.Element {
   useEffect(() => {
     if (!refocus.current) return
     refocus.current = false
-    document.querySelector<HTMLElement>('.workspace-row[aria-current="true"]')?.focus()
+    // 2段目を畳んでいるときは、1段目のボタンへ
+    const row = document.querySelector<HTMLElement>('.workspace-row[aria-current="true"]')
+    ;(row?.checkVisibility()
+      ? row
+      : document.querySelector<HTMLElement>('.activity-button')
+    )?.focus()
   })
+  // 2段目を畳んだとき、フォーカスが2段目の中にあったら1段目のボタンへ移す（見えない所に残さない）
+  useEffect(() => {
+    if (collapsed && document.activeElement?.closest('.left-panel')) {
+      document.querySelector<HTMLElement>('.activity-button')?.focus()
+    }
+  }, [collapsed])
 
   if (state.status === 'loading') return <div className="app-shell" />
   if (state.status === 'error') {
@@ -52,10 +64,11 @@ function App(): React.JSX.Element {
 
   const activeTab = tabs.tabs.find((tab) => tab.id === tabs.activeId)
   return (
-    <div className="app-shell">
+    <div className={collapsed ? 'app-shell side-collapsed' : 'app-shell'}>
       <header className="top-bar">
+        {/* 読み上げは1段目のバッジで行う（同じ内容を二度読まない） */}
         {current && (
-          <p className="current-workspace">
+          <p className="current-workspace" aria-hidden="true">
             <span className={`mode-dot mode-${current.mode}`} aria-hidden="true" />
             {t('workspace.current', { name: current.name })}
           </p>
@@ -78,7 +91,17 @@ function App(): React.JSX.Element {
           </p>
         )}
       </header>
-      <ActivityBar current={current} view={panelView} onSelect={setPanelView} />
+      <ActivityBar
+        current={current}
+        view={panelView}
+        collapsed={collapsed}
+        onSelect={(view) => {
+          // 表示中のものを押し直したら畳む・開く。別のものなら、開いてそれを出す
+          if (view === panelView) setCollapsed(!collapsed)
+          else setCollapsed(false)
+          setPanelView(view)
+        }}
+      />
       <WorkspaceList
         workspaces={state.workspaces}
         currentId={state.currentId}
@@ -117,6 +140,26 @@ function App(): React.JSX.Element {
       </main>
     </div>
   )
+}
+
+// 2段目を畳んでいるか（F15）。Cmd/Ctrl+B（メニュー）で畳む・開く。
+// ウィンドウの幅が 960px 未満になったら畳み、960px 以上に戻ったら開く（境目を越えたときだけ変える）
+const NARROW = '(max-width: 959px)'
+function useSidePanelCollapsed(): [boolean, (collapsed: boolean) => void] {
+  const [collapsed, setCollapsed] = useState(() => matchMedia(NARROW).matches)
+  useEffect(() => {
+    const query = matchMedia(NARROW)
+    const onChange = (e: MediaQueryListEvent): void => setCollapsed(e.matches)
+    query.addEventListener('change', onChange)
+    const unsubscribe = window.trueful.ui.onCommand((command) => {
+      if (command === 'toggle-side-panel') setCollapsed((c) => !c)
+    })
+    return () => {
+      query.removeEventListener('change', onChange)
+      unsubscribe()
+    }
+  }, [])
+  return [collapsed, setCollapsed]
 }
 
 export default App

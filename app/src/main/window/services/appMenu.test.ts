@@ -31,6 +31,7 @@ describe('アプリのメニュー', () => {
         ['CmdOrCtrl+R', 'page-reload'],
         ['CmdOrCtrl+L', 'focus-address-bar'],
         ['CmdOrCtrl+K', 'focus-search'],
+        ['CmdOrCtrl+B', 'toggle-side-panel'],
         [platform === 'darwin' ? 'Alt+Cmd+I' : 'Ctrl+Shift+I', 'page-devtools']
       ]
       for (const [key, command] of commands) {

@@ -6,10 +6,11 @@ import { initial } from './initial'
 export type PanelView = 'tabs'
 
 // 左端の1段目（幅 48px、F15）。一番上に今の Workspace の頭文字と Mode 色、その下に2段目の切り替え。
-// 2段目を畳んでも、ここで今の Workspace が分かる
+// 2段目を畳んでも、ここで今の Workspace が分かる。表示中の切り替えを押し直すと、2段目を畳む・開く
 export function ActivityBar(props: {
   current: Workspace | undefined
   view: PanelView
+  collapsed: boolean
   onSelect: (view: PanelView) => void
 }): React.JSX.Element {
   const { t } = useTranslation()
@@ -29,7 +30,7 @@ export function ActivityBar(props: {
       <button
         type="button"
         className="activity-button"
-        aria-pressed={props.view === 'tabs'}
+        aria-pressed={props.view === 'tabs' && !props.collapsed}
         title={t('panel.tabs')}
         onClick={() => props.onSelect('tabs')}
       >

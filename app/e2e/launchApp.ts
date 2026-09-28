@@ -30,10 +30,17 @@ export async function launchApp(
   return { app, userDataDir, cleanup }
 }
 
-// UI のウィンドウを、preload の API（window.trueful）が使えるようになってから返す。
-// firstWindow() は、アプリの画面を読み込む前（空のページ）のウィンドウを返すことがある
-export async function appWindow(app: ElectronApplication): Promise<Page> {
-  const window = await app.firstWindow()
-  await window.waitForFunction(() => 'trueful' in window)
-  return window
+// UI のウィンドウ（preload の API window.trueful があるもの）を返す。
+// firstWindow() は使わない。再起動すると、前回のタブのページ（WebContentsView）がすぐ復元され、
+// Playwright はそれも「ウィンドウ」として数えるので、そちらが先に返ることがある
+export async function appWindow(app: ElectronApplication, timeoutMs = 30_000): Promise<Page> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    for (const page of app.windows()) {
+      const isUi = await page.evaluate(() => 'trueful' in window).catch(() => false)
+      if (isUi) return page
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  throw new Error('UI のウィンドウ（window.trueful）が見つからない')
 }

@@ -24,7 +24,9 @@ export function AddressBar(props: {
 
   useEffect(
     () =>
-      window.trueful.ui.onCommand(() => {
+      window.trueful.ui.onCommand((command) => {
+        // 統合検索欄（F10）ができるまでは、Cmd/Ctrl+K もアドレスバーへ
+        if (command !== 'focus-address-bar' && command !== 'focus-search') return
         input.current?.focus()
         input.current?.select()
       }),
