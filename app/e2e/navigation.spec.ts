@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { launchApp } from './launchApp'
 
 test('UI のウィンドウは、自分の画面の外へ移動しない', async () => {
-  const { app } = await launchApp()
+  const { app, cleanup } = await launchApp()
   try {
     const window = await app.firstWindow()
     await expect(window.locator('header.top-bar')).toBeVisible()
@@ -39,5 +39,6 @@ test('UI のウィンドウは、自分の画面の外へ移動しない', async
     expect(after).toEqual({ url: before, hasTopBar: true })
   } finally {
     await app.close()
+    cleanup()
   }
 })

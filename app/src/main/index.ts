@@ -10,7 +10,8 @@ import { isExternalUrl } from './window/services/externalUrl'
 const userDataDir = process.env['TRUEFUL_USER_DATA_DIR']
 if (!app.isPackaged && userDataDir) app.setPath('userData', userDataDir)
 
-let database: DatabaseSync | undefined
+// DB の準備（非同期）。終了時は、準備が終わるのを待ってから閉じる
+let databaseReady: Promise<DatabaseSync | undefined> | undefined
 
 // UI から外へ出るリンクは、http(s) だけ既定のブラウザに渡す
 function openExternal(url: string): void {
@@ -65,9 +66,10 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionCheckHandler(() => false)
 
   // 失敗したときの復元と通知は F12 で行う。ここでは記録だけする
-  initDatabase(app.getPath('userData'))
-    .then((db) => (database = db))
-    .catch((e) => console.error('[main] DB の準備に失敗', e))
+  databaseReady = initDatabase(app.getPath('userData')).catch((e) => {
+    console.error('[main] DB の準備に失敗', e)
+    return undefined
+  })
 
   createWindow()
   app.on('activate', () => {
@@ -75,7 +77,17 @@ app.whenReady().then(() => {
   })
 })
 
-app.on('will-quit', () => database?.close())
+app.on('will-quit', (event) => {
+  if (!databaseReady) return
+  // 準備の途中で終了しても、準備が終わってから閉じる。閉じたあと、もう一度終了する
+  const ready = databaseReady
+  databaseReady = undefined
+  event.preventDefault()
+  ready
+    .then((db) => db?.close())
+    .catch((e) => console.error('[main] DB を閉じられなかった', e))
+    .finally(() => app.quit())
+})
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()

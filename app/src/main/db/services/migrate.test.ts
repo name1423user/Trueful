@@ -46,6 +46,28 @@ describe('migrate', () => {
     expect(tables(db)).toEqual(['a'])
   })
 
+  it('up() の中でトランザクションを終えたら、版を上げずに MigrationError にする', () => {
+    const db = new DatabaseSync(':memory:')
+    const commits: Migration = { version: 1, up: (d) => d.exec('COMMIT') }
+    expect(() => migrate(db, [commits])).toThrow(MigrationError)
+    expect(getVersion(db)).toBe(0)
+    expect(db.isTransaction).toBe(false)
+  })
+
+  it('トランザクションがすでに取り消されていても、元のエラーを cause にして MigrationError にする', () => {
+    const db = new DatabaseSync(':memory:')
+    const original = new Error('元のエラー')
+    const rolledBack: Migration = {
+      version: 1,
+      up: (d) => {
+        d.exec('ROLLBACK')
+        throw original
+      }
+    }
+    expect(() => migrate(db, [rolledBack])).toThrow(expect.objectContaining({ cause: original }))
+    expect(getVersion(db)).toBe(0)
+  })
+
   it('DB の版がアプリより新しいときは、DB に触らずにエラーにする', () => {
     const db = new DatabaseSync(':memory:')
     db.exec('PRAGMA user_version = 5')
