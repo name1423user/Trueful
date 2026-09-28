@@ -5,50 +5,86 @@ export type Shortcut = { keyword: string; urlTemplate: string }
 // 既定の検索エンジン（設定で変えられるようにするのは F14 の項目を足すとき）
 export const DEFAULT_SEARCH_TEMPLATE = 'https://www.google.com/search?q=%s'
 
-const ALLOWED_PROTOCOLS = new Set(['http:', 'https:'])
+// 開発でよく打つファイル名の拡張子。「README.md」「node.js」などは、パスもポートもなければ検索する
+// （.md・.py・.sh・.rs などは実在の国別ドメインでもあるが、打つ人の多くは検索のつもりなので）
+const FILE_EXTENSIONS = new Set(
+  'js mjs cjs ts tsx jsx json md mdx py rb rs go sh txt log lock yml yaml toml css scss html vue'.split(
+    ' '
+  )
+)
+// 開発用の名前（https の証明書がないことが多いので http で開く）
+const DEV_SUFFIXES = ['.localhost', '.local', '.test', '.internal']
 
-// 開いてよい URL か（ページ内のリンクやリダイレクトの行き先も、これで確かめる）
+// メインフレームで開いてよい URL か（アドレスバー、ページのリンクやリダイレクトの行き先を、これで確かめる）。
+// サブフレーム（iframe の about:srcdoc・blob: など）には使わない
 export function isAllowedPageUrl(url: string): boolean {
-  if (url === 'about:blank') return true
   try {
-    return ALLOWED_PROTOCOLS.has(new URL(url).protocol)
+    const { protocol, pathname } = new URL(url)
+    return (
+      protocol === 'http:' ||
+      protocol === 'https:' ||
+      (protocol === 'about:' && pathname.toLowerCase() === 'blank')
+    )
   } catch {
     return false
   }
 }
 
-function fill(template: string, query: string): string {
-  return template.replace('%s', encodeURIComponent(query))
+function search(query: string): string {
+  return DEFAULT_SEARCH_TEMPLATE.replaceAll('%s', encodeURIComponent(query))
 }
 
-// ホスト名らしいか（例: example.com、localhost:3000、192.168.0.1/path）
-function looksLikeHost(text: string): boolean {
-  return /^(localhost|[\w-]+(\.[\w-]+)+|\[[0-9a-f:]+\])(:\d{1,5})?([/?#].*)?$/i.test(text)
+// スキームのない入力を、ホスト名として開けるなら URL にする。開けなければ undefined
+function asHost(text: string): string | undefined {
+  let url: URL
+  try {
+    url = new URL(`http://${text}`)
+  } catch {
+    return undefined
+  }
+  if (url.username || url.password) return undefined // user@example.com はメールアドレスとして検索
+  const host = url.hostname.replace(/\.$/, '')
+  const hasMore = url.port !== '' || /[/?#]/.test(text)
+  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(:\d+)?([/?#]|$)/.exec(text)
+  const local =
+    host === 'localhost' ||
+    host.startsWith('[') ||
+    (ipv4 !== null && ipv4.slice(1, 5).every((n) => Number(n) <= 255)) ||
+    DEV_SUFFIXES.some((s) => host.endsWith(s))
+  if (!local) {
+    const labels = host.split('.')
+    const tld = labels.at(-1) ?? ''
+    // 点を含み、最後のラベルが文字（数字だけ・3.14 のような小数は検索）。ファイル名らしいものは検索
+    if (labels.length < 2 || !/^(\p{L}{2,}|xn--[a-z0-9-]+)$/u.test(tld)) return undefined
+    if (!hasMore && FILE_EXTENSIONS.has(tld.toLowerCase())) return undefined
+  }
+  url.protocol = local ? 'http:' : 'https:'
+  return url.href
 }
 
 export function resolveInput(input: string, shortcuts: Shortcut[] = []): string {
   const text = input.trim()
-  if (text === '') return 'about:blank'
+  if (text === '' || text.toLowerCase() === 'about:blank') return 'about:blank'
+  // 「?語」は必ず検索（Chrome と同じ）
+  if (text.startsWith('?')) return search(text.slice(1).trim())
   // 1〜65535 の数字だけ → localhost のそのポート（F10）
   if (/^\d{1,5}$/.test(text) && Number(text) >= 1 && Number(text) <= 65535) {
     return `http://localhost:${Number(text)}/`
   }
-  // 「近道のキーワード 語」 → その近道の URL
-  const space = text.indexOf(' ')
-  if (space > 0) {
-    const shortcut = shortcuts.find((s) => s.keyword === text.slice(0, space).toLowerCase())
-    if (shortcut) return fill(shortcut.urlTemplate, text.slice(space + 1).trim())
+  // 「近道のキーワード 語」 → その近道の URL（区切りは全角スペースやタブでもよい）
+  const words = /^(\S+)\s+(.+)$/su.exec(text)
+  const shortcut = words && shortcuts.find((s) => s.keyword === words[1]!.toLowerCase())
+  if (shortcut) {
+    const url = shortcut.urlTemplate.replaceAll('%s', encodeURIComponent(words![2]!.trim()))
+    if (isAllowedPageUrl(url)) return url
   }
-  if (!/\s/.test(text)) {
-    // スキームつき（http・https だけ開く。ほかは検索語として扱う）
-    if (/^[a-z][a-z0-9+.-]*:\/\//i.test(text)) {
-      if (isAllowedPageUrl(text)) return new URL(text).href
-    } else if (looksLikeHost(text)) {
-      // localhost と IP は http、それ以外は https で開く
-      const local = /^(localhost|\d+\.\d+\.\d+\.\d+|\[)/i.test(text)
-      const url = `${local ? 'http' : 'https'}://${text}`
-      if (isAllowedPageUrl(url)) return new URL(url).href
-    }
+  // スキームつき（http: と https: だけ開く。http:/a のような書き損じも URL として読む）
+  if (/^https?:/i.test(text) && !/\s/.test(text) && isAllowedPageUrl(text)) {
+    return new URL(text).href
   }
-  return fill(DEFAULT_SEARCH_TEMPLATE, text)
+  if (!/^[a-z][a-z0-9+.-]*:(?!\d)/i.test(text) && !/\s/.test(text)) {
+    const url = asHost(text)
+    if (url) return url
+  }
+  return search(text)
 }
