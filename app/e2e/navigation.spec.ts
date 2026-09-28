@@ -1,7 +1,8 @@
-import { _electron as electron, expect, test } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import { launchApp } from './launchApp'
 
 test('UI のウィンドウは、自分の画面の外へ移動しない', async () => {
-  const app = await electron.launch({ args: ['.'] })
+  const { app } = await launchApp()
   try {
     const window = await app.firstWindow()
     await expect(window.locator('header.top-bar')).toBeVisible()

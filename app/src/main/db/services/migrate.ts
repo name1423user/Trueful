@@ -1,0 +1,35 @@
+import type { DatabaseSync } from 'node:sqlite'
+import { DatabaseTooNewError, MigrationError } from './errors'
+
+export type Migration = {
+  version: number
+  up: (db: DatabaseSync) => void
+}
+
+export function getVersion(db: DatabaseSync): number {
+  return Number(db.prepare('PRAGMA user_version').get()?.['user_version'] ?? 0)
+}
+
+// user_version より新しいマイグレーションを、番号順に1つずつ適用する（data-schema.md の「マイグレーション」）。
+// 1つのマイグレーションは1つのトランザクションで、失敗したらその版の変更をすべて取り消す
+export function migrate(db: DatabaseSync, migrations: readonly Migration[]): number {
+  migrations.forEach((m, i) => {
+    if (m.version !== i + 1) throw new Error(`マイグレーションの番号が連続していない: ${m.version}`)
+  })
+  const appVersion = migrations.length
+  const current = getVersion(db)
+  if (current > appVersion) throw new DatabaseTooNewError(current, appVersion)
+
+  for (const m of migrations.slice(current)) {
+    db.exec('BEGIN IMMEDIATE')
+    try {
+      m.up(db)
+      db.exec(`PRAGMA user_version = ${m.version}`)
+      db.exec('COMMIT')
+    } catch (e) {
+      db.exec('ROLLBACK')
+      throw new MigrationError(m.version, { cause: e })
+    }
+  }
+  return appVersion
+}

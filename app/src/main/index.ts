@@ -1,8 +1,16 @@
 import { app, BrowserWindow, session, shell } from 'electron'
+import type { DatabaseSync } from 'node:sqlite'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
+import { initDatabase } from './db/flows/initDatabase'
 import { isAppUrl } from './window/services/appUrl'
 import { isExternalUrl } from './window/services/externalUrl'
+
+// E2E などで、保存場所を普段の userData から切り替える。配布版では使わない
+const userDataDir = process.env['TRUEFUL_USER_DATA_DIR']
+if (!app.isPackaged && userDataDir) app.setPath('userData', userDataDir)
+
+let database: DatabaseSync | undefined
 
 // UI から外へ出るリンクは、http(s) だけ既定のブラウザに渡す
 function openExternal(url: string): void {
@@ -56,11 +64,18 @@ app.whenReady().then(() => {
   )
   session.defaultSession.setPermissionCheckHandler(() => false)
 
+  // 失敗したときの復元と通知は F12 で行う。ここでは記録だけする
+  initDatabase(app.getPath('userData'))
+    .then((db) => (database = db))
+    .catch((e) => console.error('[main] DB の準備に失敗', e))
+
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
+
+app.on('will-quit', () => database?.close())
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()

@@ -1,7 +1,8 @@
-import { _electron as electron, expect, test } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import { launchApp } from './launchApp'
 
 test('起動してウィンドウが出る（三ペインの枠、セキュリティの設定）', async () => {
-  const app = await electron.launch({ args: ['.'] })
+  const { app } = await launchApp()
   const window = await app.firstWindow()
 
   await expect(window.locator('header.top-bar')).toBeVisible()
