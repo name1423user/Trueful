@@ -4,13 +4,15 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 // E2E ごとに空の保存場所（userData）を作って起動する。普段使っている DB や設定に触れないため。
-// 終わったら app.close() のあとで cleanup() を呼び、保存場所を消す
-export async function launchApp(): Promise<{
+// 終わったら app.close() のあとで cleanup() を呼び、保存場所を消す。
+// prepare で、起動の前に保存場所へファイルを置ける（壊れた settings.json など）
+export async function launchApp(prepare?: (userDataDir: string) => void): Promise<{
   app: ElectronApplication
   userDataDir: string
   cleanup: () => void
 }> {
   const userDataDir = mkdtempSync(join(tmpdir(), 'trueful-e2e-'))
+  prepare?.(userDataDir)
   const env = Object.fromEntries(
     Object.entries(process.env).filter((e): e is [string, string] => e[1] !== undefined)
   )

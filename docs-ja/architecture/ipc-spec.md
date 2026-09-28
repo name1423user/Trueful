@@ -12,6 +12,16 @@ IPCはinvoke型（request/response）を採用。詳細は [ADR-007](./adr/adr-0
 | `plugin:register-test-pattern` | R→M | Plugin由来パターン登録（Tier申告は無効・Main側で再計算） |
 | `inspector-bar:update` | M→R | 状態の即時反映 |
 
+## 実装済みのチャンネル
+
+定義は `app/src/main/ipc/`（名前は `channelNames.ts`、引数の検証は各 `*Channels.ts`）。受信側の入口 `createIpc` が、送り元（UI のウィンドウのメインフレームか）と引数を確かめ、結果を `{ ok: true, value }` か `{ ok: false, error: { code, message } }` で返す。
+
+| チャンネル | 方向 | 用途 |
+|---|---|---|
+| `settings:get` | R→M | 設定と、読み込み時の問題（壊れていた・不正な値があった）を取得（F14） |
+| `settings:update` | R→M | 設定の一部を更新（知らない項目・不正な値は `invalid-args`） |
+| `settings:changed` | M→R | 設定が変わった（手で編集されたときも含む） |
+
 ## Workspace Git連携用チャンネル
 
 | チャンネル | 方向 | 用途 |

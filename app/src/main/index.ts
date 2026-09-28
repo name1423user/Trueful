@@ -1,8 +1,12 @@
-import { app, BrowserWindow, session, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, session, shell } from 'electron'
 import type { DatabaseSync } from 'node:sqlite'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
 import { initDatabase } from './db/flows/initDatabase'
+import { channelNames } from './ipc/channelNames'
+import { createIpc, isFromAppMainFrame } from './ipc/handle'
+import { settingsGet, settingsUpdate } from './ipc/settingsChannels'
+import { SettingsStore } from './settings/flows/settingsStore'
 import { isAppUrl } from './window/services/appUrl'
 import { isExternalUrl } from './window/services/externalUrl'
 
@@ -13,6 +17,8 @@ if (!app.isPackaged && userDataDir) app.setPath('userData', userDataDir)
 // DB の接続。準備（非同期）の途中で終了が始まったら、準備が終わったところで閉じる
 let database: DatabaseSync | undefined
 let quitting = false
+let settingsStore: SettingsStore | undefined
+let mainWindow: BrowserWindow | undefined
 
 // UI から外へ出るリンクは、http(s) だけ既定のブラウザに渡す
 function openExternal(url: string): void {
@@ -20,8 +26,16 @@ function openExternal(url: string): void {
   shell.openExternal(url).catch((e) => console.error('[main] openExternal に失敗', e))
 }
 
+// UI の画面の URL。ビルド後は renderer の index.html、開発中は開発サーバー
+function getAppUrl(): string {
+  const devServer = process.env['ELECTRON_RENDERER_URL']
+  return !app.isPackaged && devServer
+    ? devServer
+    : pathToFileURL(join(__dirname, '../renderer/index.html')).href
+}
+
 function createWindow(): void {
-  const mainWindow = new BrowserWindow({
+  const window = new BrowserWindow({
     width: 1200,
     height: 800,
     show: false,
@@ -35,16 +49,16 @@ function createWindow(): void {
     }
   })
 
-  mainWindow.on('ready-to-show', () => mainWindow.show())
+  mainWindow = window
+  window.on('ready-to-show', () => window.show())
+  window.on('closed', () => {
+    if (mainWindow === window) mainWindow = undefined
+  })
 
-  const devServer = process.env['ELECTRON_RENDERER_URL']
-  const appUrl =
-    !app.isPackaged && devServer
-      ? devServer
-      : pathToFileURL(join(__dirname, '../renderer/index.html')).href
+  const appUrl = getAppUrl()
 
   // UI から新しいウィンドウは開かない。UI 自身も自分の画面の外へは移動させない
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+  window.webContents.setWindowOpenHandler(({ url }) => {
     openExternal(url)
     return { action: 'deny' }
   })
@@ -53,10 +67,10 @@ function createWindow(): void {
     event.preventDefault()
     openExternal(event.url)
   }
-  mainWindow.webContents.on('will-navigate', guard)
-  mainWindow.webContents.on('will-redirect', guard)
+  window.webContents.on('will-navigate', guard)
+  window.webContents.on('will-redirect', guard)
 
-  mainWindow.loadURL(appUrl)
+  window.loadURL(appUrl)
 }
 
 app.whenReady().then(() => {
@@ -76,6 +90,20 @@ app.whenReady().then(() => {
     })
     .catch((e) => console.error('[main] DB の準備に失敗', e))
 
+  // 設定（F14）。壊れていたら既定値で起動し、問題は settings:get と settings:changed で Renderer に伝える
+  const store = SettingsStore.open(app.getPath('userData'), (snapshot) =>
+    mainWindow?.webContents.send(channelNames.settingsChanged, snapshot)
+  )
+  settingsStore = store
+  const problem = store.get().problem
+  if (problem) console.warn('[main] settings.json に問題があった', problem)
+
+  const handle = createIpc(ipcMain, (event) =>
+    isFromAppMainFrame(event, mainWindow?.webContents, (url) => isAppUrl(url, getAppUrl()))
+  )
+  handle(settingsGet, () => store.get())
+  handle(settingsUpdate, (patch) => store.update(patch))
+
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -85,6 +113,7 @@ app.whenReady().then(() => {
 // 終了は止めない（止めると、あとの app.quit() が効かずに終了できなくなる）
 app.on('will-quit', () => {
   quitting = true
+  settingsStore?.close()
   database?.close()
   database = undefined
 })
