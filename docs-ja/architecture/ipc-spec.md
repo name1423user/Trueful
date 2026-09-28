@@ -21,6 +21,11 @@ IPCはinvoke型（request/response）を採用。詳細は [ADR-007](./adr/adr-0
 | `settings:get` | R→M | 設定と、読み込み時の問題（壊れていた・不正な値があった）を取得（F14） |
 | `settings:update` | R→M | 設定の一部を更新（知らない項目・不正な値は `invalid-args`） |
 | `settings:changed` | M→R | 設定が変わった（手で編集されたときも含む） |
+| `workspace:list` | R→M | Workspace の一覧（左パネルの並び順）と、今の Workspace の id（F01） |
+| `workspace:create` | R→M | 名前（1〜100文字、前後の空白は除く）と Mode で作り、今の Workspace にする。同じ `requestId` の二度目は、中身（名前・Mode）を見ずに最初の結果を返す |
+| `workspace:switch` | R→M | 切り替える（ない id は `not-found`） |
+
+エラーの `code`: `forbidden-sender`（送り元が UI でない）、`invalid-args`（引数が不正）、`not-found`（対象がない）、`unavailable`（DB などの準備ができていない）、`internal`（そのほか）。
 
 ## Workspace Git連携用チャンネル
 

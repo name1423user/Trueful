@@ -5,7 +5,15 @@ import { pathToFileURL } from 'url'
 import { initDatabase } from './db/flows/initDatabase'
 import { channelNames } from './ipc/channelNames'
 import { createIpc, isFromAppMainFrame } from './ipc/handle'
+import { IpcHandlerError } from './ipc/channels'
 import { settingsGet, settingsUpdate } from './ipc/settingsChannels'
+import { workspaceCreate, workspaceList, workspaceSwitch } from './ipc/workspaceChannels'
+import {
+  createWorkspaceFlow,
+  switchWorkspace,
+  WorkspaceNotFoundError
+} from './workspace/flows/workspaceFlows'
+import { getCurrentWorkspaceId, listWorkspaces } from './workspace/services/workspaceDB'
 import { SettingsStore } from './settings/flows/settingsStore'
 import { isAppUrl } from './window/services/appUrl'
 import { isExternalUrl } from './window/services/externalUrl'
@@ -83,7 +91,8 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionCheckHandler(() => false)
 
   // 失敗したときの復元と通知は F12 で行う。ここでは記録だけする
-  initDatabase(app.getPath('userData'))
+  const databaseReady = initDatabase(app.getPath('userData'))
+  databaseReady
     .then((db) => {
       if (quitting) db.close()
       else database = db
@@ -103,6 +112,28 @@ app.whenReady().then(() => {
   )
   handle(settingsGet, () => store.get())
   handle(settingsUpdate, (patch) => store.update(patch))
+
+  // Workspace（F01）。DB の準備が終わってから答える。準備に失敗していたら unavailable で返す
+  const getDatabase = async (): Promise<DatabaseSync> => {
+    const db = await databaseReady.catch(() => undefined)
+    if (!db || !db.isOpen) throw new IpcHandlerError('unavailable', 'DB を使えない')
+    return db
+  }
+  const createWorkspace = createWorkspaceFlow()
+  handle(workspaceList, async () => {
+    const db = await getDatabase()
+    return { workspaces: listWorkspaces(db), currentId: getCurrentWorkspaceId(db) }
+  })
+  handle(workspaceCreate, async (input) => createWorkspace(await getDatabase(), input))
+  handle(workspaceSwitch, async ({ id }) => {
+    const db = await getDatabase()
+    try {
+      return switchWorkspace(db, id)
+    } catch (e) {
+      if (e instanceof WorkspaceNotFoundError) throw new IpcHandlerError('not-found', e.message)
+      throw e
+    }
+  })
 
   createWindow()
   app.on('activate', () => {

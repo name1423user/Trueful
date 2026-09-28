@@ -3,6 +3,7 @@ import type { IpcResult } from '../main/ipc/channels'
 import { channelNames } from '../main/ipc/channelNames'
 import type { SettingsSnapshot } from '../main/settings/flows/settingsStore'
 import type { Settings } from '../main/settings/services/settingsSchema'
+import type { Workspace, WorkspaceMode } from '../main/workspace/services/workspaceDB'
 
 // Renderer に公開する API。用途別の関数だけを出し、ipcRenderer はそのまま渡さない（CLAUDE.md、SPEC 7章）。
 // チャネルの定義と引数の検証は app/src/main/ipc/ にある。ここでは名前（channelNames）と型だけを使う
@@ -18,6 +19,18 @@ const api = {
       ipcRenderer.on(channelNames.settingsChanged, wrapped)
       return () => ipcRenderer.removeListener(channelNames.settingsChanged, wrapped)
     }
+  },
+  workspace: {
+    list: (): Promise<IpcResult<{ workspaces: Workspace[]; currentId: number | null }>> =>
+      ipcRenderer.invoke(channelNames.workspaceList),
+    // requestId は二度押しで2つ作らないための印（crypto.randomUUID() で作る）
+    create: (input: {
+      name: string
+      mode: WorkspaceMode
+      requestId: string
+    }): Promise<IpcResult<Workspace>> => ipcRenderer.invoke(channelNames.workspaceCreate, input),
+    switch: (id: number): Promise<IpcResult<Workspace>> =>
+      ipcRenderer.invoke(channelNames.workspaceSwitch, { id })
   }
 }
 
