@@ -33,7 +33,10 @@ export function ActivityBar(props: {
         title={t('panel.tabs')}
         onClick={() => props.onSelect('tabs')}
       >
-        <span aria-hidden="true">▤</span>
+        {/* 記号の文字は OS のフォントで出ないことがあるので、線で描く */}
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16">
+          <path d="M2 3h12M2 8h12M2 13h12" stroke="currentColor" strokeWidth="1.5" />
+        </svg>
         <span className="visually-hidden">{t('panel.tabs')}</span>
       </button>
     </nav>

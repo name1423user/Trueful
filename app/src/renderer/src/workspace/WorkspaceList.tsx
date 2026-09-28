@@ -25,7 +25,6 @@ export function WorkspaceList(props: {
                 type="button"
                 className="workspace-row"
                 aria-current={current ? 'true' : undefined}
-                aria-expanded={current}
                 onClick={() => props.onSwitch(w.id)}
               >
                 <span className={`mode-dot mode-${w.mode}`} aria-hidden="true" />

@@ -15,7 +15,8 @@ test('左パネル: 1段目に今の Workspace の頭文字と Mode 色、2段�
 
     // 1段目（幅 48px）: 今の Workspace（beta、Custom）の頭文字と Mode 色
     const rail = window.getByRole('navigation', { name: 'パネルの切り替え' })
-    expect((await rail.boundingBox())?.width).toBe(48)
+    // 画面の倍率（Windows の 125% など）で小数になることがある
+    expect((await rail.boundingBox())?.width).toBeCloseTo(48, 0)
     const badge = rail.getByRole('img', { name: '今の Workspace: beta' })
     await expect(badge).toHaveText('B')
     await expect(badge).toHaveClass(/mode-custom/)
@@ -26,8 +27,7 @@ test('左パネル: 1段目に今の Workspace の頭文字と Mode 色、2段�
     await expect(rows).toHaveCount(2)
     await expect(rows.nth(0).locator('.tab-row')).toHaveCount(0)
     await expect(rows.nth(1).locator('.tab-row')).toHaveCount(1)
-    await expect(rows.nth(0).locator('.workspace-row')).not.toHaveAttribute('aria-expanded', 'true')
-    await expect(rows.nth(1).locator('.workspace-row')).toHaveAttribute('aria-expanded', 'true')
+    await expect(rows.nth(1).locator('.workspace-row')).toHaveAttribute('aria-current', 'true')
 
     // キーボードだけで: 案件A の行へ Tab で移り、Enter で切り替える
     await rows.nth(1).locator('.workspace-row').focus()
