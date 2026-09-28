@@ -1,0 +1,49 @@
+:root {
+  --bg: #f4f4f5;
+  --surface: #ffffff;
+  --border: #d4d4d8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #18181b;
+    --surface: #27272a;
+    --border: #3f3f46;
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: 44px 1fr;
+  grid-template-areas:
+    'top top'
+    'left content';
+  height: 100%;
+}
+
+.top-bar {
+  grid-area: top;
+  border-bottom: 1px solid var(--border);
+}
+
+.left-panel {
+  grid-area: left;
+  border-right: 1px solid var(--border);
+}
+
+.content {
+  grid-area: content;
+  background: var(--surface);
+}
