@@ -5,7 +5,7 @@
 | ADR | タイトル | ステータス |
 |---|---|---|
 | [ADR-001](./adr-001-electron.md) | 実行基盤は Electron + Chromium | 決定済み |
-| [ADR-002](./adr-002-sqlite.md) | SQLite（better-sqlite3）採用 | 決定済み |
+| [ADR-002](./adr-002-sqlite.md) | SQLite（node:sqlite）採用 | 決定済み（2026-09-28 改訂） |
 | [ADR-003](./adr-003-worker-thread.md) | Worker Thread採用（Plugin実行） | 決定済み |
 | [ADR-004](./adr-004-chromium-fixed.md) | Chromium固定（OSごとにエンジンを変えない） | 決定済み |
 | [ADR-005](./adr-005-ollama.md) | Ollama既定（ローカルAI） | 決定済み |

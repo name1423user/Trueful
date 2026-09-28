@@ -88,7 +88,7 @@ Electron製のデスクトップアプリ（macOS・Windows・Linux）。Chrome�
 | UI | React | 19.3.0 |
 | 言語 | TypeScript | 5.9系を維持（7.0は周辺ツールの対応確認後） |
 | ビルド | electron-vite / Vite | 5.0.0 / 既存に合わせる |
-| DB | SQLite（better-sqlite3 または `node:sqlite`） | 13.0.3（T1-3aの比較で確定。`node:sqlite` なら再ビルド不要） |
+| DB | SQLite（`node:sqlite`、ADR-002） | Electron 44 の Node 24.21 に組み込み（Stability 1.2）。依存・再ビルドなし |
 | 配布 | electron-builder / electron-updater | 26.15.3 / 6.8.9 |
 | 拡張機能 | electron-chrome-extensions / electron-chrome-web-store | 4.9.0（GPL-3.0） / 0.13.0（MIT） |
 | 広告ブロック | @ghostery/adblocker-electron | 2.18.2（MPL-2.0） |
@@ -160,7 +160,9 @@ GitHub Releases（配布・更新情報）、Chromeウェブストア（拡張�
 - 切替は300ms以内に完了する（性能予算）。
 - フルアクティブなWorkspaceが6個目になると、最も長く使っていないものがDormantになり、WebContentsViewの実体が破棄される。再度選ぶと、URLとスクロール位置が戻る。
 - Dormantが30日続いたものは表示上アーカイブ扱いになる（DB書き込みなし、ADR-011）。
-- 削除の前に自動スナップショットを1回作成する。
+- 削除の前に自動スナップショットを1回作成する。スナップショットは30日で自動的に消す。
+- 削除すると、そのWorkspaceのパーティション（Cookie・ストレージ・拡張のデータ）も消す。
+- 名前は1〜100文字で、前後の空白は取り除く。
 - Workspaceの切り替えショートカット: macOSは Ctrl+1〜9、Windows・Linuxは Alt+1〜9（左パネルの並び順。設定で変更可）。タブの切り替えはChromeと同じ Cmd/Ctrl+1〜9 のまま。
 
 **F02 タブとナビゲーション**
@@ -191,7 +193,7 @@ GitHub Releases（配布・更新情報）、Chromeウェブストア（拡張�
 
 **F07 ダウンロード管理**
 - ダウンロードは `~/Downloads/Trueful/<Workspace名>/` に保存する。Workspace名にファイル名として使えない文字（`/ \ : * ? " < > |` 等）が含まれる場合は `_` に置き換える。同名ファイルは ` (1)` のように連番を付ける。
-- 左パネルの2段目で進捗・完了・失敗を表示し、一時停止・再開・取り消し・フォルダで表示ができる。
+- 左パネルの2段目で進捗・完了・失敗を表示し、一時停止・再開・取り消し・フォルダで表示ができる。再開はアプリを起動している間だけで、再起動の前に終わらなかったダウンロードは「中断」として表示する。
 
 **F08 ブックマーク**
 - Chromeのローカルの `Bookmarks` ファイル（プロファイル内のJSON）から、フォルダ構造ごと取り込める。見つからない場合は、ChromeでエクスポートしたHTMLファイルから取り込める。
@@ -270,18 +272,21 @@ GitHub Releases（配布・更新情報）、Chromeウェブストア（拡張�
 ### 保存する項目
 | 保存先 | 内容 |
 |---|---|
-| SQLite `workspace` | id、name、mode、status（active/dormant）、last_used_time_ms、dormanted_time_ms、created_time_ms |
-| SQLite `tab` | id、workspace_id、url、title、position、scroll_y |
-| SQLite `history` | id、workspace_id、url、title、visited_time_ms |
-| SQLite `bookmark` | id、parent_id、title、url、position |
-| SQLite `download` | id、workspace_id、url、path、state、received_bytes、total_bytes |
-| SQLite `extension_scope` | extension_id、scope（all/selected）、workspace_ids |
-| SQLite `site_permission` | workspace_id、origin、permission、decision |
-| SQLite `checksum` | マニフェストのSHA256（ADR-012） |
+| SQLite `workspace` | id、name、mode、status（active/dormant）、position、last_used_time_ms、dormanted_time_ms、created_time_ms |
+| SQLite `tab` | id、workspace_id、url、title、position、scroll_y、last_active_time_ms |
+| SQLite `history_url` | id、workspace_id、url、title、visit_count、last_visited_time_ms（URLごとに1行。全文検索の索引 `history_url_fts`） |
+| SQLite `history_visit` | id、url_id、visited_time_ms（訪問1回ごとに1行） |
+| SQLite `app_state` | last_workspace_id、last_quit_time_ms、clean_exit（1行だけ。F11・F12の判定） |
+| SQLite `bookmark` | id、parent_id、kind（folder/url）、title、url、position、created_time_ms（全 Workspace で共有。索引 `bookmark_fts`） |
+| SQLite `download` | id、workspace_id、url、path、state、received_bytes、total_bytes、started_time_ms、ended_time_ms |
+| SQLite `extension_scope` | extension_id、scope（all/selected）。selected の Workspace は `extension_scope_workspace`（extension_id、workspace_id） |
+| SQLite `site_permission` | workspace_id、origin、permission（camera・microphone・notifications など）、decision（allow/deny）、decided_time_ms |
+| SQLite `workspace_manifest_backup` | workspace_id、manifest_json、sha256、updated_time_ms（マニフェストの写しとSHA256、ADR-012） |
+| SQLite `workspace_snapshot` | id、workspace_id、snapshot_json、created_time_ms（削除前の自動スナップショット、F01） |
 | JSON | WorkspaceごとのCOMマニフェスト `{ id: number }`（ADR-013）、`settings.json` |
 | Electronのセッション | Cookie、ストレージ、拡張のデータ（パーティションごと） |
 
-命名はSQLiteがsnake_case、TypeScriptがcamelCase。スキーマ変更はバージョン付きのマイグレーションで行う。
+命名はSQLiteがsnake_case、TypeScriptがcamelCase。スキーマ変更はバージョン付きのマイグレーションで行う。列の型・制約・索引・マイグレーションの手順は `docs-ja/architecture/data-schema.md` を正とする。
 
 ### エクスポート・削除・バックアップ
 - ブックマークはHTML形式でエクスポートできる。
@@ -482,6 +487,8 @@ export function sanitizeFolderName(name: string): string {
 | 選択色はグレー系、BlueはProduction専用 | 本番Workspaceの取り違えを防ぐため |
 | パスワード管理は拡張単体で動けば合格 | Electronがネイティブメッセージングに対応していない可能性が高いため |
 | 内蔵広告ブロックを拡張の `chrome.webRequest` より優先 | 必須の拡張は通信を書き換えない種類で、影響が小さいため |
+| SQLiteは `node:sqlite`（ADR-002改訂、2026-09-28） | T1-3aでbetter-sqlite3と速さ・手間が同じで、依存をゼロにできるため |
+| データ構造を `data-schema.md` に確定（2026-09-28） | 型・外部キー・索引・バックアップの世代（ADR-012の未決事項）を実装の前に決めるため |
 
 ### 却下した案
 Tauri、Chromiumフォーク、Firefoxフォーク（条件付き保留）、MIT/MPLライセンス、横タブ、Truefulのパスワード保存、uBlock拡張での広告ブロック、Command Palette（下部パネル・専用UI）、破棄済みタブの別まとまりへの移動。
@@ -493,7 +500,6 @@ Tauri、Chromiumフォーク、Firefoxフォーク（条件付き保留）、MIT
 | R2で動かない拡張の代替 | るりあ（Claudeが案を出す） | 試作（M0）の直後 |
 | AI開示方針の番外編 | るりあ | MVP公開の前 |
 | TypeScript 7への移行時期 | るりあ | M1完了時に再確認 |
-| SQLiteの実装（better-sqlite3 / node:sqlite） | るりあ（Claudeが比較結果を出す） | T1-3aの直後 |
 | 統合検索欄の操作と言い換え語の初期セット | るりあ（Claudeが案を出す） | T4-1bの前 |
 
 ## 12. 用語集

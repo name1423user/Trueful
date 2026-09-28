@@ -4,7 +4,7 @@
 
 - **Main Process（Node.js）**：Workspace管理、設定、ローカルAI連携、履歴インデックス
 - **Renderer**：WebContentsView（Workspaceごとに独立したセッションパーティション。ADR-008 を 2026-09-27 に改訂）
-- **ローカルDB**：better-sqlite3（履歴・インデックス・Workspace定義）
+- **ローカルDB**：`node:sqlite`（履歴・インデックス・Workspace定義。ADR-002）
 - **ローカルAI**：Ollama（既定）
 - **クラウドAI**：Claude API（Workspace単位で明示的opt-in、サイレントフォールバック禁止）
 
