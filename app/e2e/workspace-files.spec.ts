@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { launchApp } from './launchApp'
+import { appWindow, launchApp } from './launchApp'
 
 test('Workspace を作ると COM 側のマニフェストができ、同じ id のパーティションの残りは消える', async () => {
   // DB をバックアップから戻したときなどに残る、id 1 のパーティション
@@ -53,7 +53,7 @@ test('起動すると、DB にある Workspace のなくなったマニフェス
   rmSync(manifest)
   const second = await launchApp(undefined, { userDataDir: first.userDataDir })
   try {
-    const window = await second.app.firstWindow()
+    const window = await appWindow(second.app)
     // DB の準備が終わるまで待つ（マニフェストは、その直後にそろえる）
     await window.evaluate(async () => {
       await (window as unknown as { trueful: Window['trueful'] }).trueful.workspace.list()
