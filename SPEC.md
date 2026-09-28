@@ -284,7 +284,7 @@ GitHub Releases（配布・更新情報）、Chromeウェブストア（拡張�
 | SQLite `site_permission` | workspace_id、origin、permission（camera・microphone・notifications など）、decision（allow/deny）、decided_time_ms |
 | SQLite `workspace_manifest_backup` | workspace_id、manifest_json、sha256、updated_time_ms（マニフェストの写しとSHA256、ADR-012） |
 | SQLite `workspace_snapshot` | id、workspace_id、snapshot_json、created_time_ms（削除前の自動スナップショット、F01） |
-| JSON | WorkspaceごとのCOMマニフェスト `{ id: number }`（ADR-013）、`settings.json` |
+| JSON | WorkspaceごとのCOMマニフェスト `{ id: number }`（`userData/workspaces/<id>/com.json`、ADR-013）、`settings.json`。USER側のjsonはPhase 2（Git連携）で足す |
 | Electronのセッション | Cookie、ストレージ、拡張のデータ（パーティションごと） |
 
 命名はSQLiteがsnake_case、TypeScriptがcamelCase。スキーマ変更はバージョン付きのマイグレーションで行う。列の型・制約・索引・マイグレーションの手順は `docs-ja/architecture/data-schema.md` を正とする。

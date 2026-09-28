@@ -13,6 +13,12 @@ import {
   switchWorkspace,
   WorkspaceNotFoundError
 } from './workspace/flows/workspaceFlows'
+import {
+  ensureComManifests,
+  prepareWorkspaceFiles,
+  purgeWorkspaceTrash
+} from './workspace/flows/workspaceFileFlows'
+import type { WorkspaceRoots } from './workspace/services/workspaceFiles'
 import { getCurrentWorkspaceId, listWorkspaces } from './workspace/services/workspaceDB'
 import { SettingsStore } from './settings/flows/settingsStore'
 import { isAppUrl } from './window/services/appUrl'
@@ -91,16 +97,36 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionCheckHandler(() => false)
 
   // 失敗したときの復元と通知は F12 で行う。ここでは記録だけする
-  const databaseReady = initDatabase(app.getPath('userData'))
+  const userData = app.getPath('userData')
+  // パーティションは sessionData の下に作られる（既定では userData と同じ場所）
+  const workspaceRoots: WorkspaceRoots = { userData, sessionData: app.getPath('sessionData') }
+  const purgeTrash = (): void =>
+    void purgeWorkspaceTrash(workspaceRoots).then((errors) => {
+      if (errors.length > 0) console.warn('[main] 片付け用のフォルダを消せなかった', errors)
+    })
+  const databaseReady = initDatabase(userData)
   databaseReady
     .then((db) => {
-      if (quitting) db.close()
-      else database = db
+      if (quitting) {
+        db.close()
+        return
+      }
+      database = db
+      // Workspace の COM 側のマニフェストをそろえる（ない・壊れているものを書き直す。ADR-013）。
+      // 前回消しきれなかった片付け用のフォルダも消す（ADR-011 の起動時クリーンアップ）
+      try {
+        const { repaired, failed } = ensureComManifests(db, workspaceRoots)
+        if (repaired.length > 0) console.warn('[main] マニフェストを書き直した', repaired)
+        if (failed.length > 0) console.error('[main] マニフェストを書けなかった', failed)
+      } catch (e) {
+        console.error('[main] マニフェストをそろえられなかった', e)
+      }
+      purgeTrash()
     })
     .catch((e) => console.error('[main] DB の準備に失敗', e))
 
   // 設定（F14）。壊れていたら既定値で起動し、問題は settings:get と settings:changed で Renderer に伝える
-  const store = SettingsStore.open(app.getPath('userData'), (snapshot) =>
+  const store = SettingsStore.open(userData, (snapshot) =>
     mainWindow?.webContents.send(channelNames.settingsChanged, snapshot)
   )
   settingsStore = store
@@ -119,12 +145,16 @@ app.whenReady().then(() => {
     if (!db || !db.isOpen) throw new IpcHandlerError('unavailable', 'DB を使えない')
     return db
   }
-  const createWorkspace = createWorkspaceFlow()
+  const createWorkspace = createWorkspaceFlow(prepareWorkspaceFiles(workspaceRoots))
   handle(workspaceList, async () => {
     const db = await getDatabase()
     return { workspaces: listWorkspaces(db), currentId: getCurrentWorkspaceId(db) }
   })
-  handle(workspaceCreate, async (input) => createWorkspace(await getDatabase(), input))
+  handle(workspaceCreate, async (input) => {
+    const created = await createWorkspace(await getDatabase(), input)
+    purgeTrash() // 作成で片付け用の場所へ移したフォルダを、トランザクションの外で消す
+    return created
+  })
   handle(workspaceSwitch, async ({ id }) => {
     const db = await getDatabase()
     try {

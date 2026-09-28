@@ -84,12 +84,15 @@ export class SettingsStore {
   }
 
   // 手で編集されたら読み直す。読めない途中の状態や、自分の書き込みは無視する。
-  // 問題があった状態から直ったときは、中身が同じでも知らせる
+  // 値が不正・読めなかった状態から直ったときは、中身が同じでも知らせる。
+  // 壊れた JSON を作り直した記録（invalid-json）は、ファイルが自分の書いたままなら残す
+  // （作り直したときの書き込みの知らせが、遅れて届くことがあるため。macOS）
   reload(): void {
     const next = readSettingsFile(this.path, { repair: false })
     if (!next) return
     const text = serializeSettings(next.settings)
-    if (text === this.lastWritten && !next.problem && !this.snapshot.problem) return
+    const unchanged = text === this.lastWritten && !next.problem
+    if (unchanged && (this.snapshot.problem?.kind ?? 'invalid-json') === 'invalid-json') return
     this.lastWritten = text
     this.snapshot = next
     this.onChange(next)

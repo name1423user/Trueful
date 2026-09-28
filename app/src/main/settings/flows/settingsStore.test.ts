@@ -40,6 +40,14 @@ describe('SettingsStore', () => {
     expect(readFileSync(join(dir, brokenFiles()[0]), 'utf8')).toBe('{ "theme": "dark", ')
   })
 
+  it('壊れた JSON を作り直した後、自分の書き込みの知らせが遅れて届いても、問題の記録を消さない', () => {
+    // macOS では、起動時に作り直した書き込みの知らせが、見張りを始めた後に届くことがある
+    writeFileSync(file(), '{')
+    create().reload()
+    expect(store!.get().problem).toMatchObject({ kind: 'invalid-json' })
+    expect(changes).toEqual([])
+  })
+
   it('一部の値が不正なら、その項目だけ既定値にし、ファイルは書き換えない', () => {
     const text = JSON.stringify({ theme: 'dark', recentTabsCount: -1 })
     writeFileSync(file(), text)

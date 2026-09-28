@@ -55,6 +55,13 @@ COM側jsonマニフェストの責務を「システムが機械的に管理す�
 
 COM側専用の管理情報(例: ファイルフォーマットのバージョン番号、マイグレーション履歴など)が具体的に必要になった時点で、`buildComWorkspaceData`の戻り値の型を拡張する。逆に、`id`以外の項目が長期間発生しない場合、COM側jsonをUSER側jsonに統合する再設計も選択肢に入れる。
 
+## 追記（2026-09-28、T2-1c）
+
+- **USER 側の json は MVP では作らない。** 上の「影響範囲」にある「USER側jsonのテンプレコピー」は、Phase 2（Git 連携・エクスポート）で USER 側の json の中身を決めるときに行う。MVP では名前・Mode・タブなどがすべて SQLite にあり、USER 側の json に書き出す中身がないため。先に形を決めてしまうと、Phase 2 で形を変える（壊す）ことになる。
+- るりあの方針「今後の開発で破壊的変更をしない」（2026-09-28）に沿って Claude Code が判断した。SPEC 6章（JSON は COM マニフェストと settings.json だけ）に合わせたもの。
+- 実装の名前: `services/workspaceFiles.ts`（`writeComManifest`・`readComManifest`）、`flows/workspaceFileFlows.ts`（`prepareWorkspaceFiles`・`ensureComManifests`）。COM 側の json は `userData/workspaces/<id>/com.json`。USER 側の json の名前は `workspace.json` として予約した。
+- COM 側の json に項目を足すときの約束（読む側は知らない項目を無視、`schemaVersion` がなければ版 1、新しい版のものは書き直さない）は [データスキーマ](../data-schema.md)「Workspace のフォルダ」に書いた。
+
 ## References
 
 - ADR-011, ADR-012(Workspace管理設計の前提)

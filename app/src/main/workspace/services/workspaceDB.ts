@@ -56,6 +56,17 @@ export function insertWorkspace(
   return getWorkspace(db, Number(lastInsertRowid))!
 }
 
+// この id を使い終わったことにする（次に作る Workspace は、これより大きい id になる）。
+// 取り消した作成の id は、そのままだと次も同じ番号になるため（AUTOINCREMENT の記録も巻き戻る）
+export function skipWorkspaceId(db: DatabaseSync, id: number): void {
+  const updated = db
+    .prepare("UPDATE sqlite_sequence SET seq = max(seq, ?) WHERE name = 'workspace'")
+    .run(id)
+  if (updated.changes === 0) {
+    db.prepare("INSERT INTO sqlite_sequence (name, seq) VALUES ('workspace', ?)").run(id)
+  }
+}
+
 export function touchWorkspace(db: DatabaseSync, id: number, now: number): boolean {
   return (
     db.prepare('UPDATE workspace SET last_used_time_ms = ? WHERE id = ?').run(now, id).changes === 1
