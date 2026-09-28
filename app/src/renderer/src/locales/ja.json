@@ -1,0 +1,28 @@
+{
+  "workspace": {
+    "listLabel": "Workspace",
+    "add": "Workspace を追加",
+    "createTitle": "Workspace を作る",
+    "createLead": "案件や用途ごとに Workspace を分けると、タブとログインが混ざりません。",
+    "nameLabel": "名前",
+    "namePlaceholder": "例: 案件A",
+    "modeLabel": "Mode",
+    "mode": {
+      "production": "Production（本番）",
+      "development": "Development（開発）",
+      "testing": "Testing（テスト）",
+      "custom": "Custom"
+    },
+    "create": "作成",
+    "creating": "作成中…",
+    "cancel": "やめる",
+    "current": "今の Workspace: {{name}}"
+  },
+  "error": {
+    "invalid-args": "入力を確かめてください（名前は1〜100文字）。",
+    "not-found": "その Workspace は見つかりませんでした。",
+    "unavailable": "データを読み込めません。アプリを再起動してください。",
+    "forbidden-sender": "この操作はできません。",
+    "internal": "うまくいきませんでした。もう一度お試しください。"
+  }
+}

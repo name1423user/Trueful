@@ -2,6 +2,16 @@
   --bg: #f4f4f5;
   --surface: #ffffff;
   --border: #d4d4d8;
+  --text: #18181b;
+  --text-muted: #52525b;
+  /* 選択中はグレー系。Blue は Production の Mode 色だけに使う（SPEC 8章） */
+  --selected: #e4e4e7;
+  --mode-production: #2563eb;
+  --mode-development: #16a34a;
+  --mode-testing: #d97706;
+  --mode-custom: #71717a;
+  font-family: Meiryo, 'Hiragino Sans', system-ui, sans-serif;
+  color: var(--text);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -9,6 +19,13 @@
     --bg: #18181b;
     --surface: #27272a;
     --border: #3f3f46;
+    --text: #f4f4f5;
+    --text-muted: #a1a1aa;
+    --selected: #3f3f46;
+    --mode-production: #60a5fa;
+    --mode-development: #4ade80;
+    --mode-testing: #fbbf24;
+    --mode-custom: #a1a1aa;
   }
 }
 
@@ -46,4 +63,98 @@ body {
 .content {
   grid-area: content;
   background: var(--surface);
+}
+
+.center {
+  display: grid;
+  place-items: center;
+}
+
+/* 左パネルの Workspace の一覧（8px グリッド） */
+.workspace-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px;
+}
+
+.workspace-row,
+.workspace-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.workspace-row[aria-current='true'] {
+  background: var(--selected);
+  font-weight: bold;
+}
+
+.workspace-add {
+  color: var(--text-muted);
+  margin: 0 8px;
+  width: calc(100% - 16px);
+}
+
+.mode-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.mode-production {
+  background: var(--mode-production);
+}
+.mode-development {
+  background: var(--mode-development);
+}
+.mode-testing {
+  background: var(--mode-testing);
+}
+.mode-custom {
+  background: var(--mode-custom);
+}
+
+/* Workspace を作る画面 */
+.workspace-create {
+  display: grid;
+  gap: 16px;
+  width: min(400px, 100% - 32px);
+}
+
+.workspace-create h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.workspace-create label,
+.workspace-create fieldset {
+  display: grid;
+  gap: 8px;
+}
+
+.workspace-create input[name='name'] {
+  padding: 8px;
+  font: inherit;
+}
+
+.workspace-create .mode-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.workspace-create .actions {
+  display: flex;
+  gap: 8px;
 }
