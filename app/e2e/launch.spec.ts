@@ -24,6 +24,22 @@ test('起動してウィンドウが出る（三ペインの枠、セキュリ�
     })
     expect(prefs).toEqual({ contextIsolation: true, sandbox: true, nodeIntegration: false })
 
+    // preload は window.trueful だけを公開し、ipcRenderer や Node の機能は UI から見えない
+    const exposed = await window.evaluate(() => ({
+      trueful: typeof (window as unknown as { trueful?: unknown }).trueful,
+      ipcRenderer: 'ipcRenderer' in window,
+      electron: 'electron' in window,
+      require: typeof (globalThis as { require?: unknown }).require,
+      process: typeof (globalThis as { process?: unknown }).process
+    }))
+    expect(exposed).toEqual({
+      trueful: 'object',
+      ipcRenderer: false,
+      electron: false,
+      require: 'undefined',
+      process: 'undefined'
+    })
+
     await window.screenshot({ path: `test-results/launch-${process.platform}.png` })
   } finally {
     await app.close()

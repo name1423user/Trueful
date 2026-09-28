@@ -89,6 +89,7 @@ Electron製のデスクトップアプリ（macOS・Windows・Linux）。Chrome�
 | 言語 | TypeScript | 5.9系を維持（7.0は周辺ツールの対応確認後） |
 | ビルド | electron-vite / Vite | 5.0.0 / 既存に合わせる |
 | DB | SQLite（`node:sqlite`、ADR-002） | Electron 44 の Node 24.21 に組み込み（Stability 1.2）。依存・再ビルドなし |
+| 検証 | zod | 4.6.5（IPC の引数と `settings.json` を受信側で検証する。T1-4 で追加） |
 | 配布 | electron-builder / electron-updater | 26.15.3 / 6.8.9 |
 | 拡張機能 | electron-chrome-extensions / electron-chrome-web-store | 4.9.0（GPL-3.0） / 0.13.0（MIT） |
 | 広告ブロック | @ghostery/adblocker-electron | 2.18.2（MPL-2.0） |
