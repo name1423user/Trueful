@@ -3,7 +3,11 @@ import { z } from 'zod'
 // settings.json の項目（SPEC F14）。項目ごとに検証するので、1つが不正でもほかの項目は残る
 const shortcut = z
   .object({
-    keyword: z.string().regex(/^[a-z0-9-]{1,20}$/),
+    // 数字だけのキーワードは、組み込みの localhost の近道（F10）とぶつかるので使えない
+    keyword: z
+      .string()
+      .regex(/^[a-z0-9-]{1,20}$/)
+      .refine((k) => !/^\d+$/.test(k)),
     urlTemplate: z.url({ protocol: /^https?$/ }).includes('%s')
   })
   .strict()
@@ -18,6 +22,7 @@ export const settingsFields = {
   shortcuts: z
     .array(shortcut)
     .max(50)
+    .refine((list) => new Set(list.map((s) => s.keyword)).size === list.length)
     .default([
       { keyword: 'gh', urlTemplate: 'https://github.com/search?q=%s' },
       { keyword: 'npm', urlTemplate: 'https://www.npmjs.com/search?q=%s' },
@@ -29,7 +34,16 @@ export const settingsFields = {
   developerHomeAfterMinutes: z.int().min(1).max(10080).default(60),
   historyRetentionDays: z.int().min(1).max(3650).default(90),
   adBlockEnabled: z.boolean().default(true),
-  adBlockExcludedSites: z.array(z.string().min(1).max(253)).max(1000).default([]),
+  // 広告ブロックを外すサイト（ホスト名）
+  adBlockExcludedSites: z
+    .array(
+      z
+        .string()
+        .max(253)
+        .regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/)
+    )
+    .max(1000)
+    .default([]),
   developerMode: z.boolean().default(false),
   sentryEnabled: z.boolean().default(false)
 }
@@ -39,10 +53,14 @@ export type Settings = z.infer<typeof settingsSchema>
 export type SettingsKey = keyof Settings
 
 // 更新は一部の項目だけ（知らない項目は拒否する）
+// 値が undefined の項目も拒否する（IPC は undefined のキーをそのまま運び、更新で値が消えてしまうため）
 export const settingsPatchSchema = z
   .object(Object.fromEntries(Object.entries(settingsFields).map(([k, v]) => [k, v.unwrap()])))
   .partial()
-  .strict() as unknown as z.ZodType<Partial<Settings>>
+  .strict()
+  .refine((patch) => Object.values(patch).every((v) => v !== undefined), {
+    message: '値が undefined の項目がある'
+  }) as unknown as z.ZodType<Partial<Settings>>
 
 export const defaultSettings = (): Settings => settingsSchema.parse({})
 

@@ -1,12 +1,13 @@
 import { watch, type FSWatcher } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import {
+  preserveBrokenFile,
   readSettingsFile,
   serializeSettings,
   writeSettingsFile,
   type SettingsProblem
 } from '../services/settingsFile'
-import { defaultSettings, type Settings } from '../services/settingsSchema'
+import { defaultSettings, settingsSchema, type Settings } from '../services/settingsSchema'
 
 export const SETTINGS_FILE = 'settings.json'
 
@@ -20,7 +21,7 @@ export class SettingsStore {
   // 自分で書いた中身。見張りで自分の書き込みを拾ったときに、読み直しを飛ばすため
   private lastWritten: string
 
-  private constructor(
+  constructor(
     private readonly path: string,
     private readonly onChange: (snapshot: SettingsSnapshot) => void
   ) {
@@ -35,14 +36,25 @@ export class SettingsStore {
     this.lastWritten = serializeSettings(this.snapshot.settings)
   }
 
+  // 開いて、手での編集を見張る。見張りを始められなくても（inotify の上限など）起動は止めない
   static open(dir: string, onChange: (snapshot: SettingsSnapshot) => void): SettingsStore {
     const store = new SettingsStore(join(dir, SETTINGS_FILE), onChange)
-    // エディタは名前を変えて保存することがあるので、ファイルではなくフォルダを見張る
-    store.watcher = watch(dirname(store.path), (_event, file) => {
-      if (file !== basename(store.path)) return
-      clearTimeout(store.timer)
-      store.timer = setTimeout(() => store.reload(), 100)
-    })
+    try {
+      // エディタは名前を変えて保存することがあるので、ファイルではなくフォルダを見張る。
+      // ファイル名が渡されない OS もあるので、そのときも読み直す（自分の書き込みは lastWritten で飛ばす）
+      store.watcher = watch(dirname(store.path), (_event, file) => {
+        if (file && file !== basename(store.path)) return
+        clearTimeout(store.timer)
+        store.timer = setTimeout(() => store.reload(), 100)
+      })
+      store.watcher.on('error', (e) => {
+        console.error('[main] settings.json の見張りが止まった', e)
+        store.watcher?.close()
+        store.watcher = undefined
+      })
+    } catch (e) {
+      console.error('[main] settings.json を見張れない（手での編集は次の起動で反映）', e)
+    }
     return store
   }
 
@@ -50,10 +62,18 @@ export class SettingsStore {
     return this.snapshot
   }
 
+  // 一部の項目を更新する。読み書きできない状態では保存しない（読めなかったファイルを上書きしないため）
   update(patch: Partial<Settings>): Settings {
-    const settings = { ...this.snapshot.settings, ...patch }
+    if (this.snapshot.problem?.kind === 'unavailable') {
+      throw new Error('settings.json を読み書きできないので、更新できない')
+    }
+    const settings = settingsSchema.parse({ ...this.snapshot.settings, ...patch })
+    // 起動中に人が壊れた JSON を保存していたら、上書きする前に残す
+    const brokenFile = preserveBrokenFile(this.path)
     this.lastWritten = writeSettingsFile(this.path, settings)
-    this.snapshot = { settings }
+    this.snapshot = brokenFile
+      ? { settings, problem: { kind: 'invalid-json', brokenFile } }
+      : { settings }
     this.onChange(this.snapshot)
     return settings
   }
@@ -63,12 +83,13 @@ export class SettingsStore {
     this.watcher?.close()
   }
 
-  // 手で編集されたら読み直す。読めない途中の状態や、自分の書き込みは無視する
-  private reload(): void {
+  // 手で編集されたら読み直す。読めない途中の状態や、自分の書き込みは無視する。
+  // 問題があった状態から直ったときは、中身が同じでも知らせる
+  reload(): void {
     const next = readSettingsFile(this.path, { repair: false })
     if (!next) return
     const text = serializeSettings(next.settings)
-    if (text === this.lastWritten && !next.problem) return
+    if (text === this.lastWritten && !next.problem && !this.snapshot.problem) return
     this.lastWritten = text
     this.snapshot = next
     this.onChange(next)

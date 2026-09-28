@@ -46,11 +46,36 @@ describe('settingsSchema', () => {
     }
   })
 
+  it('近道のキーワードは数字だけ（localhost の近道とぶつかる）と重複を拒否する', () => {
+    const url = 'https://x.example/?q=%s'
+    expect(
+      parseSettings({ shortcuts: [{ keyword: '8080', urlTemplate: url }] }).invalidKeys
+    ).toEqual(['shortcuts'])
+    const dup = [
+      { keyword: 'gh', urlTemplate: url },
+      { keyword: 'gh', urlTemplate: url }
+    ]
+    expect(parseSettings({ shortcuts: dup }).invalidKeys).toEqual(['shortcuts'])
+  })
+
+  it('広告ブロックを外すサイトは、ホスト名の形だけを受け付ける', () => {
+    expect(
+      parseSettings({ adBlockExcludedSites: ['example.com', 'a-b.example.jp'] }).invalidKeys
+    ).toEqual([])
+    for (const bad of ['javascript:alert(1)', '*', 'https://example.com', 'Example.com ']) {
+      expect(parseSettings({ adBlockExcludedSites: [bad] }).invalidKeys, bad).toEqual([
+        'adBlockExcludedSites'
+      ])
+    }
+  })
+
   it('更新は一部の項目だけを受け付け、知らない項目や不正な値は拒否する', () => {
     expect(settingsPatchSchema.safeParse({ theme: 'light' }).success).toBe(true)
     expect(settingsPatchSchema.safeParse({}).success).toBe(true)
     expect(settingsPatchSchema.safeParse({ theme: 'blue' }).success).toBe(false)
     expect(settingsPatchSchema.safeParse({ nope: 1 }).success).toBe(false)
+    // 値が undefined の項目は拒否する（更新で値が消えないように）
+    expect(settingsPatchSchema.safeParse({ theme: undefined }).success).toBe(false)
     // 既定値で埋めない（送られていない項目は変えない）
     expect(settingsPatchSchema.parse({ theme: 'light' })).toEqual({ theme: 'light' })
   })
