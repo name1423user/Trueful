@@ -1,4 +1,4 @@
-import { _electron as electron, type ElectronApplication } from '@playwright/test'
+import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -28,4 +28,12 @@ export async function launchApp(
   const cleanup = (): void =>
     rmSync(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   return { app, userDataDir, cleanup }
+}
+
+// UI のウィンドウを、preload の API（window.trueful）が使えるようになってから返す。
+// firstWindow() は、アプリの画面を読み込む前（空のページ）のウィンドウを返すことがある
+export async function appWindow(app: ElectronApplication): Promise<Page> {
+  const window = await app.firstWindow()
+  await window.waitForFunction(() => 'trueful' in window)
+  return window
 }

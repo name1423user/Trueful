@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ActivityBar, type PanelView } from './panel/ActivityBar'
 import { AddressBar } from './tab/AddressBar'
 import { PageArea } from './tab/PageArea'
 import { TabList } from './tab/TabList'
@@ -8,13 +9,14 @@ import { useWorkspaces, type IpcErrorCode } from './workspace/useWorkspaces'
 import { WorkspaceCreateForm } from './workspace/WorkspaceCreateForm'
 import { WorkspaceList } from './workspace/WorkspaceList'
 
-// 三ペイン（上端・左パネル・中央）。中央の <main> には、のちにページの WebContentsView を重ねる
-// （位置と大きさを IPC で Main に報告する。T2-2）
+// 上端・左パネル（1段目・2段目、F15）・中央。中央の <main> にページの WebContentsView を重ねる
+// （位置と大きさを IPC で Main に報告する。ADR-008）
 function App(): React.JSX.Element {
   const { t } = useTranslation()
   const { state, create, switchTo } = useWorkspaces()
   const [adding, setAdding] = useState(false)
   const [switchError, setSwitchError] = useState<IpcErrorCode>()
+  const [panelView, setPanelView] = useState<PanelView>('tabs')
   const tabs = useTabs(state.status === 'ready' ? state.currentId : null)
   // 作成画面を閉じたら、フォーカスを左パネルの今の Workspace に戻す（キーボードで続けて操作できるように）。
   // 新しい一覧が画面に反映された後（effect）で探す。rAF では描き直しより先に動くことがある
@@ -30,6 +32,7 @@ function App(): React.JSX.Element {
     return (
       <div className="app-shell">
         <header className="top-bar" />
+        <nav className="activity-bar" aria-label={t('panel.railLabel')} />
         <nav className="left-panel" aria-label={t('workspace.listLabel')} />
         <main className="content center">
           <p role="alert">{t(`error.${state.code}`)}</p>
@@ -75,6 +78,7 @@ function App(): React.JSX.Element {
           </p>
         )}
       </header>
+      <ActivityBar current={current} view={panelView} onSelect={setPanelView} />
       <WorkspaceList
         workspaces={state.workspaces}
         currentId={state.currentId}
@@ -87,7 +91,7 @@ function App(): React.JSX.Element {
           setAdding(true)
         }}
       >
-        {!showCreate && (
+        {!showCreate && panelView === 'tabs' && (
           <TabList
             tabs={tabs.tabs}
             activeId={tabs.activeId}
