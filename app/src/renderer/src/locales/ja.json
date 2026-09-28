@@ -37,5 +37,16 @@
     "close-window": "ウィンドウを閉じる",
     "focus-search": "統合検索へ移動",
     "page-devtools": "開発者ツール"
+  },
+  "tab": {
+    "listLabel": "タブ",
+    "newTab": "新しいタブ",
+    "close": "{{title}} を閉じる",
+    "back": "戻る",
+    "forward": "進む",
+    "reload": "再読み込み",
+    "stop": "読み込みを止める",
+    "address": "アドレス",
+    "addressPlaceholder": "URL を入力、または検索"
   }
 }
