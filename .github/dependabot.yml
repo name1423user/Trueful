@@ -1,0 +1,7 @@
+# ワークフローのアクションはコミット SHA で固定しているので、更新は Dependabot の PR で受け取る
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

@@ -9,8 +9,16 @@ test('起動してウィンドウが出る（三ペインの枠、セキュリ�
   await expect(window.locator('main.content')).toBeVisible()
 
   const prefs = await app.evaluate(({ BrowserWindow }) => {
-    const p = BrowserWindow.getAllWindows()[0].webContents.getLastWebPreferences()
-    return { contextIsolation: p?.contextIsolation, sandbox: p?.sandbox, nodeIntegration: p?.nodeIntegration }
+    // getLastWebPreferences は実行時にはあるが、electron.d.ts に型がない
+    const wc = BrowserWindow.getAllWindows()[0].webContents as unknown as {
+      getLastWebPreferences(): Electron.WebPreferences | null
+    }
+    const p = wc.getLastWebPreferences()
+    return {
+      contextIsolation: p?.contextIsolation,
+      sandbox: p?.sandbox,
+      nodeIntegration: p?.nodeIntegration
+    }
   })
   expect(prefs).toEqual({ contextIsolation: true, sandbox: true, nodeIntegration: false })
 

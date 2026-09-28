@@ -8,7 +8,14 @@ describe('isExternalUrl', () => {
   })
 
   it('それ以外のスキームと壊れた URL は渡さない', () => {
-    for (const url of ['file:///etc/passwd', 'javascript:alert(1)', 'chrome://settings', 'mailto:a@example.com', 'not a url', '']) {
+    for (const url of [
+      'file:///etc/passwd',
+      'javascript:alert(1)',
+      'chrome://settings',
+      'mailto:a@example.com',
+      'not a url',
+      ''
+    ]) {
       expect(isExternalUrl(url)).toBe(false)
     }
   })
