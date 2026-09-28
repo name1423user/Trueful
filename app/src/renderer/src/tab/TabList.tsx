@@ -28,6 +28,7 @@ export function TabList(props: {
               >
                 {title}
               </button>
+              {/* 記号はアイコンとして扱い（読み上げない）、名前は辞書の aria-label で付ける */}
               <button
                 type="button"
                 className="tab-close"

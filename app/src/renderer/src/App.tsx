@@ -22,7 +22,7 @@ function App(): React.JSX.Element {
   useEffect(() => {
     if (!refocus.current) return
     refocus.current = false
-    document.querySelector<HTMLElement>('.left-panel [aria-current="true"]')?.focus()
+    document.querySelector<HTMLElement>('.workspace-row[aria-current="true"]')?.focus()
   })
 
   if (state.status === 'loading') return <div className="app-shell" />
@@ -59,15 +59,20 @@ function App(): React.JSX.Element {
         )}
         {!showCreate && (
           <AddressBar
+            key={activeTab?.id}
             tab={activeTab}
             page={activeTab && tabs.pages[activeTab.id]}
-            onNavigate={(input) =>
-              void tabs.run((api, ws) => api.navigate(ws, activeTab!.id, input))
-            }
+            onNavigate={(input) => tabs.run((api, ws) => api.navigate(ws, activeTab!.id, input))}
             onControl={(action) =>
               void tabs.run((api, ws) => api.control(ws, activeTab!.id, action))
             }
           />
+        )}
+        {/* ページ（WebContentsView）は UI の上に重なるので、エラーはページの外（上端）に出す */}
+        {switchError && !showCreate && (
+          <p role="alert" className="switch-error">
+            {t(`error.${switchError}`)}
+          </p>
         )}
       </header>
       <WorkspaceList
@@ -93,11 +98,6 @@ function App(): React.JSX.Element {
         )}
       </WorkspaceList>
       <main className={showCreate ? 'content center' : 'content'}>
-        {switchError && !showCreate && (
-          <p role="alert" className="switch-error">
-            {t(`error.${switchError}`)}
-          </p>
-        )}
         {showCreate ? (
           <WorkspaceCreateForm
             onCreate={async (name, mode, requestId) => {

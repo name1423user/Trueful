@@ -68,7 +68,10 @@ test('アドレスバーで開き、タブ列から作る・選ぶ・閉じる�
     await expect(tabs).toHaveCount(1)
 
     // メニューの Cmd/Ctrl+L でアドレスバーにフォーカスする
-    await window.getByRole('button', { name: '戻る' }).focus()
+    await tabs.first().focus()
+    expect(await window.evaluate(() => document.activeElement?.getAttribute('name'))).not.toBe(
+      'address'
+    )
     await app.evaluate(({ Menu }) =>
       Menu.getApplicationMenu()?.getMenuItemById('focus-address-bar')?.click()
     )

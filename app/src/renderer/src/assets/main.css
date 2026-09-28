@@ -45,25 +45,36 @@ body {
 .app-shell {
   display: grid;
   grid-template-columns: 240px 1fr;
-  grid-template-rows: 44px 1fr;
+  /* minmax(0, 1fr): 左パネルの中身が増えても行が伸びない（ページの場所がずれないように） */
+  grid-template-rows: 44px minmax(0, 1fr);
   grid-template-areas:
     'top top'
     'left content';
   height: 100%;
 }
 
+/* 上端: 今の Workspace・アドレスバー・エラー */
 .top-bar {
   grid-area: top;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 8px;
   border-bottom: 1px solid var(--border);
 }
 
 .left-panel {
   grid-area: left;
+  min-height: 0;
+  overflow-y: auto;
   border-right: 1px solid var(--border);
 }
 
 .content {
   grid-area: content;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
   background: var(--surface);
 }
 
@@ -159,14 +170,6 @@ body {
 .workspace-create .actions {
   display: flex;
   gap: 8px;
-}
-
-/* 上端: 今の Workspace とアドレスバー */
-.top-bar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 0 8px;
 }
 
 .current-workspace {
@@ -276,15 +279,7 @@ body {
   height: 100%;
 }
 
-.content {
-  position: relative;
-  min-width: 0;
-  min-height: 0;
-}
-
 .switch-error {
-  position: absolute;
-  top: 8px;
-  left: 8px;
   margin: 0;
+  flex: none;
 }
