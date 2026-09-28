@@ -29,6 +29,9 @@ test.afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())
 
 type Api = { trueful: Window['trueful'] }
 
+// CI の macOS・Windows では、最初のページの読み込み（パーティションの作成を含む）が遅いことがある
+const POLL = { timeout: 15_000 }
+
 // Workspace を作り（作った Workspace が今のものになる）、その選択中のタブの id を返す
 async function createWorkspace(window: Page, name: string): Promise<{ ws: number; tab: number }> {
   return window.evaluate(async (n) => {
@@ -69,6 +72,8 @@ function title(window: Page, ws: number, tab: number): Promise<string | undefine
 }
 
 test('Workspace A の Cookie は B から見えず、再起動しても A に残る。ページの User-Agent に Electron/ を含めない', async () => {
+  // 起動を2回含むので長めにする
+  test.setTimeout(90_000)
   const first = await launchApp()
   let a: { ws: number; tab: number }
   let b: { ws: number; tab: number }
@@ -76,14 +81,14 @@ test('Workspace A の Cookie は B から見えず、再起動しても A に残
     const window = await first.app.firstWindow()
     a = await createWorkspace(window, 'A')
     await navigate(window, a.ws, a.tab, `${origin}/set?v=A`)
-    await expect.poll(() => title(window, a.ws, a.tab)).toBe('set A')
+    await expect.poll(() => title(window, a.ws, a.tab), POLL).toBe('set A')
 
     b = await createWorkspace(window, 'B')
     await navigate(window, b.ws, b.tab, `${origin}/whoami`)
-    await expect.poll(() => title(window, b.ws, b.tab)).toBe('cookie:none /whoami')
+    await expect.poll(() => title(window, b.ws, b.tab), POLL).toBe('cookie:none /whoami')
     // A のページ（今は隠れている）には、A の Cookie が届く
     await navigate(window, a.ws, a.tab, `${origin}/whoami`)
-    await expect.poll(() => title(window, a.ws, a.tab)).toBe('cookie:sid=A /whoami')
+    await expect.poll(() => title(window, a.ws, a.tab), POLL).toBe('cookie:sid=A /whoami')
 
     // T0-1 の結果（B: Electron/ を除く）。ページの navigator.userAgent も同じ
     expect(userAgents.length).toBeGreaterThan(0)
@@ -97,31 +102,41 @@ test('Workspace A の Cookie は B から見えず、再起動しても A に残
     }, origin)
     expect(pageUa).toContain('Chrome/')
     expect(pageUa).not.toMatch(/Electron\//)
-  } finally {
+  } catch (e) {
     await first.app.close()
+    first.cleanup()
+    throw e
   }
+  await first.app.close()
 
-  // 同じ保存場所で起動し直す
-  const second = await launchApp(undefined, { userDataDir: first.userDataDir })
+  // 同じ保存場所で起動し直す（保存場所は、起動に失敗しても最後に消す）
   try {
-    const window = await second.app.firstWindow()
-    await window.evaluate(async (w) => {
-      const api = (window as unknown as Api).trueful
-      await api.view.setBounds({ x: 0, y: 80, width: 800, height: 600 })
-      const r = await api.workspace.switch(w)
-      if (!r.ok) throw new Error(r.error.message)
-    }, a.ws)
-    await navigate(window, a.ws, a.tab, `${origin}/whoami?after-restart`)
-    await expect.poll(() => title(window, a.ws, a.tab)).toBe('cookie:sid=A /whoami?after-restart')
+    const second = await launchApp(undefined, { userDataDir: first.userDataDir })
+    try {
+      const window = await second.app.firstWindow()
+      await window.evaluate(async (w) => {
+        const api = (window as unknown as Api).trueful
+        await api.view.setBounds({ x: 0, y: 80, width: 800, height: 600 })
+        const r = await api.workspace.switch(w)
+        if (!r.ok) throw new Error(r.error.message)
+      }, a.ws)
+      await navigate(window, a.ws, a.tab, `${origin}/whoami?after-restart`)
+      await expect
+        .poll(() => title(window, a.ws, a.tab), POLL)
+        .toBe('cookie:sid=A /whoami?after-restart')
 
-    await window.evaluate(async (w) => {
-      const r = await (window as unknown as Api).trueful.workspace.switch(w)
-      if (!r.ok) throw new Error(r.error.message)
-    }, b.ws)
-    await navigate(window, b.ws, b.tab, `${origin}/whoami?after-restart`)
-    await expect.poll(() => title(window, b.ws, b.tab)).toBe('cookie:none /whoami?after-restart')
+      await window.evaluate(async (w) => {
+        const r = await (window as unknown as Api).trueful.workspace.switch(w)
+        if (!r.ok) throw new Error(r.error.message)
+      }, b.ws)
+      await navigate(window, b.ws, b.tab, `${origin}/whoami?after-restart`)
+      await expect
+        .poll(() => title(window, b.ws, b.tab), POLL)
+        .toBe('cookie:none /whoami?after-restart')
+    } finally {
+      await second.app.close()
+    }
   } finally {
-    await second.app.close()
-    second.cleanup()
+    first.cleanup()
   }
 })

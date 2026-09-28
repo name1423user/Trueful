@@ -130,6 +130,7 @@ export class TabViews {
       wc.session.setUserAgent(pageUserAgent(wc.session.getUserAgent()))
       this.guarded.add(partition)
     }
+    // このページ自身にも設定する（セッションの設定の前に作ったページの保険。何度通しても同じ値になる）
     wc.setUserAgent(pageUserAgent(wc.getUserAgent()))
     // 閉じた後に届いた知らせは捨てる（破棄した webContents を触ると例外になる）
     const notify = (committed: boolean) => (): void => {
