@@ -29,6 +29,9 @@ IPCはinvoke型（request/response）を採用。詳細は [ADR-007](./adr/adr-0
 | `tab:close` | R→M | タブを閉じる（Cmd/Ctrl+W）。選択中を閉じたら、その前に選んでいたタブを選ぶ（使った順）。最後の1つを閉じたら空のタブを開く。閉じた後のタブ列を返す。`workspaceId` とタブの持ち主が違えば `not-found` |
 | `tab:reopenClosed` | R→M | 最後に閉じたタブを、閉じたときと同じ「左から何番目」に戻して選ぶ（足りなければ右端。Cmd/Ctrl+Shift+T）。控えは Workspace ごとにメモリだけ、25 個まで。空のタブは積まない。なければ `null` |
 | `tab:activate` | R→M | タブを選ぶ。`workspaceId` とタブの持ち主が違えば `not-found` |
+| `tab:navigate` | R→M | アドレスバーの入力を開く（F02）。Main が解釈する: 1〜65535 の数字は `http://localhost:<番号>`、「近道のキーワード 語」は近道（settings の shortcuts）、URL らしいものは開き（スキームがなければ https、localhost と IP は http）、それ以外は既定の検索エンジン（Google）で検索。開くのは http・https と `about:blank` だけ |
+| `view:setBounds` | R→M | ページを表示する場所（Renderer の空の div の位置と大きさ、整数の CSS ピクセル。ADR-008）。UI のズームは 1 のままにする前提（変えるなら Main で倍率を掛ける） |
+| `tab:pageChanged` | M→R | ページの URL・タイトル・戻る/進むの可否・読み込み中が変わった（タブの id と一緒に） |
 
 エラーの `code`: `forbidden-sender`（送り元が UI でない）、`invalid-args`（引数が不正）、`not-found`（対象がない）、`unavailable`（DB などの準備ができていない）、`internal`（そのほか）。
 
