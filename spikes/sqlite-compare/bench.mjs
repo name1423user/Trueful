@@ -79,7 +79,8 @@ async function measure(name, loader) {
     result.error = String(e?.message ?? e).split('\n')[0]
     return result
   }
-  const dir = mkdtempSync(join(tmpdir(), `trueful-sqlite-${name}-`))
+  // Windows はフォルダ名に「:」を使えないので、名前から英数字以外を除く
+  const dir = mkdtempSync(join(tmpdir(), `trueful-sqlite-${name.replace(/[^a-z0-9]/gi, '')}-`))
   try {
     const db = impl.open(':memory:')
     result.sqliteVersion = db.prepare('SELECT sqlite_version() AS v').get().v
