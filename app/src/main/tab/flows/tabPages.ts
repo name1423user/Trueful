@@ -51,7 +51,9 @@ export class TabPages {
     const db = this.getDb()
     // 閉じたタブの知らせは記録も通知もしない
     if (!db || !getTab(db, tabId)) return
-    if (committed && page.url) updateTabPage(db, tabId, page)
+    // 開いてよい URL だけを記録する（file: へのリダイレクトは Chromium が止めてエラーページになるが、
+    // その URL は file: のまま。復元のときに開かないよう、記録しない）
+    if (committed && isAllowedPageUrl(page.url)) updateTabPage(db, tabId, page)
     this.notify.page(tabId, page)
   }
 

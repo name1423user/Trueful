@@ -86,6 +86,20 @@ describe('TabPages', () => {
     expect(notify.page).not.toHaveBeenCalled()
   })
 
+  it('開いてよい URL でなければ記録しない（file: へのリダイレクトのエラーページなど）', () => {
+    const a = tabs.create(db, ws)
+    pages.navigate(db, ws, a.id, 'example.com', [])
+    const page: PageState = {
+      url: 'file:///etc/passwd',
+      title: '',
+      canGoBack: true,
+      canGoForward: false,
+      loading: false
+    }
+    pages.pageChanged(a.id, page, true)
+    expect(getTab(db, a.id)?.url).toBe('https://example.com/')
+  })
+
   it('読み込みの開始・終了の知らせ（確定前）では記録しない。知らせは送る', () => {
     const a = tabs.create(db, ws)
     withPage.add(a.id)

@@ -79,12 +79,20 @@ test('アドレスバーの入力でページを開き、URL とタイトルが�
     }, origin)
     await window.waitForTimeout(500)
     expect(await pageUrl()).toBe(`${origin}/b`)
+    // file: へのリダイレクトは、Chromium が止めてエラーページになる（URL の表示は file: のまま）。
+    // ファイルの中身が読まれていないこと、タブの URL として記録されないことを見る
     await navigate(`${origin}/redirect`)
     await window.waitForTimeout(500)
-    const all = await app.evaluate(({ webContents }) =>
-      webContents.getAllWebContents().map((wc) => wc.getURL())
+    const texts = await app.evaluate(({ webContents }) =>
+      Promise.all(
+        webContents
+          .getAllWebContents()
+          .filter((wc) => wc.getURL().startsWith('file:'))
+          .map((wc) => wc.executeJavaScript('document.documentElement.innerText').catch(() => ''))
+      )
     )
-    expect(all.some((u) => u.startsWith('file:'))).toBe(false)
+    expect(texts.some((t: string) => t.includes('root:'))).toBe(false)
+    expect((await tabs()).active.url).toBe(`${origin}/redirect`)
     await navigate(`${origin}/a`)
     await expect.poll(async () => (await tabs()).active.url).toBe(`${origin}/a`)
 
