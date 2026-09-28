@@ -1,0 +1,15 @@
+{
+  "name": "trueful-spike-sqlite-compare",
+  "version": "0.0.0",
+  "private": true,
+  "description": "T1-3a: Electron 44 の Main プロセスで better-sqlite3 と node:sqlite を比べる試作",
+  "type": "module",
+  "main": "main.mjs",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "better-sqlite3": "13.0.3",
+    "electron": "44.4.5"
+  }
+}

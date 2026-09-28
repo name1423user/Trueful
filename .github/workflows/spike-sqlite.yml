@@ -1,0 +1,60 @@
+# T1-3a: better-sqlite3 と node:sqlite を、3 OS の Electron 44 で比べる試作用。本体の CI（ci.yml）とは別
+name: Spike SQLite compare
+
+on:
+  pull_request:
+    paths:
+      - spikes/sqlite-compare/**
+      - .github/workflows/spike-sqlite.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: spikes/sqlite-compare
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 12.3.4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: spikes/sqlite-compare/pnpm-lock.yaml
+
+      # better-sqlite3 は同梱のビルド済みバイナリ（N-API）を使い、ここではビルドしない
+      - run: pnpm install --frozen-lockfile
+
+      # Ubuntu 24.04 で Chromium のサンドボックスを動かすため（ci.yml と同じ。--no-sandbox は使わない）
+      - if: runner.os == 'Linux'
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          echo "RUN=xvfb-run -a" >> "$GITHUB_ENV"
+
+      - name: 素の Node 24 で測る（参考）
+        timeout-minutes: 5
+        run: node bench.mjs --label=node24
+      - name: Electron 44 で測る
+        timeout-minutes: 5
+        run: $RUN pnpm exec electron . --label=electron44
+
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sqlite-compare-${{ matrix.os }}
+          path: spikes/sqlite-compare/results/
+          if-no-files-found: ignore

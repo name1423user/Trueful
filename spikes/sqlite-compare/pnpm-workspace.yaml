@@ -1,0 +1,5 @@
+# pnpm 12 は、依存のインストール時スクリプトを allowBuilds で許可する（app/ と同じ）。
+# better-sqlite3 は OS ごとのビルド済みバイナリ（prebuilds/）を同梱しているので、node-gyp は実行しない。
+# electron 44 のパッケージにはインストール時スクリプトがなく、本体は最初に起動したときに取りに行く
+allowBuilds:
+  better-sqlite3: false

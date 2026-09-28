@@ -19,3 +19,4 @@ SPEC 3章のリスク R1〜R5 と、T1-3a の SQLite 比較を確かめる使い
 | T0-4 | R4 検索候補の重ね表示 | `omnibox-popup/` |
 | T0-5 | R5 広告ブロックと拡張の共存 | `adblock-extensions/`（結果のみ。コードは `extensions/` の `--adblock=`） |
 | T0-5 の追加調査 | R2・R5 拡張の `chrome.webRequest` | `webrequest-probe/` |
+| T1-3a | SQLite の実装（better-sqlite3 / `node:sqlite`） | `sqlite-compare/`（CI: `.github/workflows/spike-sqlite.yml`） |
