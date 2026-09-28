@@ -15,7 +15,8 @@ export function TabList(props: {
     <section className="tab-section" aria-label={t('tab.listLabel')}>
       <ul className="tab-list">
         {props.tabs.map((tab) => {
-          const title = tab.title || (tab.url === 'about:blank' ? t('tab.newTab') : tab.url)
+          // 空のタブは、ページのタイトル（Chromium は about:blank を返す）ではなく「新しいタブ」と出す
+          const title = tab.url === 'about:blank' ? t('tab.newTab') : tab.title || tab.url
           return (
             <li key={tab.id} className="tab-item">
               <button
