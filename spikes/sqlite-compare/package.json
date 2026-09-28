@@ -6,11 +6,9 @@
   "type": "module",
   "main": "main.mjs",
   "scripts": {
-    "bench": "electron .",
-    "rebuild": "electron-rebuild --force --only better-sqlite3"
+    "start": "electron ."
   },
   "devDependencies": {
-    "@electron/rebuild": "4.2.0",
     "better-sqlite3": "13.0.3",
     "electron": "44.4.5"
   }

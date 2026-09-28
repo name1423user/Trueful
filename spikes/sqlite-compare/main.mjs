@@ -1,5 +1,5 @@
 // T1-3a: Electron 44 の Main プロセスで bench.mjs を実行する。ウィンドウは出さない。
-// 結果は results/<label>-<platform>-<arch>.json。使い方: electron . --label=before-rebuild
+// 結果は results/<label>-<platform>-<arch>.json。使い方: pnpm start -- --label=electron44
 import { app } from 'electron'
 import { runAll, labelFromArgv } from './bench.mjs'
 
