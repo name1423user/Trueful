@@ -1,16 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useWorkspaces, type IpcErrorCode } from './workspace/useWorkspaces'
 import { WorkspaceCreateForm } from './workspace/WorkspaceCreateForm'
 import { WorkspaceList } from './workspace/WorkspaceList'
-
-// 作成画面を閉じたら、フォーカスを左パネルの今の Workspace に戻す（キーボードで続けて操作できるように）。
-// 閉じた後の描き直しを待ってから探す
-function focusCurrentWorkspace(): void {
-  requestAnimationFrame(() =>
-    document.querySelector<HTMLElement>('.left-panel [aria-current="true"]')?.focus()
-  )
-}
 
 // 三ペイン（上端・左パネル・中央）。中央の <main> には、のちにページの WebContentsView を重ねる
 // （位置と大きさを IPC で Main に報告する。T2-2）
@@ -19,6 +11,14 @@ function App(): React.JSX.Element {
   const { state, create, switchTo } = useWorkspaces()
   const [adding, setAdding] = useState(false)
   const [switchError, setSwitchError] = useState<IpcErrorCode>()
+  // 作成画面を閉じたら、フォーカスを左パネルの今の Workspace に戻す（キーボードで続けて操作できるように）。
+  // 新しい一覧が画面に反映された後（effect）で探す。rAF では描き直しより先に動くことがある
+  const refocus = useRef(false)
+  useEffect(() => {
+    if (!refocus.current) return
+    refocus.current = false
+    document.querySelector<HTMLElement>('.left-panel [aria-current="true"]')?.focus()
+  })
 
   if (state.status === 'loading') return <div className="app-shell" />
   if (state.status === 'error') {
@@ -38,8 +38,8 @@ function App(): React.JSX.Element {
   const showCreate = state.workspaces.length === 0 || adding
 
   const closeCreate = (): void => {
+    refocus.current = true
     setAdding(false)
-    focusCurrentWorkspace()
   }
 
   return (

@@ -33,12 +33,10 @@ test('Workspace が0個なら作成画面を出し、作ると一覧に出る。
     await expect(rows).toHaveCount(2)
     await expect(rows.nth(1)).toHaveAttribute('aria-current', 'true')
     // 作成画面を閉じたら、フォーカスは今の Workspace の行に戻る。
-    // CI の macOS ではウィンドウが前面にないため toBeFocused は使えず、activeElement を見る
+    // CI ではウィンドウが前面にないことがあり toBeFocused は "inactive" になるので、activeElement を見る
     await expect
-      .poll(() =>
-        window.evaluate(() => document.activeElement?.getAttribute('aria-current') === 'true')
-      )
-      .toBe(true)
+      .poll(() => window.evaluate(() => document.activeElement?.textContent ?? ''))
+      .toContain('案件B')
 
     // 案件A に切り替える。クリック（入力の遅れは含まない）から、今の Workspace の表示が変わり、
     // その次のフレームが描かれるまで（paint を含む）の時間を測る
