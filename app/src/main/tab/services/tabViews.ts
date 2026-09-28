@@ -1,5 +1,6 @@
 import { WebContentsView, type BaseWindow, type Rectangle, type WebContents } from 'electron'
 import { isAllowedPageUrl } from './urlInput'
+import { pageUserAgent } from './userAgent'
 
 // ページの様子（Renderer のアドレスバーと戻る・進むのボタンに使う）
 export type PageState = {
@@ -46,7 +47,7 @@ export class TabViews {
   private readonly views = new Map<number, WebContentsView>()
   private shown: number | undefined
   private bounds: Rectangle = { x: 0, y: 0, width: 0, height: 0 }
-  // 権限のハンドラを設定したパーティション（1つのセッションに1回だけ設定する）
+  // 権限のハンドラと User-Agent を設定したパーティション（1つのセッションに1回だけ設定する）
   private readonly guarded = new Set<string>()
 
   constructor(
@@ -125,8 +126,12 @@ export class TabViews {
     if (!this.guarded.has(partition)) {
       wc.session.setPermissionRequestHandler((_wc, _permission, callback) => callback(false))
       wc.session.setPermissionCheckHandler(() => false)
+      // Service Worker などの要求にも効くように、セッションにも設定する（作り済みのページには効かない）
+      wc.session.setUserAgent(pageUserAgent(wc.session.getUserAgent()))
       this.guarded.add(partition)
     }
+    // このページ自身にも設定する（セッションの設定の前に作ったページの保険。何度通しても同じ値になる）
+    wc.setUserAgent(pageUserAgent(wc.getUserAgent()))
     // 閉じた後に届いた知らせは捨てる（破棄した webContents を触ると例外になる）
     const notify = (committed: boolean) => (): void => {
       if (wc.isDestroyed() || this.views.get(tabId) !== view) return
