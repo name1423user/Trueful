@@ -8,11 +8,35 @@ const shortcuts = [
 const search = (q: string): string => `https://www.google.com/search?q=${encodeURIComponent(q)}`
 
 describe('アドレスバーの入力の解釈', () => {
-  it('URL はそのまま開く。スキームがなければ https（localhost と IP は http）', () => {
-    expect(resolveInput('https://example.com/a?b=1')).toBe('https://example.com/a?b=1')
-    expect(resolveInput('  example.com/docs  ')).toBe('https://example.com/docs')
-    expect(resolveInput('localhost:5173')).toBe('http://localhost:5173/')
-    expect(resolveInput('192.168.0.10:8080/x')).toBe('http://192.168.0.10:8080/x')
+  it.each([
+    ['https://example.com/a?b=1', 'https://example.com/a?b=1'],
+    ['HTTPS://Example.com', 'https://example.com/'],
+    ['http:/example.com', 'http://example.com/'],
+    ['  example.com/docs  ', 'https://example.com/docs'],
+    ['example.com.', 'https://example.com./'],
+    ['example.com:443/path', 'https://example.com/path'],
+    ['日本語.jp', 'https://xn--wgv71a119e.jp/'],
+    ['sub.example.co.uk', 'https://sub.example.co.uk/']
+  ])('URL は開く。スキームがなければ https: %s', (input, url) => {
+    expect(resolveInput(input)).toBe(url)
+  })
+
+  it.each([
+    ['localhost', 'http://localhost/'],
+    ['LOCALHOST:3000', 'http://localhost:3000/'],
+    ['dev.localhost:3000', 'http://dev.localhost:3000/'],
+    ['my-app.test:8080', 'http://my-app.test:8080/'],
+    ['printer.local', 'http://printer.local/'],
+    ['127.0.0.1', 'http://127.0.0.1/'],
+    ['192.168.0.10:8080/x', 'http://192.168.0.10:8080/x'],
+    ['[::1]:3000', 'http://[::1]:3000/']
+  ])('localhost・開発用の名前・IP は http: %s', (input, url) => {
+    expect(resolveInput(input)).toBe(url)
+  })
+
+  it('localhost や IP に似た別のドメインは https', () => {
+    expect(resolveInput('localhost.evil.com')).toBe('https://localhost.evil.com/')
+    expect(resolveInput('192.168.1.1.nip.io')).toBe('https://192.168.1.1.nip.io/')
   })
 
   it('1〜65535 の数字だけなら localhost のそのポート（範囲外は検索）', () => {
@@ -22,31 +46,65 @@ describe('アドレスバーの入力の解釈', () => {
     expect(resolveInput('70000')).toBe(search('70000'))
   })
 
-  it('近道のキーワードと語 → 近道の URL（語はエンコードする）', () => {
+  it('近道のキーワードと語 → 近道の URL（語はエンコード。区切りは全角スペースでもよい）', () => {
     expect(resolveInput('gh electron sandbox', shortcuts)).toBe(
       'https://github.com/search?q=electron%20sandbox'
     )
     expect(resolveInput('NPM zod', shortcuts)).toBe('https://www.npmjs.com/search?q=zod')
+    expect(resolveInput('gh　a+b&c#d', shortcuts)).toBe('https://github.com/search?q=a%2Bb%26c%23d')
     expect(resolveInput('gh electron')).toBe(search('gh electron'))
+    const twice = [{ keyword: 'x', urlTemplate: 'https://x.example/%s?q=%s' }]
+    expect(resolveInput('x a', twice)).toBe('https://x.example/a?q=a')
+    const bad = [{ keyword: 'x', urlTemplate: 'javascript:%s' }]
+    expect(resolveInput('x a', bad)).toBe(search('x a'))
   })
 
-  it('URL でないものは既定の検索エンジンで検索する', () => {
-    expect(resolveInput('electron webcontentsview')).toBe(search('electron webcontentsview'))
-    expect(resolveInput('React')).toBe(search('React'))
-    expect(resolveInput('a&b=c')).toBe(search('a&b=c'))
+  it.each([
+    'electron webcontentsview',
+    'React',
+    'a&b=c',
+    '3.14',
+    '1.2.3',
+    'node.js',
+    'README.md',
+    'package.json',
+    'user@example.com',
+    'intranet',
+    'file:///etc/passwd',
+    'javascript:alert(1)',
+    'JAVASCRIPT:alert(1)',
+    'https://a.com/a b'
+  ])('URL でないもの・http/https 以外は検索する: %s', (input) => {
+    expect(resolveInput(input)).toBe(search(input))
   })
 
-  it('http・https 以外のスキームは開かず、検索語として扱う。空なら空のタブ', () => {
-    expect(resolveInput('file:///etc/passwd')).toBe(search('file:///etc/passwd'))
-    expect(resolveInput('javascript:alert(1)')).toBe(search('javascript:alert(1)'))
+  it('「?語」は検索。空と about:blank は空のタブ', () => {
+    expect(resolveInput('?example.com')).toBe(search('example.com'))
     expect(resolveInput('   ')).toBe('about:blank')
+    expect(resolveInput('About:Blank')).toBe('about:blank')
   })
 
-  it('開いてよい URL は http・https と空のタブだけ', () => {
-    expect(isAllowedPageUrl('https://a.example/')).toBe(true)
-    expect(isAllowedPageUrl('about:blank')).toBe(true)
-    for (const url of ['file:///x', 'javascript:1', 'data:text/html,x', 'chrome://gpu', 'x']) {
-      expect(isAllowedPageUrl(url)).toBe(false)
-    }
+  it('ファイル名らしくても、パスやポートがあれば URL として開く', () => {
+    expect(resolveInput('node.js/docs')).toBe('https://node.js/docs')
   })
+})
+
+describe('メインフレームで開いてよい URL', () => {
+  it.each([
+    'https://a.example/',
+    'http://a.example/',
+    'about:blank',
+    'ABOUT:BLANK',
+    'about:blank#x'
+  ])('開いてよい: %s', (url) => expect(isAllowedPageUrl(url)).toBe(true))
+  it.each([
+    'file:///x',
+    'javascript:1',
+    'data:text/html,x',
+    'blob:https://a.example/1',
+    'about:srcdoc',
+    'chrome://gpu',
+    'view-source:https://a.example/',
+    'x'
+  ])('開かない: %s', (url) => expect(isAllowedPageUrl(url)).toBe(false))
 })
