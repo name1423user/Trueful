@@ -26,9 +26,8 @@ describe('Workspace の作成', () => {
     expect(a.id).not.toBe(b.id)
   })
 
-  it('同じ依頼（requestId）が二度届いても、1つしか作らない（作成の途中に非同期の処理があっても）', async () => {
-    // マニフェストの書き込みなど、あとで入る非同期の処理の代わり
-    const create = createWorkspaceFlow(() => new Promise((r) => setTimeout(r, 20)))
+  it('同じ依頼（requestId）が二度届いても、1つしか作らない', async () => {
+    const create = createWorkspaceFlow()
     const [first, second] = await Promise.all([
       create(db, { name: 'A', mode: 'custom', requestId: 'same' }),
       create(db, { name: 'A', mode: 'custom', requestId: 'same' })
@@ -55,6 +54,24 @@ describe('Workspace の作成', () => {
     db.exec('DROP TRIGGER fail_app_state')
     // 失敗した依頼は忘れるので、送り直せば作れる
     await create(db, { name: 'A', mode: 'custom', requestId: 'r1' })
+    expect(listWorkspaces(db)).toHaveLength(1)
+  })
+
+  it('ファイルの準備（prepare）が失敗したら、行も取り消す。準備には作った Workspace が渡る', async () => {
+    const prepared: number[] = []
+    let fail = true
+    const create = createWorkspaceFlow((w) => {
+      prepared.push(w.id)
+      if (fail) throw new Error('disk full')
+    })
+    await expect(create(db, { name: 'A', mode: 'custom', requestId: 'r1' })).rejects.toThrow(
+      'disk full'
+    )
+    expect(listWorkspaces(db)).toHaveLength(0)
+    expect(getCurrentWorkspaceId(db)).toBeNull()
+    fail = false
+    const created = await create(db, { name: 'A', mode: 'custom', requestId: 'r1' })
+    expect(prepared.at(-1)).toBe(created.id)
     expect(listWorkspaces(db)).toHaveLength(1)
   })
 })

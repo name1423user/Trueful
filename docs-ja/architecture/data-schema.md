@@ -244,10 +244,23 @@ workspace_snapshot（外部キーなし。削除された Workspace の控え）
 | ダウンロードの大きさが不明 | `total_bytes` を NULL にする | Electron は不明のとき 0 を返すが、「0 バイト」と区別するため（ADR-012 の `dormanted_time_ms` と同じ考え） |
 | サイトの権限の名前 | Electron の `media` は `camera` と `microphone` に分けて保存する。値は CHECK で限る | SPEC F16 はカメラとマイクを別々に記憶する。Electron は `media` 1つにまとめてしまう |
 | バックアップ（ADR-012 の未決事項） | Workspace ごとに最新の1件だけ（上書き）。写すのは USER 側の json（COM 側は `{ id }` だけで、id から作り直せる） | 古い世代は、起動時の DB ファイル全体のバックアップ（下）が持つ |
-| ADR-012 のパターン①（json が読めない）で id を得る方法 | Workspace のファイルは id を名前に含むフォルダに置き、フォルダ名から id を得る（フォルダ構成の詳細は T2-1c で決める） | 壊れた json からは id を読めないため |
+| ADR-012 のパターン①（json が読めない）で id を得る方法 | Workspace のファイルは id を名前に含むフォルダに置き、フォルダ名から id を得る（下の「Workspace のフォルダ」） | 壊れた json からは id を読めないため |
 | チェックサムの検証の時期（ADR-012 の未決事項） | 復元する前に検証する | 壊れた写しで上書きしないため |
 | 削除前のスナップショット | 30日で消す（起動時） | Archive の境界（30日）に合わせる。ディスクを使い続けないため |
 | 設定 | DB に持たない（`settings.json`） | SPEC F14（手で編集しても反映される） |
+
+### Workspace のフォルダ（T2-1c、2026-09-28）
+```
+userData/
+├── trueful.db
+├── workspaces/<id>/
+│   ├── com.json         COM 側のマニフェスト {"id": <id>}（ADR-013）
+│   └── workspace.json   USER 側の json（Phase 2。名前だけ予約）
+└── Partitions/workspace-<id>/   パーティション persist:workspace-<id>（Electron が作る）
+```
+- `com.json` は、Workspace を作るときに、行を足すのと同じトランザクションの中で書く（ADR-014 の tmp → rename）。書けなければ行も取り消す。起動時に、DB にある Workspace の `com.json` がない・壊れている・id が合わないときは書き直す（中身は id だけなので、DB から作り直せる）。
+- USER 側の json は MVP では作らない。名前・Mode・タブなどは、すべて DB が正（ADR-013）で、MVP では json に書き出す中身がないため。Git 連携・エクスポート（Phase 2）で中身を決めるときに、新しいファイルとして足す（既にある `com.json` の形は変えない）。`workspace_manifest_backup` は、そのときから使う。
+- 後から壊さないための約束: マニフェストを読む側は、知らない項目を無視する。`schemaVersion` がないものは版 1 として扱う（形を変える必要が出たときにだけ `schemaVersion` を足す）。
 
 ### Workspace の削除（F01）
 1. `workspace_snapshot` に控えを書く。

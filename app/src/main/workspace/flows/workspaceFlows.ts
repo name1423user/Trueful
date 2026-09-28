@@ -29,11 +29,12 @@ function inTransaction<T>(db: DatabaseSync, fn: () => T): T {
 }
 
 // Workspace を作り、そのまま開く（F01）。
+// prepare（パーティションの残りの削除と、マニフェストの書き込み）は行を足したのと同じトランザクションの中で行う。
+// prepare が失敗したら行も取り消す（DB にあるのにファイルがない Workspace を作らない）。
 // 同じ requestId の依頼がもう一度届いたら（ボタンの二度押し・送り直し）、作らずに最初の結果を返す。
-// 作成中の Promise を覚えるので、afterCreate（マニフェストやフォルダの準備。T2-1c）が非同期でも、
-// 同時に届いた2回目は同じ結果を待つ。requestId が同じなら、名前や Mode の違いは見ない（ipc-spec.md）
+// requestId が同じなら、名前や Mode の違いは見ない（ipc-spec.md）
 export function createWorkspaceFlow(
-  afterCreate: (workspace: Workspace) => Promise<void> = async () => {}
+  prepare: (workspace: Workspace) => void = () => {}
 ): (
   db: DatabaseSync,
   input: { name: string; mode: WorkspaceMode; requestId: string },
@@ -43,15 +44,13 @@ export function createWorkspaceFlow(
   return (db, { name, mode, requestId }, now = Date.now()) => {
     const earlier = requests.get(requestId)
     if (earlier) return earlier
-    const creating = (async () => {
-      const workspace = inTransaction(db, () => {
+    const creating = (async () =>
+      inTransaction(db, () => {
         const created = insertWorkspace(db, { name, mode }, now)
         setCurrentWorkspaceId(db, created.id)
+        prepare(created)
         return created
-      })
-      await afterCreate(workspace)
-      return workspace
-    })()
+      }))()
     requests.set(requestId, creating)
     // 失敗した依頼は忘れる（送り直せば作り直す）
     creating.catch(() => requests.delete(requestId))
