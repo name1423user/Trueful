@@ -10,8 +10,9 @@ import { isExternalUrl } from './window/services/externalUrl'
 const userDataDir = process.env['TRUEFUL_USER_DATA_DIR']
 if (!app.isPackaged && userDataDir) app.setPath('userData', userDataDir)
 
-// DB の準備（非同期）。終了時は、準備が終わるのを待ってから閉じる
-let databaseReady: Promise<DatabaseSync | undefined> | undefined
+// DB の接続。準備（非同期）の途中で終了が始まったら、準備が終わったところで閉じる
+let database: DatabaseSync | undefined
+let quitting = false
 
 // UI から外へ出るリンクは、http(s) だけ既定のブラウザに渡す
 function openExternal(url: string): void {
@@ -66,10 +67,12 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionCheckHandler(() => false)
 
   // 失敗したときの復元と通知は F12 で行う。ここでは記録だけする
-  databaseReady = initDatabase(app.getPath('userData')).catch((e) => {
-    console.error('[main] DB の準備に失敗', e)
-    return undefined
-  })
+  initDatabase(app.getPath('userData'))
+    .then((db) => {
+      if (quitting) db.close()
+      else database = db
+    })
+    .catch((e) => console.error('[main] DB の準備に失敗', e))
 
   createWindow()
   app.on('activate', () => {
@@ -77,16 +80,11 @@ app.whenReady().then(() => {
   })
 })
 
-app.on('will-quit', (event) => {
-  if (!databaseReady) return
-  // 準備の途中で終了しても、準備が終わってから閉じる。閉じたあと、もう一度終了する
-  const ready = databaseReady
-  databaseReady = undefined
-  event.preventDefault()
-  ready
-    .then((db) => db?.close())
-    .catch((e) => console.error('[main] DB を閉じられなかった', e))
-    .finally(() => app.quit())
+// 終了は止めない（止めると、あとの app.quit() が効かずに終了できなくなる）
+app.on('will-quit', () => {
+  quitting = true
+  database?.close()
+  database = undefined
 })
 
 app.on('window-all-closed', () => {
