@@ -117,7 +117,8 @@
 - 関係: `app/src/main/tab/`、`app/src/renderer/src/components/AddressBar`
 - 受け入れ条件: F02の受け入れ条件をすべて満たす。WebContentsViewの位置とサイズは、Rendererの空divからIPCで報告される。Workspaceを作ると空のタブが1つ開く（F01）。
 - 検証: `pnpm test:e2e`
-- 範囲外: 拡張ボタン。
+- 範囲外: 拡張ボタン。WebContentsView 実体の30個の上限（T2-5）。
+- 分割（2026-09-28）: T2-2a Main 側のタブ（DB・作成・閉じる・閉じたタブを戻す・選択・IPC、Workspace を作ると空のタブ）、T2-2b ページの表示（WebContentsView・ナビゲーション・URL と検索語の解釈・位置とサイズの報告）、T2-2c 画面（タブ列・アドレスバー・ショートカット・E2E）。
 - 依存: T2-1
 
 ### T2-3 パーティションとログイン保持（F03）

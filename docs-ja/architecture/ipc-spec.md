@@ -24,6 +24,11 @@ IPCはinvoke型（request/response）を採用。詳細は [ADR-007](./adr/adr-0
 | `workspace:list` | R→M | Workspace の一覧（左パネルの並び順）と、今の Workspace の id（F01） |
 | `workspace:create` | R→M | 名前（1〜100文字、前後の空白は除く）と Mode で作り、今の Workspace にする。同じ `requestId` の二度目は、中身（名前・Mode）を見ずに最初の結果を返す |
 | `workspace:switch` | R→M | 切り替える（ない id は `not-found`） |
+| `tab:list` | R→M | Workspace のタブ（並び順）と選択中のタブの id（F02。選択中は最後に選んだタブ） |
+| `tab:create` | R→M | 空のタブを一番右に開いて選ぶ（Cmd/Ctrl+T） |
+| `tab:close` | R→M | タブを閉じる（Cmd/Ctrl+W）。最後の1つを閉じたら空のタブを開く。閉じた後のタブ列を返す |
+| `tab:reopenClosed` | R→M | 最後に閉じたタブを元の位置に戻して選ぶ（Cmd/Ctrl+Shift+T）。控えは Workspace ごとにメモリだけ、25 個まで。なければ `null` |
+| `tab:activate` | R→M | タブを選ぶ |
 
 エラーの `code`: `forbidden-sender`（送り元が UI でない）、`invalid-args`（引数が不正）、`not-found`（対象がない）、`unavailable`（DB などの準備ができていない）、`internal`（そのほか）。
 
