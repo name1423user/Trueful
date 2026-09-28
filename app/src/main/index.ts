@@ -9,7 +9,7 @@ import { IpcHandlerError } from './ipc/channels'
 import { settingsGet, settingsUpdate } from './ipc/settingsChannels'
 import { tabActivate, tabClose, tabCreate, tabList, tabReopenClosed } from './ipc/tabChannels'
 import { workspaceCreate, workspaceList, workspaceSwitch } from './ipc/workspaceChannels'
-import { getTabState, TabFlows, TabNotFoundError } from './tab/flows/tabFlows'
+import { TabFlows, TabNotFoundError } from './tab/flows/tabFlows'
 import {
   createWorkspaceFlow,
   switchWorkspace,
@@ -189,23 +189,23 @@ app.whenReady().then(() => {
     return db
   }
   handle(tabList, async ({ workspaceId }) =>
-    getTabState(await getWorkspaceDatabase(workspaceId), workspaceId)
+    tabs.list(await getWorkspaceDatabase(workspaceId), workspaceId)
   )
   handle(tabCreate, async ({ workspaceId }) =>
     tabs.create(await getWorkspaceDatabase(workspaceId), workspaceId)
   )
-  handle(tabClose, async ({ id }) => {
-    const db = await getDatabase()
-    return notFoundAs(() => tabs.close(db, id))
+  handle(tabClose, async ({ workspaceId, id }) => {
+    const db = await getWorkspaceDatabase(workspaceId)
+    return notFoundAs(() => tabs.close(db, workspaceId, id))
   })
   handle(
     tabReopenClosed,
     async ({ workspaceId }) =>
       tabs.reopenClosed(await getWorkspaceDatabase(workspaceId), workspaceId) ?? null
   )
-  handle(tabActivate, async ({ id }) => {
-    const db = await getDatabase()
-    return notFoundAs(() => tabs.activate(db, id))
+  handle(tabActivate, async ({ workspaceId, id }) => {
+    const db = await getWorkspaceDatabase(workspaceId)
+    return notFoundAs(() => tabs.activate(db, workspaceId, id))
   })
 
   createWindow()

@@ -75,6 +75,22 @@ export function insertTab(
   return getTab(db, Number(lastInsertRowid))!
 }
 
+// 並び順を 0, 1, 2, … に振り直す（閉じた後の隙間をなくす。position が「左から何番目か」になる）
+export function compactPositions(db: DatabaseSync, workspaceId: number): void {
+  const update = db.prepare('UPDATE tab SET position = ? WHERE id = ?')
+  listTabs(db, workspaceId).forEach((tab, index) => {
+    if (tab.position !== index) update.run(index, tab.id)
+  })
+}
+
+// その Workspace で一番新しい「最後に選んだ時刻」。タブがなければ undefined
+export function latestActiveTime(db: DatabaseSync, workspaceId: number): number | undefined {
+  const v = db
+    .prepare('SELECT MAX(last_active_time_ms) v FROM tab WHERE workspace_id = ?')
+    .get(workspaceId)?.['v']
+  return v === null || v === undefined ? undefined : Number(v)
+}
+
 export function deleteTab(db: DatabaseSync, id: number): boolean {
   return db.prepare('DELETE FROM tab WHERE id = ?').run(id).changes === 1
 }

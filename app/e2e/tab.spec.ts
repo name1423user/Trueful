@@ -17,10 +17,10 @@ test('Workspace を作ると空のタブが1つ開き、preload の API でタ�
       const first = await tab.list(ws)
       const second = await tab.create(ws)
       if (!second.ok) throw new Error(second.error.message)
-      const closed = await tab.close(second.value.id)
+      const closed = await tab.close(ws, second.value.id)
       const reopened = await tab.reopenClosed(ws)
       const nothing = await tab.reopenClosed(ws)
-      const activated = await tab.activate(first.ok ? first.value.tabs[0]!.id : -1)
+      const activated = await tab.activate(ws, first.ok ? first.value.tabs[0]!.id : -1)
       const last = await tab.list(ws)
       return {
         first,
@@ -30,16 +30,17 @@ test('Workspace を作ると空のタブが1つ開き、preload の API でタ�
         activated: activated.ok,
         last,
         missingWorkspace: await tab.list(9999),
-        missingTab: await tab.close(9999),
-        badArgs: await tab.activate(0)
+        missingTab: await tab.close(ws, 9999),
+        badArgs: await tab.activate(ws, 0)
       }
     })
     expect(r.first).toMatchObject({ ok: true, value: { tabs: [{ url: 'about:blank' }] } })
     expect(r.closedCount).toBe(1)
-    expect(r.reopened).toMatchObject({ ok: true, value: { url: 'about:blank', position: 1 } })
+    // 空のタブは控えに積まないので、戻すものはない（URL を開くのは T2-2b）
+    expect(r.reopened).toEqual({ ok: true, value: null })
     expect(r.nothing).toEqual({ ok: true, value: null })
     expect(r.activated).toBe(true)
-    expect(r.last.ok && r.last.value.tabs).toHaveLength(2)
+    expect(r.last.ok && r.last.value.tabs).toHaveLength(1)
     expect(r.last.ok && r.last.value.activeId).toBe(r.first.ok && r.first.value.tabs[0]!.id)
     expect(r.missingWorkspace).toMatchObject({ ok: false, error: { code: 'not-found' } })
     expect(r.missingTab).toMatchObject({ ok: false, error: { code: 'not-found' } })

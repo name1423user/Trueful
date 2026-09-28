@@ -75,6 +75,7 @@ describe('Workspace の作成', () => {
     )
     expect(listWorkspaces(db)).toHaveLength(0)
     expect(getCurrentWorkspaceId(db)).toBeNull()
+    expect(db.prepare('SELECT count(*) AS n FROM tab').get()).toEqual({ n: 0 }) // 空のタブも取り消す
     const created = await create(db, { name: 'A', mode: 'custom', requestId: 'r1' })
     expect(created.id).toBe(2)
     expect(prepared).toEqual([1, 2])

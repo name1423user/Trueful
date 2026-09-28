@@ -11,8 +11,9 @@ describe('tab:* の引数', () => {
       expect(def.args.safeParse({ workspaceId: 1, url: 'https://a.example/' }).success).toBe(false)
     }
     for (const def of [tabClose, tabActivate]) {
-      expect(def.args.safeParse({ id: 3 }).success).toBe(true)
-      expect(def.args.safeParse({ id: -1 }).success).toBe(false)
+      expect(def.args.safeParse({ workspaceId: 1, id: 3 }).success).toBe(true)
+      expect(def.args.safeParse({ id: 3 }).success).toBe(false)
+      expect(def.args.safeParse({ workspaceId: 1, id: -1 }).success).toBe(false)
       expect(def.args.safeParse(3).success).toBe(false)
     }
   })

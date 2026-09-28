@@ -39,12 +39,12 @@ const api = {
       ipcRenderer.invoke(channelNames.tabList, { workspaceId }),
     create: (workspaceId: number): Promise<IpcResult<Tab>> =>
       ipcRenderer.invoke(channelNames.tabCreate, { workspaceId }),
-    close: (id: number): Promise<IpcResult<TabState>> =>
-      ipcRenderer.invoke(channelNames.tabClose, { id }),
+    close: (workspaceId: number, id: number): Promise<IpcResult<TabState>> =>
+      ipcRenderer.invoke(channelNames.tabClose, { workspaceId, id }),
     reopenClosed: (workspaceId: number): Promise<IpcResult<Tab | null>> =>
       ipcRenderer.invoke(channelNames.tabReopenClosed, { workspaceId }),
-    activate: (id: number): Promise<IpcResult<Tab>> =>
-      ipcRenderer.invoke(channelNames.tabActivate, { id })
+    activate: (workspaceId: number, id: number): Promise<IpcResult<Tab>> =>
+      ipcRenderer.invoke(channelNames.tabActivate, { workspaceId, id })
   }
 }
 
