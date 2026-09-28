@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { launchApp } from './launchApp'
+import { appWindow, launchApp } from './launchApp'
 
 // テスト用のページ（ローカルの HTTP サーバー。外のネットワークには出ない）。
 // /set?v=<値> は、再起動しても残る Cookie（Max-Age つき）を置く。
@@ -78,7 +78,7 @@ test('Workspace A の Cookie は B から見えず、再起動しても A に残
   let a: { ws: number; tab: number }
   let b: { ws: number; tab: number }
   try {
-    const window = await first.app.firstWindow()
+    const window = await appWindow(first.app)
     a = await createWorkspace(window, 'A')
     await navigate(window, a.ws, a.tab, `${origin}/set?v=A`)
     await expect.poll(() => title(window, a.ws, a.tab), POLL).toBe('set A')
@@ -113,7 +113,7 @@ test('Workspace A の Cookie は B から見えず、再起動しても A に残
   try {
     const second = await launchApp(undefined, { userDataDir: first.userDataDir })
     try {
-      const window = await second.app.firstWindow()
+      const window = await appWindow(second.app)
       await window.evaluate(async (w) => {
         const api = (window as unknown as Api).trueful
         await api.view.setBounds({ x: 0, y: 80, width: 800, height: 600 })
