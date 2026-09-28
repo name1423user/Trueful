@@ -25,8 +25,15 @@ test('UI のウィンドウは、自分の画面の外へ移動しない', async
     await expect
       .poll(() => app.evaluate(() => (globalThis as { opened?: string[] }).opened))
       .toEqual(['https://example.com/'])
-    expect(window.url()).toBe(before)
-    await expect(window.locator('header.top-bar')).toBeVisible()
+    // 止めた移動のあと、Playwright の locator は「移動の完了待ち」のままになるので、Main 側から確かめる
+    const after = await app.evaluate(async ({ BrowserWindow }) => {
+      const wc = BrowserWindow.getAllWindows()[0].webContents
+      const hasTopBar: boolean = await wc.executeJavaScript(
+        "document.querySelector('header.top-bar') !== null"
+      )
+      return { url: wc.getURL(), hasTopBar }
+    })
+    expect(after).toEqual({ url: before, hasTopBar: true })
   } finally {
     await app.close()
   }
