@@ -32,7 +32,8 @@ describe('版1のスキーマ', () => {
       new URL('../../../../../docs-ja/architecture/data-schema.md', import.meta.url),
       'utf8'
     )
-    const docSql = md.match(/```sql\n([\s\S]*?)```/)?.[1]
+    // Windows のチェックアウトでは改行が CRLF になるので、\r? を許す
+    const docSql = md.match(/```sql\r?\n([\s\S]*?)```/)?.[1]
     const normalize = (s: string): string => s.replace(/\s+/g, ' ').trim()
     expect(docSql).toBeDefined()
     expect(normalize(SCHEMA_V1)).toBe(normalize(docSql ?? ''))
