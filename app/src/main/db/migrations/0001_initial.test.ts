@@ -1,8 +1,6 @@
-import { readFileSync } from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { migrate } from '../services/migrate'
-import { SCHEMA_V1 } from './0001_initial'
 import { migrations } from '.'
 
 let db: DatabaseSync
@@ -27,18 +25,6 @@ beforeEach(() => {
 })
 
 describe('版1のスキーマ', () => {
-  it('data-schema.md の SQL と同じ中身である（文書とコードのずれを見つける）', () => {
-    const md = readFileSync(
-      new URL('../../../../../docs-ja/architecture/data-schema.md', import.meta.url),
-      'utf8'
-    )
-    // Windows のチェックアウトでは改行が CRLF になるので、\r? を許す
-    const docSql = md.match(/```sql\r?\n([\s\S]*?)```/)?.[1]
-    const normalize = (s: string): string => s.replace(/\s+/g, ' ').trim()
-    expect(docSql).toBeDefined()
-    expect(normalize(SCHEMA_V1)).toBe(normalize(docSql ?? ''))
-  })
-
   it('すべてのテーブルを作り、app_state に1行入れる', () => {
     const tables = db
       .prepare(
@@ -60,6 +46,13 @@ describe('版1のスキーマ', () => {
       'workspace_manifest_backup',
       'workspace_snapshot'
     ])
+    const fts = db
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND sql LIKE 'CREATE VIRTUAL TABLE%' ORDER BY name"
+      )
+      .all()
+      .map((r) => r['name'])
+    expect(fts).toEqual(['bookmark_fts', 'history_url_fts'])
     expect(count('SELECT count(*) n FROM app_state')).toBe(1)
     expect(db.prepare('PRAGMA user_version').get()?.['user_version']).toBe(1)
   })
@@ -82,6 +75,8 @@ describe('版1のスキーマ', () => {
       // dormant なのに時刻がない（ADR-012）
       "INSERT INTO workspace (name, mode, status, position, last_used_time_ms, created_time_ms) VALUES ('B', 'custom', 'dormant', 1, 0, 0)",
       "INSERT INTO workspace (name, mode, position, last_used_time_ms, created_time_ms) VALUES ('B', 'prod', 1, 0, 0)",
+      // Archive は表示の上だけの区別で、DB の status には入れない（ADR-012）
+      "INSERT INTO workspace (name, mode, status, position, last_used_time_ms, dormanted_time_ms, created_time_ms) VALUES ('B', 'custom', 'archived', 1, 0, 0, 0)",
       "INSERT INTO workspace (name, mode, position, last_used_time_ms, created_time_ms) VALUES ('  ', 'custom', 1, 0, 0)",
       "INSERT INTO tab (workspace_id, url, position, last_active_time_ms) VALUES (99, 'https://x', 0, 0)",
       "INSERT INTO site_permission VALUES (1, 'https://x', 'media', 'allow', 0)",
@@ -121,6 +116,23 @@ describe('版1のスキーマ', () => {
     expect(hits('"Learn"')).toBe(1)
     run('DELETE FROM history_url WHERE id = 1')
     expect(hits('"Learn"')).toBe(0)
+  })
+
+  it('ブックマークの全文検索は URL だけを索引に入れ、変更と削除に追従する', () => {
+    run(
+      "INSERT INTO bookmark (kind, title, position, created_time_ms) VALUES ('folder', 'Docs フォルダ', 0, 0)"
+    )
+    run(
+      "INSERT INTO bookmark (parent_id, kind, title, url, position, created_time_ms) VALUES (1, 'url', 'MDN', 'https://developer.mozilla.org', 0, 0)"
+    )
+    const hits = (q: string): number =>
+      count('SELECT count(*) n FROM bookmark_fts WHERE bookmark_fts MATCH ?', q)
+    expect(hits('"フォルダ"')).toBe(0)
+    expect(hits('"mozilla"')).toBe(1)
+    run("UPDATE bookmark SET title = 'Web Docs' WHERE id = 2")
+    expect(hits('"Web Docs"')).toBe(1)
+    run('DELETE FROM bookmark WHERE id = 1')
+    expect(hits('"mozilla"')).toBe(0)
   })
 
   it('Workspace を消すと、その Workspace の行がまとめて消え、id は使い回さない', () => {

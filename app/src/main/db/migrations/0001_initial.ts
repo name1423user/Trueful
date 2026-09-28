@@ -1,7 +1,8 @@
 import type { Migration } from '../services/migrate'
 
-// 版1のスキーマ。docs-ja/architecture/data-schema.md の SQL と同じ中身にする（schema.test.ts で確かめる）。
-// マージした後は書き換えない。変更は新しい版のマイグレーションで行う
+// 版1のスキーマ（作成時点の docs-ja/architecture/data-schema.md の SQL）。
+// マージした後は書き換えない。変更は新しい版のマイグレーションで行い、
+// すべての版を適用した結果が文書の「最新のスキーマ」と一致することを schema.test.ts で確かめる
 export const SCHEMA_V1 = `
 -- Workspace（F01）。status・last_used_time_ms・dormanted_time_ms は ADR-012 の定義のとおり
 CREATE TABLE workspace (
