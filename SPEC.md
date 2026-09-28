@@ -160,7 +160,9 @@ GitHub Releases（配布・更新情報）、Chromeウェブストア（拡張�
 - 切替は300ms以内に完了する（性能予算）。
 - フルアクティブなWorkspaceが6個目になると、最も長く使っていないものがDormantになり、WebContentsViewの実体が破棄される。再度選ぶと、URLとスクロール位置が戻る。
 - Dormantが30日続いたものは表示上アーカイブ扱いになる（DB書き込みなし、ADR-011）。
-- 削除の前に自動スナップショットを1回作成する。
+- 削除の前に自動スナップショットを1回作成する。スナップショットは30日で自動的に消す。
+- 削除すると、そのWorkspaceのパーティション（Cookie・ストレージ・拡張のデータ）も消す。
+- 名前は1〜100文字で、前後の空白は取り除く。
 - Workspaceの切り替えショートカット: macOSは Ctrl+1〜9、Windows・Linuxは Alt+1〜9（左パネルの並び順。設定で変更可）。タブの切り替えはChromeと同じ Cmd/Ctrl+1〜9 のまま。
 
 **F02 タブとナビゲーション**
@@ -191,7 +193,7 @@ GitHub Releases（配布・更新情報）、Chromeウェブストア（拡張�
 
 **F07 ダウンロード管理**
 - ダウンロードは `~/Downloads/Trueful/<Workspace名>/` に保存する。Workspace名にファイル名として使えない文字（`/ \ : * ? " < > |` 等）が含まれる場合は `_` に置き換える。同名ファイルは ` (1)` のように連番を付ける。
-- 左パネルの2段目で進捗・完了・失敗を表示し、一時停止・再開・取り消し・フォルダで表示ができる。
+- 左パネルの2段目で進捗・完了・失敗を表示し、一時停止・再開・取り消し・フォルダで表示ができる。再開はアプリを起動している間だけで、再起動の前に終わらなかったダウンロードは「中断」として表示する。
 
 **F08 ブックマーク**
 - Chromeのローカルの `Bookmarks` ファイル（プロファイル内のJSON）から、フォルダ構造ごと取り込める。見つからない場合は、ChromeでエクスポートしたHTMLファイルから取り込める。
@@ -272,11 +274,13 @@ GitHub Releases（配布・更新情報）、Chromeウェブストア（拡張�
 |---|---|
 | SQLite `workspace` | id、name、mode、status（active/dormant）、position、last_used_time_ms、dormanted_time_ms、created_time_ms |
 | SQLite `tab` | id、workspace_id、url、title、position、scroll_y、last_active_time_ms |
-| SQLite `history` | id、workspace_id、url、title、visited_time_ms（全文検索の索引 `history_fts`） |
+| SQLite `history_url` | id、workspace_id、url、title、visit_count、last_visited_time_ms（URLごとに1行。全文検索の索引 `history_url_fts`） |
+| SQLite `history_visit` | id、url_id、visited_time_ms（訪問1回ごとに1行） |
+| SQLite `app_state` | last_workspace_id、last_quit_time_ms、clean_exit（1行だけ。F11・F12の判定） |
 | SQLite `bookmark` | id、parent_id、kind（folder/url）、title、url、position、created_time_ms（全 Workspace で共有。索引 `bookmark_fts`） |
 | SQLite `download` | id、workspace_id、url、path、state、received_bytes、total_bytes、started_time_ms、ended_time_ms |
 | SQLite `extension_scope` | extension_id、scope（all/selected）。selected の Workspace は `extension_scope_workspace`（extension_id、workspace_id） |
-| SQLite `site_permission` | workspace_id、origin、permission、decision（allow/deny）、decided_time_ms |
+| SQLite `site_permission` | workspace_id、origin、permission（camera・microphone・notifications など）、decision（allow/deny）、decided_time_ms |
 | SQLite `workspace_manifest_backup` | workspace_id、manifest_json、sha256、updated_time_ms（マニフェストの写しとSHA256、ADR-012） |
 | SQLite `workspace_snapshot` | id、workspace_id、snapshot_json、created_time_ms（削除前の自動スナップショット、F01） |
 | JSON | WorkspaceごとのCOMマニフェスト `{ id: number }`（ADR-013）、`settings.json` |

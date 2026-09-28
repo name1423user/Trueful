@@ -27,7 +27,7 @@ Workspace・タブ・履歴などのローカル DB に SQLite を使い、実�
 
 ## 補足
 
-- history/manifest全体をsqlcipher等で暗号化することは行わない（詳細は [Threat Model](../../security/threat-model.md) 参照）。改訂前と同じ。
+- history/manifest全体をsqlcipher等で暗号化することは行わない（詳細は前のリポジトリの `security/threat-model.md` を参照。本リポジトリには未取り込み）。改訂前と同じ。
 
 ## 改訂履歴
 

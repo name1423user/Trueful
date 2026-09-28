@@ -188,7 +188,7 @@
 
 ### T4-1 統合検索欄の基盤（F10の前半）
 - 関係: `app/src/main/omnibox/`（候補の提供元ごとにservicesを分ける: tabs、history、bookmarks、workspaces）、候補一覧のView（T0-4で決めた方式）
-- 受け入れ条件: URL入力、Web検索、タブ・履歴・ブックマーク・Workspaceの候補、候補の並び順（他のWorkspaceにMode色の印）、キーボード操作を満たす。候補の更新16ms以内をE2Eで計測。
+- 受け入れ条件: URL入力、Web検索、タブ・履歴・ブックマーク・Workspaceの候補、候補の並び順（他のWorkspaceにMode色の印）、キーボード操作を満たす。候補の更新16ms以内をE2Eで計測。履歴10万件（URL 10万種類）で、3文字以上のよくある語と、2文字でヒットなしの検索が16ms以内に返る単体ベンチを置く（`data-schema.md` の「履歴の検索」）。
 - 依存: T3-1、T3-2、M0の決定（T0-4）
 
 ### T4-1b 操作・その場の答え・近道（F10の後半）
