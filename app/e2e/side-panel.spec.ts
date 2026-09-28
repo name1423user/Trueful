@@ -36,10 +36,16 @@ test('2段目を Cmd/Ctrl+B（メニュー）と1段目のボタンで畳む・�
     await expect(side).toBeVisible()
     await expect.poll(() => viewMatchesArea(app, window)).toBe(true)
 
-    // メニュー（Cmd/Ctrl+B）で畳む。畳んでも1段目で今の Workspace が分かる
+    // フォーカスを2段目（今の Workspace の行）に置いてから、メニュー（Cmd/Ctrl+B）で畳む。
+    // 畳んでも1段目で今の Workspace が分かる
+    await window.locator('.workspace-row').first().focus()
     await toggleFromMenu(app)
     await expect(side).toBeHidden()
     await expect(rail.getByRole('img', { name: '今の Workspace: 案件A' })).toBeVisible()
+    // 2段目の中にあったフォーカスは、見えない所に残さず1段目へ移る
+    await expect
+      .poll(() => window.evaluate(() => document.activeElement?.className ?? ''))
+      .toBe('activity-button')
     await expect(tabsButton).toHaveAttribute('aria-pressed', 'false')
     await expect.poll(() => viewMatchesArea(app, window)).toBe(true)
     await toggleFromMenu(app)
@@ -55,9 +61,11 @@ test('2段目を Cmd/Ctrl+B（メニュー）と1段目のボタンで畳む・�
 
     // ウィンドウの幅が 960px 未満になると自動で畳み、広げると開く
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setSize(900, 800))
+    await expect.poll(() => window.evaluate(() => innerWidth)).toBeLessThan(960)
     await expect(side).toBeHidden()
     await expect.poll(() => viewMatchesArea(app, window)).toBe(true)
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setSize(1200, 800))
+    await expect.poll(() => window.evaluate(() => innerWidth)).toBeGreaterThanOrEqual(960)
     await expect(side).toBeVisible()
     await expect.poll(() => viewMatchesArea(app, window)).toBe(true)
 

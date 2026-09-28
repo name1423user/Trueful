@@ -4,14 +4,20 @@ import { describe, expect, it } from 'vitest'
 
 // main.css の色のトークン（ライトは :root、ダークは prefers-color-scheme: dark の :root）
 const css = readFileSync(join(__dirname, 'main.css'), 'utf8')
+// 値は #rrggbb だけにする（ほかの書き方だと、ここで読めずに検査から漏れるため、失敗させる）
 function tokens(block: string): Record<string, string> {
   return Object.fromEntries(
-    [...block.matchAll(/--([\w-]+):\s*(#[0-9a-f]{6})/gi)].map((m) => [m[1]!, m[2]!.toLowerCase()])
+    [...block.matchAll(/--([\w-]+):\s*([^;]+);/g)].map((m) => {
+      const value = m[2]!.trim().toLowerCase()
+      if (!/^#[0-9a-f]{6}$/.test(value)) throw new Error(`--${m[1]} は #rrggbb で書く: ${value}`)
+      return [m[1]!, value]
+    })
   )
 }
-const darkStart = css.indexOf('@media (prefers-color-scheme: dark)')
-const light = tokens(css.slice(0, darkStart))
-const dark = { ...light, ...tokens(css.slice(darkStart, css.indexOf('}\n}', darkStart))) }
+const darkBlock = /@media \(prefers-color-scheme: dark\) \{\s*:root \{([^}]*)\}/.exec(css)
+if (!darkBlock) throw new Error('main.css にダークの :root がない')
+const light = tokens(css.slice(0, darkBlock.index))
+const dark = { ...light, ...tokens(darkBlock[1]!) }
 
 // WCAG 2.x のコントラスト比
 function luminance(hex: string): number {

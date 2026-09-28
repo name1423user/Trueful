@@ -25,8 +25,19 @@ function App(): React.JSX.Element {
   useEffect(() => {
     if (!refocus.current) return
     refocus.current = false
-    document.querySelector<HTMLElement>('.workspace-row[aria-current="true"]')?.focus()
+    // 2段目を畳んでいるときは、1段目のボタンへ
+    const row = document.querySelector<HTMLElement>('.workspace-row[aria-current="true"]')
+    ;(row?.checkVisibility()
+      ? row
+      : document.querySelector<HTMLElement>('.activity-button')
+    )?.focus()
   })
+  // 2段目を畳んだとき、フォーカスが2段目の中にあったら1段目のボタンへ移す（見えない所に残さない）
+  useEffect(() => {
+    if (collapsed && document.activeElement?.closest('.left-panel')) {
+      document.querySelector<HTMLElement>('.activity-button')?.focus()
+    }
+  }, [collapsed])
 
   if (state.status === 'loading') return <div className="app-shell" />
   if (state.status === 'error') {
