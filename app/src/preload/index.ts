@@ -54,9 +54,23 @@ const api = {
       ipcRenderer.invoke(channelNames.tabActivate, { workspaceId, id }),
     navigate: (workspaceId: number, id: number, input: string): Promise<IpcResult<Tab>> =>
       ipcRenderer.invoke(channelNames.tabNavigate, { workspaceId, id, input }),
+    control: (
+      workspaceId: number,
+      id: number,
+      action: 'back' | 'forward' | 'reload' | 'stop'
+    ): Promise<IpcResult<null>> =>
+      ipcRenderer.invoke(channelNames.tabControl, { workspaceId, id, action }),
+    // タブ列が変わったら知らせる（ページが新しいタブを開いた・ショートカットなど）
+    onListChanged: (listener: (workspaceId: number) => void): (() => void) =>
+      subscribe(channelNames.tabListChanged, listener),
     // ページの様子が変わったら知らせる。戻り値の関数で登録を外す
     onPageChanged: (listener: (tabId: number, page: PageState) => void): (() => void) =>
       subscribe(channelNames.tabPageChanged, listener)
+  },
+  ui: {
+    // メニューのショートカットのうち、画面で行うもの（'focus-address-bar'）
+    onCommand: (listener: (command: 'focus-address-bar') => void): (() => void) =>
+      subscribe(channelNames.uiCommand, listener)
   },
   view: {
     // ページを表示する場所（空の div の getBoundingClientRect を整数にしたもの）

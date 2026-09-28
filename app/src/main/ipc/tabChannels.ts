@@ -38,6 +38,11 @@ export const tabNavigate = defineChannel<Tab>()(
   channelNames.tabNavigate,
   z.object({ workspaceId: id, id, input: z.string().max(8192) }).strict()
 )
+// 戻る・進む・再読み込み・停止
+export const tabControl = defineChannel<null>()(
+  channelNames.tabControl,
+  z.object({ workspaceId: id, id, action: z.enum(['back', 'forward', 'reload', 'stop']) }).strict()
+)
 // ページを表示する場所（Renderer の空の div の位置と大きさ、CSS ピクセル。ADR-008）
 const length = z.int().min(0).max(100_000)
 export const viewSetBounds = defineChannel<null>()(

@@ -14,6 +14,8 @@ type Handlers = {
   // ページの URL・タイトル・読み込み中が変わった。committed は、移動が確定した・タイトルが変わったとき
   // （読み込みの開始・終了の知らせでは、URL はまだ前のページのことがある）
   onPageChanged: (tabId: number, page: PageState, committed: boolean) => void
+  // ページが新しいウィンドウで開こうとした（target=_blank・window.open）。http・https のときだけ呼ぶ
+  onOpenRequest: (tabId: number, url: string) => void
 }
 
 // タブのページを WebContentsView で表示する（ADR-008）。表示するのは1つだけで、ほかは外しておく。
@@ -126,8 +128,11 @@ export class TabViews {
     }
     wc.on('will-navigate', guard)
     wc.on('will-redirect', guard)
-    // 新しいウィンドウは開かない（新しいタブで開くのは T2-2c）
-    wc.setWindowOpenHandler(() => ({ action: 'deny' }))
+    // 新しいウィンドウは開かず、同じ Workspace の新しいタブで開く
+    wc.setWindowOpenHandler(({ url }) => {
+      if (isAllowedPageUrl(url)) this.handlers.onOpenRequest(tabId, url)
+      return { action: 'deny' }
+    })
     this.views.set(tabId, view)
     return view
   }

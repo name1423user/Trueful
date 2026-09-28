@@ -25,5 +25,15 @@
     "unavailable": "データを読み込めません。アプリを再起動してください。",
     "forbidden-sender": "この操作はできません。",
     "internal": "うまくいきませんでした。もう一度お試しください。"
+  },
+  "menu": {
+    "tab-menu": "タブ",
+    "tab-new": "新しいタブ",
+    "tab-close": "タブを閉じる",
+    "tab-reopen": "閉じたタブを開き直す",
+    "focus-address-bar": "アドレスバーへ移動",
+    "view-menu": "表示",
+    "page-reload": "ページを再読み込み",
+    "close-window": "ウィンドウを閉じる"
   }
 }

@@ -3,11 +3,15 @@ import { getCurrentWorkspaceId } from '../../workspace/services/workspaceDB'
 import { getTab, updateTabPage, type Tab } from '../services/tabDB'
 import type { PageState, TabViews } from '../services/tabViews'
 import { isAllowedPageUrl, resolveInput, type Shortcut } from '../services/urlInput'
-import { TabNotFoundError, type TabFlows } from './tabFlows'
+import { TabNotFoundError, type TabFlows, type TabState } from './tabFlows'
+
+export type PageAction = 'back' | 'forward' | 'reload' | 'stop'
 
 type Notify = {
   // ページの様子が変わった（アドレスバー・戻る・進む・タイトル）
   page: (tabId: number, page: PageState) => void
+  // タブ列が変わった（ページが新しいタブを開いた・ショートカットなど、Renderer の invoke ではない変化）
+  tabsChanged: (workspaceId: number) => void
 }
 
 // タブの操作と、ページの表示（TabViews）を合わせる進行役（F02）
@@ -43,6 +47,54 @@ export class TabPages {
     if (wc && isAllowedPageUrl(url)) void wc.loadURL(url).catch(() => {})
     else this.showActive(db, workspaceId)
     return getTab(db, id)!
+  }
+
+  // タブを閉じて、そのページを破棄し、次に選ばれたタブを表示する
+  close(db: DatabaseSync, workspaceId: number, id: number): TabState {
+    const state = this.tabs.close(db, workspaceId, id)
+    this.views.destroy(id)
+    this.showActive(db, workspaceId)
+    return state
+  }
+
+  // 戻る・進む・再読み込み・停止（ページがまだないタブでは何もしない）
+  control(db: DatabaseSync, workspaceId: number, id: number, action: PageAction): void {
+    this.owned(db, workspaceId, id)
+    const wc = this.views.webContents(id)
+    if (!wc) return
+    if (action === 'back') wc.navigationHistory.goBack()
+    else if (action === 'forward') wc.navigationHistory.goForward()
+    else if (action === 'reload') wc.reload()
+    else wc.stop()
+  }
+
+  // メニューのショートカット（Cmd/Ctrl+T・W・Shift+T・R）。今の Workspace に対して行い、タブ列の変化を知らせる
+  command(db: DatabaseSync, command: 'new' | 'close' | 'reopen' | 'reload'): void {
+    const workspaceId = getCurrentWorkspaceId(db)
+    if (workspaceId === null) return
+    if (command === 'reload') {
+      const { activeId } = this.tabs.list(db, workspaceId)
+      if (activeId !== null) this.control(db, workspaceId, activeId, 'reload')
+      return
+    }
+    if (command === 'new') this.tabs.create(db, workspaceId)
+    else if (command === 'reopen') this.tabs.reopenClosed(db, workspaceId)
+    else {
+      const { activeId } = this.tabs.list(db, workspaceId)
+      if (activeId !== null) this.close(db, workspaceId, activeId)
+    }
+    this.showActive(db, workspaceId)
+    this.notify.tabsChanged(workspaceId)
+  }
+
+  // TabViews から: ページが新しいウィンドウを開こうとした → 同じ Workspace の新しいタブで開く
+  openRequested(tabId: number, url: string): void {
+    const db = this.getDb()
+    const tab = db && getTab(db, tabId)
+    if (!db || !tab || !isAllowedPageUrl(url)) return
+    this.tabs.create(db, tab.workspaceId, url)
+    this.showActive(db, tab.workspaceId)
+    this.notify.tabsChanged(tab.workspaceId)
   }
 
   // TabViews から: ページの様子が変わった。移動が確定したとき（committed）だけ URL とタイトルを記録する
