@@ -30,7 +30,8 @@ describe('アプリのメニュー', () => {
         ['CmdOrCtrl+Shift+T', 'tab-reopen'],
         ['CmdOrCtrl+R', 'page-reload'],
         ['CmdOrCtrl+L', 'focus-address-bar'],
-        ['CmdOrCtrl+K', 'focus-address-bar']
+        ['CmdOrCtrl+K', 'focus-search'],
+        [platform === 'darwin' ? 'Alt+Cmd+I' : 'Ctrl+Shift+I', 'page-devtools']
       ]
       for (const [key, command] of commands) {
         const [item] = byAccelerator.get(key)!
@@ -49,6 +50,8 @@ describe('アプリのメニュー', () => {
       ]) {
         expect(roles).not.toContain(role)
       }
+      // 隠した項目のキーは Windows・Linux で効かないので、キーのある項目は見えるようにする
+      for (const i of items) if (i.accelerator) expect(i.visible, i.accelerator).not.toBe(false)
       // 標準の役割を使わない項目のラベルは辞書から
       for (const i of items) if (!i.role && i.type !== 'separator') expect(i.label).toBeTruthy()
     }

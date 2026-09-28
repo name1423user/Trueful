@@ -68,8 +68,8 @@ const api = {
       subscribe(channelNames.tabPageChanged, listener)
   },
   ui: {
-    // メニューのショートカットのうち、画面で行うもの（'focus-address-bar'）
-    onCommand: (listener: (command: 'focus-address-bar') => void): (() => void) =>
+    // メニューのショートカットのうち、画面で行うもの（アドレスバー・統合検索へのフォーカス）
+    onCommand: (listener: (command: 'focus-address-bar' | 'focus-search') => void): (() => void) =>
       subscribe(channelNames.uiCommand, listener)
   },
   view: {

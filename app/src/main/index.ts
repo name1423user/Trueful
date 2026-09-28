@@ -39,7 +39,7 @@ import {
 } from './workspace/services/workspaceDB'
 import { SettingsStore } from './settings/flows/settingsStore'
 import ja from '../renderer/src/locales/ja.json'
-import { appMenuTemplate } from './window/services/appMenu'
+import { appMenuTemplate, type MenuCommand } from './window/services/appMenu'
 import { isAppUrl } from './window/services/appUrl'
 import { isExternalUrl } from './window/services/externalUrl'
 
@@ -174,7 +174,8 @@ app.whenReady().then(() => {
   const tabs = new TabFlows()
   const views = new TabViews(window, {
     onPageChanged: (tabId, page, committed) => pages.pageChanged(tabId, page, committed),
-    onOpenRequest: (tabId, url) => pages.openRequested(tabId, url)
+    onOpenRequest: (tabId, url, background) => pages.openRequested(tabId, url, background),
+    onReservedShortcut: (command) => runMenuCommand(command)
   })
   const pages: TabPages = new TabPages(tabs, views, () => database, {
     page: (tabId, page) => mainWindow?.webContents.send(channelNames.tabPageChanged, tabId, page),
@@ -182,27 +183,33 @@ app.whenReady().then(() => {
       mainWindow?.webContents.send(channelNames.tabListChanged, workspaceId)
   })
   // メニューのショートカット（F02・F10）。ページにフォーカスがあっても効く
+  // macOS ではウィンドウを閉じてもメニューのキーが効くので、ウィンドウがないときは何もしない
+  const runMenuCommand = (command: MenuCommand): void => {
+    const target = mainWindow
+    if (!target || target.isDestroyed()) return
+    if (command === 'focus-address-bar' || command === 'focus-search') {
+      target.webContents.focus()
+      target.webContents.send(channelNames.uiCommand, command)
+      return
+    }
+    if (command === 'page-devtools') {
+      views.shownWebContents()?.toggleDevTools()
+      return
+    }
+    const db = database
+    if (!db?.isOpen) return
+    const tabCommand = (
+      {
+        'tab-new': 'new',
+        'tab-close': 'close',
+        'tab-reopen': 'reopen',
+        'page-reload': 'reload'
+      } as const
+    )[command]
+    pages.command(db, tabCommand)
+  }
   Menu.setApplicationMenu(
-    Menu.buildFromTemplate(
-      appMenuTemplate(process.platform, ja.menu, (command) => {
-        if (command === 'focus-address-bar') {
-          mainWindow?.webContents.focus()
-          mainWindow?.webContents.send(channelNames.uiCommand, command)
-          return
-        }
-        const db = database
-        if (!db?.isOpen) return
-        const tabCommand = (
-          {
-            'tab-new': 'new',
-            'tab-close': 'close',
-            'tab-reopen': 'reopen',
-            'page-reload': 'reload'
-          } as const
-        )[command]
-        pages.command(db, tabCommand)
-      })
-    )
+    Menu.buildFromTemplate(appMenuTemplate(process.platform, ja.menu, runMenuCommand))
   )
   // 起動したら・ウィンドウを開き直したら、今の Workspace の選択中のタブを表示する
   const showCurrent = (): void =>

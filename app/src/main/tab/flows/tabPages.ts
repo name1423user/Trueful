@@ -88,11 +88,14 @@ export class TabPages {
   }
 
   // TabViews から: ページが新しいウィンドウを開こうとした → 同じ Workspace の新しいタブで開く
-  openRequested(tabId: number, url: string): void {
+  // background（Cmd/Ctrl+クリック・中クリック）のときは、開いたタブを選ばない
+  openRequested(tabId: number, url: string, background = false): void {
     const db = this.getDb()
     const tab = db && getTab(db, tabId)
-    if (!db || !tab || !isAllowedPageUrl(url)) return
+    if (!db || !tab || !/^https?:/i.test(url) || !isAllowedPageUrl(url)) return
+    const { activeId } = this.tabs.list(db, tab.workspaceId)
     this.tabs.create(db, tab.workspaceId, url)
+    if (background && activeId !== null) this.tabs.activate(db, tab.workspaceId, activeId)
     this.showActive(db, tab.workspaceId)
     this.notify.tabsChanged(tab.workspaceId)
   }

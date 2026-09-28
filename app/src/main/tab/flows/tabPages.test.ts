@@ -186,7 +186,16 @@ describe('TabPages', () => {
     expect(state.activeId).toBe(state.tabs[1]!.id)
     expect(notify.tabsChanged).toHaveBeenCalledWith(ws)
     pages.openRequested(a.id, 'javascript:alert(1)')
+    pages.openRequested(a.id, 'about:blank')
     pages.openRequested(999, 'https://c.example/')
     expect(tabs.list(db, ws).tabs).toHaveLength(2)
+  })
+
+  it('background（Cmd/Ctrl+クリック・中クリック）のときは、開いたタブを選ばない', () => {
+    const a = tabs.create(db, ws)
+    pages.openRequested(a.id, 'https://b.example/', true)
+    const state = tabs.list(db, ws)
+    expect(state.tabs).toHaveLength(2)
+    expect(state.activeId).toBe(a.id)
   })
 })

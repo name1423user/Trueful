@@ -74,19 +74,43 @@ test('戻る・進む、window.open は新しいタブ、メニューのショ�
     await expect.poll(async () => (await tabs()).activeUrl).toBe(`${origin}/b`)
     await expect.poll(async () => (await tabs()).activeTitle).toBe('page /b')
 
-    // window.open は、同じ Workspace の新しいタブで開き、Renderer に知らせる
-    const changed = window.evaluate(
-      () =>
-        new Promise<number>((resolve) =>
-          (window as unknown as { trueful: Window['trueful'] }).trueful.tab.onListChanged(resolve)
-        )
-    )
-    await app.evaluate(({ webContents }, o) => {
-      const page = webContents.getAllWebContents().find((wc) => wc.getURL() === `${o}/b`)
-      return page?.executeJavaScript(`window.open('${o}/c')`, true)
-    }, origin)
-    expect(await changed).toBe(ws)
+    // 知らせを記録しておく（操作より先に登録する）
+    await window.evaluate(() => {
+      const w = window as unknown as {
+        trueful: Window['trueful']
+        received: { list: number[]; commands: string[] }
+      }
+      w.received = { list: [], commands: [] }
+      w.trueful.tab.onListChanged((id) => w.received.list.push(id))
+      w.trueful.ui.onCommand((c) => w.received.commands.push(c))
+    })
+    const received = (): Promise<{ list: number[]; commands: string[] }> =>
+      window.evaluate(
+        () => (window as unknown as { received: { list: number[]; commands: string[] } }).received
+      )
+
+    // ユーザーの入力なしの window.open は開かない（ポップアップを止める）
+    const openFromPage = (withInput: boolean): Promise<unknown> =>
+      app.evaluate(
+        async ({ webContents }, [o, input]) => {
+          const page = webContents.getAllWebContents().find((wc) => wc.getURL() === `${o}/b`)
+          if (!page) throw new Error('ページがない')
+          if (input) {
+            page.sendInputEvent({ type: 'mouseDown', x: 10, y: 10, button: 'left', clickCount: 1 })
+            page.sendInputEvent({ type: 'mouseUp', x: 10, y: 10, button: 'left', clickCount: 1 })
+          }
+          return page.executeJavaScript(`window.open('${o}/c')`, true)
+        },
+        [origin, withInput] as const
+      )
+    await openFromPage(false)
+    await window.waitForTimeout(300)
+    expect((await tabs()).urls).toEqual([`${origin}/b`])
+
+    // 入力の直後なら、同じ Workspace の新しいタブで開き、Renderer に知らせる
+    await openFromPage(true)
     await expect.poll(async () => (await tabs()).urls).toEqual([`${origin}/b`, `${origin}/c`])
+    await expect.poll(async () => (await received()).list).toEqual([ws])
 
     // メニューのショートカット（accelerator の項目を押す）
     const click = (id: string): Promise<void> =>
@@ -99,15 +123,12 @@ test('戻る・進む、window.open は新しいタブ、メニューのショ�
     await expect
       .poll(async () => (await tabs()).urls)
       .toEqual([`${origin}/b`, `${origin}/c`, 'about:blank'])
-    // アドレスバーへのフォーカスは、画面に知らせる
-    const command = window.evaluate(
-      () =>
-        new Promise<string>((resolve) =>
-          (window as unknown as { trueful: Window['trueful'] }).trueful.ui.onCommand(resolve)
-        )
-    )
+    // アドレスバー・統合検索へのフォーカスは、画面に知らせる
     await click('focus-address-bar')
-    expect(await command).toBe('focus-address-bar')
+    await click('focus-search')
+    await expect
+      .poll(async () => (await received()).commands)
+      .toEqual(['focus-address-bar', 'focus-search'])
   } finally {
     await app.close()
     cleanup()

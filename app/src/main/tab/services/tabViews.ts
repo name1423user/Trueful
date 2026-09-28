@@ -14,9 +14,30 @@ type Handlers = {
   // ページの URL・タイトル・読み込み中が変わった。committed は、移動が確定した・タイトルが変わったとき
   // （読み込みの開始・終了の知らせでは、URL はまだ前のページのことがある）
   onPageChanged: (tabId: number, page: PageState, committed: boolean) => void
-  // ページが新しいウィンドウで開こうとした（target=_blank・window.open）。http・https のときだけ呼ぶ
-  onOpenRequest: (tabId: number, url: string) => void
+  // ページが新しいウィンドウで開こうとした（target=_blank・window.open）。http・https で、
+  // 直前にユーザーの入力があったときだけ呼ぶ。background は Cmd/Ctrl+クリック・中クリック（選ばずに開く）
+  onOpenRequest: (tabId: number, url: string, background: boolean) => void
+  // ページにフォーカスがあるときに押された、ページに奪わせないショートカット（Chrome と同じ予約キー）
+  onReservedShortcut: (command: ReservedShortcut) => void
 }
+
+export type ReservedShortcut = 'tab-new' | 'tab-close' | 'tab-reopen'
+
+// ページに奪わせないキー（ページが keydown を止めても、Trueful の操作にする）
+export function reservedShortcut(
+  input: Pick<Electron.Input, 'type' | 'key' | 'control' | 'meta' | 'shift' | 'alt'>,
+  platform: NodeJS.Platform
+): ReservedShortcut | undefined {
+  const mod = platform === 'darwin' ? input.meta && !input.control : input.control && !input.meta
+  if (input.type !== 'keyDown' || !mod || input.alt) return undefined
+  const key = input.key.toLowerCase()
+  if (key === 't') return input.shift ? 'tab-reopen' : 'tab-new'
+  if (key === 'w' && !input.shift) return 'tab-close'
+  return undefined
+}
+
+// ユーザーの入力から、この時間の間だけ新しいタブを開ける（入力1回につき1つ）
+const GESTURE_MS = 1000
 
 // タブのページを WebContentsView で表示する（ADR-008）。表示するのは1つだけで、ほかは外しておく。
 // Workspace ごとのパーティション persist:workspace-<id> を使う（ログインを Workspace で分ける。F03）。
@@ -67,6 +88,11 @@ export class TabViews {
   setBounds(bounds: Rectangle): void {
     this.bounds = bounds
     if (this.shown !== undefined) this.views.get(this.shown)?.setBounds(bounds)
+  }
+
+  // 表示中のタブのページ（開発者ツールを開く対象）
+  shownWebContents(): WebContents | undefined {
+    return this.shown === undefined ? undefined : this.views.get(this.shown)?.webContents
   }
 
   webContents(tabId: number): WebContents | undefined {
@@ -128,9 +154,26 @@ export class TabViews {
     }
     wc.on('will-navigate', guard)
     wc.on('will-redirect', guard)
-    // 新しいウィンドウは開かず、同じ Workspace の新しいタブで開く
-    wc.setWindowOpenHandler(({ url }) => {
-      if (isAllowedPageUrl(url)) this.handlers.onOpenRequest(tabId, url)
+    // 新しいウィンドウは開かず、同じ Workspace の新しいタブで開く。Electron にはポップアップブロッカーが
+    // ないので、直前のユーザーの入力（クリック・キー）1回につき1つだけ開く（タイマーでの連続を止める）
+    let lastInput = 0
+    wc.on('input-event', (_event, input) => {
+      if (['mouseDown', 'keyDown', 'rawKeyDown', 'touchStart'].includes(input.type)) {
+        lastInput = Date.now()
+      }
+    })
+    wc.on('before-input-event', (event, input) => {
+      const command = reservedShortcut(input, process.platform)
+      if (!command) return
+      event.preventDefault()
+      this.handlers.onReservedShortcut(command)
+    })
+    wc.setWindowOpenHandler(({ url, disposition }) => {
+      const byUser = Date.now() - lastInput < GESTURE_MS
+      if (byUser && /^https?:/i.test(url) && isAllowedPageUrl(url)) {
+        lastInput = 0
+        this.handlers.onOpenRequest(tabId, url, disposition === 'background-tab')
+      }
       return { action: 'deny' }
     })
     this.views.set(tabId, view)
