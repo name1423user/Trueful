@@ -11,8 +11,12 @@ export const channelNames = {
   tabReopenClosed: 'tab:reopenClosed',
   tabActivate: 'tab:activate',
   tabNavigate: 'tab:navigate',
+  tabControl: 'tab:control',
   viewSetBounds: 'view:setBounds',
   // Main → Renderer の知らせ（webContents.send。ADR-007）
   settingsChanged: 'settings:changed',
-  tabPageChanged: 'tab:pageChanged'
+  tabPageChanged: 'tab:pageChanged',
+  tabListChanged: 'tab:listChanged',
+  // メニューのショートカットのうち、画面で行うもの（アドレスバーへのフォーカスなど）
+  uiCommand: 'ui:command'
 } as const

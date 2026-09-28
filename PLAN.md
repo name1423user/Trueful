@@ -118,12 +118,13 @@
 - 受け入れ条件: F02の受け入れ条件をすべて満たす。WebContentsViewの位置とサイズは、Rendererの空divからIPCで報告される。Workspaceを作ると空のタブが1つ開く（F01）。
 - 検証: `pnpm test:e2e`
 - 範囲外: 拡張ボタン。WebContentsView 実体の30個の上限（T2-5）。
-- 分割（2026-09-28）: T2-2a Main 側のタブ（DB・作成・閉じる・閉じたタブを戻す・選択・IPC、Workspace を作ると空のタブ）、T2-2b1 URL と検索語の解釈、T2-2b2 ページの表示（WebContentsView・アドレスバーの入力で開く・位置とサイズの報告・ページの様子の知らせ）、T2-2c 画面（タブ列・アドレスバー・戻る/進む/再読み込み/停止・ショートカット・window.open を新しいタブで開く・E2E）。
+- 分割（2026-09-28）: T2-2a Main 側のタブ（DB・作成・閉じる・閉じたタブを戻す・選択・IPC、Workspace を作ると空のタブ）、T2-2b1 URL と検索語の解釈、T2-2b2 ページの表示（WebContentsView・アドレスバーの入力で開く・位置とサイズの報告・ページの様子の知らせ）、T2-2c1 Main 側の操作（戻る/進む/再読み込み/停止、window.open を新しいタブで開く、メニューのショートカット Cmd/Ctrl+T・W・Shift+T・R・L・K、ページの開発者ツール。ページの拡大・縮小は後のタスク）、T2-2c2 画面（タブ列・アドレスバー・ボタン・空の div からの位置の報告・E2E とスクリーンショット）。
 - 依存: T2-1
 
 ### T2-3 パーティションとログイン保持（F03）
 - 受け入れ条件: F03の受け入れ条件を満たす（Googleの条件はM0の決定に従う）。WorkspaceAのCookieがBから見えないことをE2Eで確認。
 - 検証: `pnpm test:e2e`
+- 注意（2026-09-28、T2-2c1 のレビュー）: ページの `window.open` は、断ってから新しいタブで開き直すので、`window.opener`・`postMessage`・POST の本文が失われる。ポップアップ方式のログイン（Google Identity Services の popup、Firebase の signInWithPopup など）が戻ってこない。ここで実機で確かめ、必要なら `setWindowOpenHandler` の `createWindow` でタブに入れる方式に変える。
 - 依存: T2-2
 
 ### T2-4 左パネル（F15の前半）

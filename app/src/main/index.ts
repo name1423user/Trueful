@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, session, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, session, shell } from 'electron'
 import type { DatabaseSync } from 'node:sqlite'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
@@ -10,6 +10,7 @@ import { settingsGet, settingsUpdate } from './ipc/settingsChannels'
 import {
   tabActivate,
   tabClose,
+  tabControl,
   tabCreate,
   tabList,
   tabNavigate,
@@ -37,6 +38,8 @@ import {
   listWorkspaces
 } from './workspace/services/workspaceDB'
 import { SettingsStore } from './settings/flows/settingsStore'
+import ja from '../renderer/src/locales/ja.json'
+import { appMenuTemplate, type MenuCommand } from './window/services/appMenu'
 import { isAppUrl } from './window/services/appUrl'
 import { isExternalUrl } from './window/services/externalUrl'
 
@@ -170,11 +173,44 @@ app.whenReady().then(() => {
   const window = mainWindow!
   const tabs = new TabFlows()
   const views = new TabViews(window, {
-    onPageChanged: (tabId, page, committed) => pages.pageChanged(tabId, page, committed)
+    onPageChanged: (tabId, page, committed) => pages.pageChanged(tabId, page, committed),
+    onOpenRequest: (tabId, url, background) => pages.openRequested(tabId, url, background),
+    onReservedShortcut: (command) => runMenuCommand(command)
   })
   const pages: TabPages = new TabPages(tabs, views, () => database, {
-    page: (tabId, page) => mainWindow?.webContents.send(channelNames.tabPageChanged, tabId, page)
+    page: (tabId, page) => mainWindow?.webContents.send(channelNames.tabPageChanged, tabId, page),
+    tabsChanged: (workspaceId) =>
+      mainWindow?.webContents.send(channelNames.tabListChanged, workspaceId)
   })
+  // メニューのショートカット（F02・F10）。ページにフォーカスがあっても効く
+  // macOS ではウィンドウを閉じてもメニューのキーが効くので、ウィンドウがないときは何もしない
+  const runMenuCommand = (command: MenuCommand): void => {
+    const target = mainWindow
+    if (!target || target.isDestroyed()) return
+    if (command === 'focus-address-bar' || command === 'focus-search') {
+      target.webContents.focus()
+      target.webContents.send(channelNames.uiCommand, command)
+      return
+    }
+    if (command === 'page-devtools') {
+      views.shownWebContents()?.toggleDevTools()
+      return
+    }
+    const db = database
+    if (!db?.isOpen) return
+    const tabCommand = (
+      {
+        'tab-new': 'new',
+        'tab-close': 'close',
+        'tab-reopen': 'reopen',
+        'page-reload': 'reload'
+      } as const
+    )[command]
+    pages.command(db, tabCommand)
+  }
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate(appMenuTemplate(process.platform, ja.menu, runMenuCommand))
+  )
   // 起動したら・ウィンドウを開き直したら、今の Workspace の選択中のタブを表示する
   const showCurrent = (): void =>
     void databaseReady
@@ -239,9 +275,7 @@ app.whenReady().then(() => {
   })
   handle(tabClose, async ({ workspaceId, id }) => {
     const db = await getWorkspaceDatabase(workspaceId)
-    const state = notFoundAs(() => tabs.close(db, workspaceId, id))
-    views.destroy(id)
-    return thenShow(db, workspaceId, state)
+    return notFoundAs(() => pages.close(db, workspaceId, id))
   })
   handle(tabReopenClosed, async ({ workspaceId }) => {
     const db = await getWorkspaceDatabase(workspaceId)
@@ -259,6 +293,11 @@ app.whenReady().then(() => {
     const db = await getWorkspaceDatabase(workspaceId)
     const { shortcuts } = store.get().settings
     return notFoundAs(() => pages.navigate(db, workspaceId, id, input, shortcuts))
+  })
+  handle(tabControl, async ({ workspaceId, id, action }) => {
+    const db = await getWorkspaceDatabase(workspaceId)
+    notFoundAs(() => pages.control(db, workspaceId, id, action))
+    return null
   })
   handle(viewSetBounds, (bounds) => {
     views.setBounds(bounds)
