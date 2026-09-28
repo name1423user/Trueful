@@ -1,0 +1,60 @@
+# T1-3a: better-sqlite3 と node:sqlite を、3 OS の Electron 44 で比べる試作用。本体の CI（ci.yml）とは別
+name: Spike SQLite compare
+
+on:
+  pull_request:
+    paths:
+      - spikes/sqlite-compare/**
+      - .github/workflows/spike-sqlite.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: spikes/sqlite-compare
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 12.3.4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: spikes/sqlite-compare/pnpm-lock.yaml
+
+      # better-sqlite3 は、この時点では素の Node 24 向けに入る
+      - run: pnpm install --frozen-lockfile
+
+      # Ubuntu 24.04 で Chromium のサンドボックスを動かすため（ci.yml と同じ。--no-sandbox は使わない）
+      - if: runner.os == 'Linux'
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          echo "RUN=xvfb-run -a" >> "$GITHUB_ENV"
+
+      - name: 素の Node 24 で測る（参考）
+        run: node bench.mjs --label=node24
+      - name: Electron で測る（再ビルド前）
+        run: $RUN pnpm exec electron . --label=before-rebuild
+      - name: better-sqlite3 を Electron 向けに再ビルド
+        run: time pnpm run rebuild
+      - name: Electron で測る（再ビルド後）
+        run: $RUN pnpm exec electron . --label=after-rebuild
+
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sqlite-compare-${{ matrix.os }}
+          path: spikes/sqlite-compare/results/
+          if-no-files-found: ignore
