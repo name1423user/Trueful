@@ -18,6 +18,8 @@ test('起動すると、指定した保存場所に DB とバックアップが�
     const db = new DatabaseSync(join(userDataDir, 'trueful.db'), { readOnly: true })
     try {
       expect(db.prepare('PRAGMA quick_check').get()?.['quick_check']).toBe('ok')
+      expect(db.prepare('PRAGMA user_version').get()?.['user_version']).toBe(1)
+      expect(db.prepare('SELECT count(*) n FROM app_state').get()?.['n']).toBe(1)
     } finally {
       db.close()
     }
