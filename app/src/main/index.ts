@@ -13,7 +13,12 @@ import {
   switchWorkspace,
   WorkspaceNotFoundError
 } from './workspace/flows/workspaceFlows'
-import { ensureComManifests, prepareWorkspaceFiles } from './workspace/flows/workspaceFileFlows'
+import {
+  ensureComManifests,
+  prepareWorkspaceFiles,
+  purgeWorkspaceTrash
+} from './workspace/flows/workspaceFileFlows'
+import type { WorkspaceRoots } from './workspace/services/workspaceFiles'
 import { getCurrentWorkspaceId, listWorkspaces } from './workspace/services/workspaceDB'
 import { SettingsStore } from './settings/flows/settingsStore'
 import { isAppUrl } from './window/services/appUrl'
@@ -93,6 +98,12 @@ app.whenReady().then(() => {
 
   // 失敗したときの復元と通知は F12 で行う。ここでは記録だけする
   const userData = app.getPath('userData')
+  // パーティションは sessionData の下に作られる（既定では userData と同じ場所）
+  const workspaceRoots: WorkspaceRoots = { userData, sessionData: app.getPath('sessionData') }
+  const purgeTrash = (): void =>
+    void purgeWorkspaceTrash(workspaceRoots).then((errors) => {
+      if (errors.length > 0) console.warn('[main] 片付け用のフォルダを消せなかった', errors)
+    })
   const databaseReady = initDatabase(userData)
   databaseReady
     .then((db) => {
@@ -101,10 +112,16 @@ app.whenReady().then(() => {
         return
       }
       database = db
-      // Workspace の COM 側のマニフェストをそろえる（ない・壊れているものを書き直す。ADR-013）
-      const { repaired, failed } = ensureComManifests(db, userData)
-      if (repaired.length > 0) console.warn('[main] マニフェストを書き直した', repaired)
-      if (failed.length > 0) console.error('[main] マニフェストを書けなかった', failed)
+      // Workspace の COM 側のマニフェストをそろえる（ない・壊れているものを書き直す。ADR-013）。
+      // 前回消しきれなかった片付け用のフォルダも消す（ADR-011 の起動時クリーンアップ）
+      try {
+        const { repaired, failed } = ensureComManifests(db, workspaceRoots)
+        if (repaired.length > 0) console.warn('[main] マニフェストを書き直した', repaired)
+        if (failed.length > 0) console.error('[main] マニフェストを書けなかった', failed)
+      } catch (e) {
+        console.error('[main] マニフェストをそろえられなかった', e)
+      }
+      purgeTrash()
     })
     .catch((e) => console.error('[main] DB の準備に失敗', e))
 
@@ -128,12 +145,16 @@ app.whenReady().then(() => {
     if (!db || !db.isOpen) throw new IpcHandlerError('unavailable', 'DB を使えない')
     return db
   }
-  const createWorkspace = createWorkspaceFlow(prepareWorkspaceFiles(userData))
+  const createWorkspace = createWorkspaceFlow(prepareWorkspaceFiles(workspaceRoots))
   handle(workspaceList, async () => {
     const db = await getDatabase()
     return { workspaces: listWorkspaces(db), currentId: getCurrentWorkspaceId(db) }
   })
-  handle(workspaceCreate, async (input) => createWorkspace(await getDatabase(), input))
+  handle(workspaceCreate, async (input) => {
+    const created = await createWorkspace(await getDatabase(), input)
+    purgeTrash() // 作成で片付け用の場所へ移したフォルダを、トランザクションの外で消す
+    return created
+  })
   handle(workspaceSwitch, async ({ id }) => {
     const db = await getDatabase()
     try {

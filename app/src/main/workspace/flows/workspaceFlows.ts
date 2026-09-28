@@ -3,6 +3,7 @@ import {
   getWorkspace,
   insertWorkspace,
   setCurrentWorkspaceId,
+  skipWorkspaceId,
   touchWorkspace,
   type Workspace,
   type WorkspaceMode
@@ -31,6 +32,9 @@ function inTransaction<T>(db: DatabaseSync, fn: () => T): T {
 // Workspace を作り、そのまま開く（F01）。
 // prepare（パーティションの残りの削除と、マニフェストの書き込み）は行を足したのと同じトランザクションの中で行う。
 // prepare が失敗したら行も取り消す（DB にあるのにファイルがない Workspace を作らない）。
+// そのときは、その id を飛ばす（同じ id で同じ残りのフォルダに当たって、失敗し続けないため）。
+// prepare は同期に限る（同じトランザクションの中で動くため）。非同期の準備が要るときは、
+// トランザクションの外に出し、「同じ依頼が同時に2回届いても1つだけ作る」テストを非同期で戻す。
 // 同じ requestId の依頼がもう一度届いたら（ボタンの二度押し・送り直し）、作らずに最初の結果を返す。
 // requestId が同じなら、名前や Mode の違いは見ない（ipc-spec.md）
 export function createWorkspaceFlow(
@@ -44,13 +48,21 @@ export function createWorkspaceFlow(
   return (db, { name, mode, requestId }, now = Date.now()) => {
     const earlier = requests.get(requestId)
     if (earlier) return earlier
-    const creating = (async () =>
-      inTransaction(db, () => {
-        const created = insertWorkspace(db, { name, mode }, now)
-        setCurrentWorkspaceId(db, created.id)
-        prepare(created)
-        return created
-      }))()
+    const creating = (async () => {
+      let preparing: number | undefined
+      try {
+        return inTransaction(db, () => {
+          const created = insertWorkspace(db, { name, mode }, now)
+          setCurrentWorkspaceId(db, created.id)
+          preparing = created.id
+          prepare(created)
+          return created
+        })
+      } catch (e) {
+        if (preparing !== undefined) skipWorkspaceId(db, preparing)
+        throw e
+      }
+    })()
     requests.set(requestId, creating)
     // 失敗した依頼は忘れる（送り直せば作り直す）
     creating.catch(() => requests.delete(requestId))

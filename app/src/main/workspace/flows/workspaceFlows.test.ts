@@ -57,21 +57,20 @@ describe('Workspace の作成', () => {
     expect(listWorkspaces(db)).toHaveLength(1)
   })
 
-  it('ファイルの準備（prepare）が失敗したら、行も取り消す。準備には作った Workspace が渡る', async () => {
+  it('準備（prepare）が失敗したら行も取り消し、その id は飛ばす（同じ残りに当たって失敗し続けない）', async () => {
     const prepared: number[] = []
-    let fail = true
     const create = createWorkspaceFlow((w) => {
       prepared.push(w.id)
-      if (fail) throw new Error('disk full')
+      if (w.id === 1) throw new Error('id 1 のフォルダを片付けられない')
     })
     await expect(create(db, { name: 'A', mode: 'custom', requestId: 'r1' })).rejects.toThrow(
-      'disk full'
+      '片付けられない'
     )
     expect(listWorkspaces(db)).toHaveLength(0)
     expect(getCurrentWorkspaceId(db)).toBeNull()
-    fail = false
     const created = await create(db, { name: 'A', mode: 'custom', requestId: 'r1' })
-    expect(prepared.at(-1)).toBe(created.id)
+    expect(created.id).toBe(2)
+    expect(prepared).toEqual([1, 2])
     expect(listWorkspaces(db)).toHaveLength(1)
   })
 })

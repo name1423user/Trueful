@@ -251,16 +251,23 @@ workspace_snapshot（外部キーなし。削除された Workspace の控え）
 
 ### Workspace のフォルダ（T2-1c、2026-09-28）
 ```
-userData/
+<userData>/
 ├── trueful.db
-├── workspaces/<id>/
-│   ├── com.json         COM 側のマニフェスト {"id": <id>}（ADR-013）
-│   └── workspace.json   USER 側の json（Phase 2。名前だけ予約）
-└── Partitions/workspace-<id>/   パーティション persist:workspace-<id>（Electron が作る）
+└── workspaces/
+    ├── <id>/
+    │   ├── com.json         COM 側のマニフェスト {"id": <id>}（ADR-013）
+    │   └── workspace.json   USER 側の json（Phase 2。名前だけ予約）
+    └── .trash/              片付け用（中身は後で消す）
+<sessionData>/                既定では userData と同じ場所
+└── Partitions/
+    ├── workspace-<id>/      パーティション persist:workspace-<id>（Electron が作る）
+    └── .trash/              片付け用（中身は後で消す）
 ```
-- `com.json` は、Workspace を作るときに、行を足すのと同じトランザクションの中で書く（ADR-014 の tmp → rename）。書けなければ行も取り消す。起動時に、DB にある Workspace の `com.json` がない・壊れている・id が合わないときは書き直す（中身は id だけなので、DB から作り直せる）。
+- 作るとき（行を足すのと同じトランザクションの中）: 同じ id の `Partitions/workspace-<id>` と `workspaces/<id>` が残っていたら、それぞれの `.trash` へ移して空から始める（前の Workspace のログインやファイルを引き継がない）。そのあとで `com.json` を書く（ADR-014 の tmp → rename）。移すだけにするのは、中身が大きくても Main を止めないため。`.trash` の中身は、作成のあとと起動時に、トランザクションの外で消す（消せなければ次の起動でもう一度）。
+- 準備に失敗したら、行を取り消し、その id は使い終わったことにする（`sqlite_sequence` を進める）。取り消すと次も同じ id になり、同じ残りに当たって作れなくなり続けるため。
+- 起動時: DB にある Workspace の `com.json` がない・壊れている・id が合わないときは書き直す（中身は id だけなので、DB から作り直せる）。
 - USER 側の json は MVP では作らない。名前・Mode・タブなどは、すべて DB が正（ADR-013）で、MVP では json に書き出す中身がないため。Git 連携・エクスポート（Phase 2）で中身を決めるときに、新しいファイルとして足す（既にある `com.json` の形は変えない）。`workspace_manifest_backup` は、そのときから使う。
-- 後から壊さないための約束: マニフェストを読む側は、知らない項目を無視する。`schemaVersion` がないものは版 1 として扱う（形を変える必要が出たときにだけ `schemaVersion` を足す）。
+- 後から壊さないための約束（マニフェストを読む側）: 知らない項目は無視する。`schemaVersion` がないものは版 1 として扱う（形を変える必要が出たときにだけ `schemaVersion` を足す）。知っている版より新しい `schemaVersion` のものは、読めなくても書き直さない（古い版のアプリで起動しても、新しい版の項目を消さない）。
 
 ### Workspace の削除（F01）
 1. `workspace_snapshot` に控えを書く。

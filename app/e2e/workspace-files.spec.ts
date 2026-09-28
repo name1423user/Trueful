@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { launchApp } from './launchApp'
 
@@ -32,5 +32,34 @@ test('Workspace を作ると COM 側のマニフェストができ、同じ id �
   } finally {
     await app.close()
     cleanup()
+  }
+})
+
+test('起動すると、DB にある Workspace のなくなったマニフェストを書き直す', async () => {
+  const first = await launchApp()
+  const manifest = join(first.userDataDir, 'workspaces', '1', 'com.json')
+  try {
+    const window = await first.app.firstWindow()
+    await window.evaluate(async () => {
+      const api = (window as unknown as { trueful: Window['trueful'] }).trueful.workspace
+      return api.create({ name: '案件A', mode: 'custom', requestId: crypto.randomUUID() })
+    })
+    expect(existsSync(manifest)).toBe(true)
+  } finally {
+    await first.app.close()
+  }
+  // T2-1c より前に作った Workspace と同じ状態（DB に行があり、マニフェストがない）にして起動し直す
+  rmSync(manifest)
+  const second = await launchApp(undefined, { userDataDir: first.userDataDir })
+  try {
+    const window = await second.app.firstWindow()
+    // DB の準備が終わるまで待つ（マニフェストは、その直後にそろえる）
+    await window.evaluate(async () => {
+      await (window as unknown as { trueful: Window['trueful'] }).trueful.workspace.list()
+    })
+    expect(JSON.parse(readFileSync(manifest, 'utf8'))).toEqual({ id: 1 })
+  } finally {
+    await second.app.close()
+    second.cleanup()
   }
 })
