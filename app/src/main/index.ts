@@ -192,6 +192,11 @@ app.whenReady().then(() => {
       target.webContents.send(channelNames.uiCommand, command)
       return
     }
+    // 2段目の開閉は画面で行う（フォーカスは動かさない）
+    if (command === 'toggle-side-panel') {
+      target.webContents.send(channelNames.uiCommand, command)
+      return
+    }
     if (command === 'page-devtools') {
       views.shownWebContents()?.toggleDevTools()
       return

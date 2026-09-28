@@ -10,6 +10,7 @@ export type MenuCommand =
   | 'page-devtools'
   | 'focus-address-bar'
   | 'focus-search'
+  | 'toggle-side-panel'
 
 type Labels = Record<MenuCommand | 'tab-menu' | 'view-menu' | 'close-window', string>
 
@@ -59,6 +60,8 @@ export function appMenuTemplate(
       label: labels['view-menu'],
       submenu: [
         item('page-reload', 'CmdOrCtrl+R'),
+        // 左パネルの2段目を畳む・開く（F15）
+        item('toggle-side-panel', 'CmdOrCtrl+B'),
         // 開発者ツールは、UI ではなく表示中のページに対して開く
         item('page-devtools', mac ? 'Alt+Cmd+I' : 'Ctrl+Shift+I'),
         { role: 'togglefullscreen' }

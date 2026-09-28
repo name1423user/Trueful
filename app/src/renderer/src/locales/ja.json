@@ -34,6 +34,7 @@
     "focus-address-bar": "アドレスバーへ移動",
     "view-menu": "表示",
     "page-reload": "ページを再読み込み",
+    "toggle-side-panel": "左パネルを畳む・開く",
     "close-window": "ウィンドウを閉じる",
     "focus-search": "統合検索へ移動",
     "page-devtools": "開発者ツール"
