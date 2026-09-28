@@ -2,7 +2,8 @@ import { useTranslation } from 'react-i18next'
 import type { Workspace } from './useWorkspaces'
 
 // 左パネルの Workspace の一覧（F01・F15 の一部）。行を選ぶと切り替える。
-// 今の Workspace は aria-current で示し、ハイライトはグレー系（Blue は Production の Mode 色だけ）
+// 今の Workspace は aria-current で示し、ハイライトはグレー系（Blue は Production の Mode 色だけ）。
+// 0個のときは中央が作成画面なので、「追加」は出さない
 export function WorkspaceList(props: {
   workspaces: Workspace[]
   currentId: number | null
@@ -27,9 +28,12 @@ export function WorkspaceList(props: {
           </li>
         ))}
       </ul>
-      <button type="button" className="workspace-add" onClick={props.onAdd}>
-        + {t('workspace.add')}
-      </button>
+      {props.workspaces.length > 0 && (
+        <button type="button" className="workspace-add" onClick={props.onAdd}>
+          <span aria-hidden="true">+ </span>
+          {t('workspace.add')}
+        </button>
+      )}
     </nav>
   )
 }

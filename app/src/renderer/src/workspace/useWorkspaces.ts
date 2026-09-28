@@ -23,7 +23,11 @@ function toState(result: Awaited<ReturnType<Api['list']>>): WorkspacesState {
 // Workspace の一覧と、作成・切替（Main の workspace:* を呼ぶ）
 export function useWorkspaces(): {
   state: WorkspacesState
-  create: (name: string, mode: WorkspaceMode) => Promise<IpcErrorCode | undefined>
+  create: (
+    name: string,
+    mode: WorkspaceMode,
+    requestId: string
+  ) => Promise<IpcErrorCode | undefined>
   switchTo: (id: number) => Promise<IpcErrorCode | undefined>
 } {
   const [state, setState] = useState<WorkspacesState>({ status: 'loading' })
@@ -41,10 +45,10 @@ export function useWorkspaces(): {
     }
   }, [])
 
-  // 二度押しで2つ作らないよう、1回の作成に1つの requestId を付ける（Main でも同じ依頼は1回だけ処理する）
+  // requestId は作成画面が1回の作成ごとに1つ用意する。同じ requestId の依頼は Main が1回だけ処理する
   const create = useCallback(
-    async (name: string, mode: WorkspaceMode) => {
-      const result = await api.create({ name, mode, requestId: crypto.randomUUID() })
+    async (name: string, mode: WorkspaceMode, requestId: string) => {
+      const result = await api.create({ name, mode, requestId })
       if (!result.ok) return result.error.code
       await reload()
       return undefined
@@ -53,12 +57,19 @@ export function useWorkspaces(): {
   )
 
   // 切り替えは、Main の返事を待ってから一覧を読み直さずに、今の Workspace だけを変える（300ms 以内）
-  const switchTo = useCallback(async (id: number) => {
-    const result = await api.switch(id)
-    if (!result.ok) return result.error.code
-    setState((s) => (s.status === 'ready' ? { ...s, currentId: id } : s))
-    return undefined
-  }, [])
+  // 見つからなかったときは、一覧が古いので読み直す
+  const switchTo = useCallback(
+    async (id: number) => {
+      const result = await api.switch(id)
+      if (!result.ok) {
+        if (result.error.code === 'not-found') await reload()
+        return result.error.code
+      }
+      setState((s) => (s.status === 'ready' ? { ...s, currentId: id } : s))
+      return undefined
+    },
+    [reload]
+  )
 
   return { state, create, switchTo }
 }

@@ -12,17 +12,31 @@ test('Workspace が0個なら作成画面を出し、作ると一覧に出る。
     await window.getByLabel('Production（本番）').check()
     await window.getByRole('button', { name: '作成' }).dblclick()
     const rows = window.locator('.workspace-row')
-    await expect(rows).toHaveCount(1)
     await expect(window.getByText('今の Workspace: 案件A')).toBeVisible()
+    // 作成画面が閉じた後に、Main に記録された数を確かめる（2回目が遅れて届いても数える）
+    const count = await window.evaluate(async () => {
+      // e2e の型の範囲には preload の型がないので、使う部分だけ書く
+      type ListResult = { ok: boolean; value?: { workspaces: unknown[] } }
+      const { trueful } = globalThis as unknown as {
+        trueful: { workspace: { list: () => Promise<ListResult> } }
+      }
+      const result = await trueful.workspace.list()
+      return result.value?.workspaces.length ?? -1
+    })
+    expect(count).toBe(1)
+    await expect(rows).toHaveCount(1)
 
     // 2つ目: 左パネルの「追加」から作る
-    await window.getByRole('button', { name: '+ Workspace を追加' }).click()
+    await window.getByRole('button', { name: 'Workspace を追加' }).click()
     await window.getByLabel('名前').fill('案件B')
     await window.getByRole('button', { name: '作成' }).click()
     await expect(rows).toHaveCount(2)
     await expect(rows.nth(1)).toHaveAttribute('aria-current', 'true')
+    // 作成画面を閉じたら、フォーカスは今の Workspace の行に戻る
+    await expect(rows.nth(1)).toBeFocused()
 
-    // 案件A に切り替える。クリックから、今の Workspace の表示が変わるまでの時間を測る
+    // 案件A に切り替える。クリック（入力の遅れは含まない）から、今の Workspace の表示が変わり、
+    // その次のフレームが描かれるまで（paint を含む）の時間を測る
     const switchMs = await window.evaluate(async () => {
       const row = document.querySelectorAll<HTMLButtonElement>('.workspace-row')[0]
       const started = performance.now()
@@ -34,6 +48,7 @@ test('Workspace が0個なら作成画面を出し、作ると一覧に出る。
             : void requestAnimationFrame(check)
         check()
       })
+      await new Promise((resolve) => requestAnimationFrame(resolve))
       return performance.now() - started
     })
     expect(switchMs).toBeLessThan(300)

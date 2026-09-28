@@ -1,4 +1,6 @@
 :root {
+  /* 入力欄やボタンなどの標準部品も、OS のライト・ダークに合わせる */
+  color-scheme: light dark;
   --bg: #f4f4f5;
   --surface: #ffffff;
   --border: #d4d4d8;

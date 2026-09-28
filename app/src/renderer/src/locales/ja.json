@@ -6,6 +6,7 @@
     "createLead": "案件や用途ごとに Workspace を分けると、タブとログインが混ざりません。",
     "nameLabel": "名前",
     "namePlaceholder": "例: 案件A",
+    "nameTooLong": "名前は{{max}}文字までです。",
     "modeLabel": "Mode",
     "mode": {
       "production": "Production（本番）",
