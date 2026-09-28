@@ -63,9 +63,9 @@ test('2段目を Cmd/Ctrl+B（メニュー）と1段目のボタンで畳む・�
 
     // スクリーンショット: ライト・ダーク × 2段目の開閉
     for (const theme of ['light', 'dark'] as const) {
-      await app.evaluate(({ nativeTheme }, t) => {
-        nativeTheme.themeSource = t
-      }, theme)
+      // nativeTheme.themeSource は CI の Linux で画面の prefers-color-scheme に届かなかったので、
+      // 画面の側で切り替える（Chromium の DevTools の機能。見た目の確認用）
+      await window.emulateMedia({ colorScheme: theme })
       await expect
         .poll(() => window.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches))
         .toBe(theme === 'dark')
