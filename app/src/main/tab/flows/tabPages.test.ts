@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { migrations } from '../../db/migrations'
 import { migrate } from '../../db/services/migrate'
-import { insertWorkspace } from '../../workspace/services/workspaceDB'
+import { insertWorkspace, setCurrentWorkspaceId } from '../../workspace/services/workspaceDB'
 import { getTab } from '../services/tabDB'
 import type { PageState, TabViews } from '../services/tabViews'
 import { TabFlows, TabNotFoundError } from './tabFlows'
@@ -29,6 +29,7 @@ beforeEach(() => {
   migrate(db, migrations)
   tabs = new TabFlows()
   ws = insertWorkspace(db, { name: 'A', mode: 'custom' }, 0).id
+  setCurrentWorkspaceId(db, ws)
   loaded.length = 0
   shown.length = 0
   withPage = new Set()
@@ -42,6 +43,13 @@ describe('TabPages', () => {
     const b = tabs.create(db, ws)
     pages.showActive(db, ws)
     expect(shown).toEqual([b.id])
+  })
+
+  it('今の Workspace でなければ表示しない（別の Workspace のページを重ねない）', () => {
+    const other = insertWorkspace(db, { name: 'B', mode: 'custom' }, 0).id
+    tabs.create(db, other)
+    pages.showActive(db, other)
+    expect(shown).toEqual([])
   })
 
   it('入力を解釈して記録し、ページがあれば読み込む。なければ選択中のタブを表示する', () => {
@@ -73,6 +81,24 @@ describe('TabPages', () => {
     pages.pageChanged(a.id, page)
     expect(getTab(db, a.id)).toMatchObject({ url: 'https://a.example/', title: 'A' })
     expect(notify.page).toHaveBeenCalledWith(a.id, page)
+    notify.page.mockClear()
     expect(() => pages.pageChanged(999, page)).not.toThrow()
+    expect(notify.page).not.toHaveBeenCalled()
+  })
+
+  it('読み込みの開始・終了の知らせ（確定前）では記録しない。知らせは送る', () => {
+    const a = tabs.create(db, ws)
+    withPage.add(a.id)
+    pages.navigate(db, ws, a.id, 'example.com', [])
+    const old: PageState = {
+      url: 'https://old.example/',
+      title: 'old',
+      canGoBack: true,
+      canGoForward: false,
+      loading: true
+    }
+    pages.pageChanged(a.id, old, false)
+    expect(getTab(db, a.id)?.url).toBe('https://example.com/')
+    expect(notify.page).toHaveBeenCalledWith(a.id, old)
   })
 })

@@ -3,13 +3,22 @@ import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { launchApp } from './launchApp'
 
-// テスト用のページ。/a と /b はタイトルだけのページ
+// テスト用のページ（ローカルの HTTP サーバー。外のネットワークには出ない）
 let server: Server
 let origin: string
 test.beforeAll(async () => {
   server = createServer((req, res) => {
+    // /redirect は file: へリダイレクトする（止まることを確かめる）
+    if (req.url === '/redirect') {
+      res.writeHead(302, { location: 'file:///etc/passwd' })
+      res.end()
+      return
+    }
     res.setHeader('content-type', 'text/html; charset=utf-8')
-    res.end(`<!doctype html><title>page ${req.url}</title><p>${req.url}</p>`)
+    res.end(
+      `<!doctype html><title>page ${req.url}</title>` +
+        `<a id="file" href="file:///etc/passwd">file</a><p>${req.url}</p>`
+    )
   })
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
@@ -58,10 +67,24 @@ test('アドレスバーの入力でページを開き、URL とタイトルが�
     await navigate(`${origin}/b`)
     await expect.poll(async () => (await tabs()).active.url).toBe(`${origin}/b`)
 
-    // http・https 以外は開かず、検索語として扱う
-    expect((await navigate('file:///etc/passwd')).url).toMatch(
-      /^https:\/\/www\.google\.com\/search\?q=file/
+    // ページの中から http・https 以外へは移動しない（リンクもリダイレクトも。入力の解釈は単体テストで見る）
+    const pageUrl = (): Promise<string | undefined> =>
+      app.evaluate(({ webContents }, o) => {
+        const page = webContents.getAllWebContents().find((wc) => wc.getURL().startsWith(o))
+        return page?.getURL()
+      }, origin)
+    await app.evaluate(({ webContents }, o) => {
+      const page = webContents.getAllWebContents().find((wc) => wc.getURL().startsWith(o))
+      return page?.executeJavaScript(`document.getElementById('file').click()`, true)
+    }, origin)
+    await window.waitForTimeout(500)
+    expect(await pageUrl()).toBe(`${origin}/b`)
+    await navigate(`${origin}/redirect`)
+    await window.waitForTimeout(500)
+    const all = await app.evaluate(({ webContents }) =>
+      webContents.getAllWebContents().map((wc) => wc.getURL())
     )
+    expect(all.some((u) => u.startsWith('file:'))).toBe(false)
     await navigate(`${origin}/a`)
     await expect.poll(async () => (await tabs()).active.url).toBe(`${origin}/a`)
 

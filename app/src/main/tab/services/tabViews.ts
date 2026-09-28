@@ -11,8 +11,9 @@ export type PageState = {
 }
 
 type Handlers = {
-  // ページの URL・タイトル・読み込み中が変わった
-  onPageChanged: (tabId: number, page: PageState) => void
+  // ページの URL・タイトル・読み込み中が変わった。committed は、移動が確定した・タイトルが変わったとき
+  // （読み込みの開始・終了の知らせでは、URL はまだ前のページのことがある）
+  onPageChanged: (tabId: number, page: PageState, committed: boolean) => void
 }
 
 // タブのページを WebContentsView で表示する（ADR-008）。表示するのは1つだけで、ほかは外しておく。
@@ -22,21 +23,34 @@ export class TabViews {
   private readonly views = new Map<number, WebContentsView>()
   private shown: number | undefined
   private bounds: Rectangle = { x: 0, y: 0, width: 0, height: 0 }
+  // 権限のハンドラを設定したパーティション（1つのセッションに1回だけ設定する）
+  private readonly guarded = new Set<string>()
 
   constructor(
-    private readonly window: BaseWindow,
+    private window: BaseWindow,
     private readonly handlers: Handlers
   ) {}
 
+  // ウィンドウを閉じたら、すべてのページを破棄する（WebContentsView のページは、ウィンドウを閉じても
+  // 自動では消えず、見えないまま動き続けるため）。開き直したウィンドウには attach で付け直す
+  destroyAll(): void {
+    for (const id of [...this.views.keys()]) this.destroy(id)
+  }
+
+  attach(window: BaseWindow): void {
+    this.destroyAll()
+    this.window = window
+  }
+
   // そのタブのページを表示する（なければ作って url を読み込む）
   show(tab: { id: number; workspaceId: number; url: string }): void {
-    // ウィンドウを閉じた後（macOS でアプリが残っているとき）は何もしない。ウィンドウを開き直したときの表示は、
-    // 複数ウィンドウ（Phase 2）と合わせて決める
     if (this.window.isDestroyed()) return
     let view = this.views.get(tab.id)
     if (!view) {
       view = this.create(tab.id, tab.workspaceId)
-      void view.webContents.loadURL(tab.url).catch(() => {})
+      // DB の URL も、読み込む前に確かめる（多層防御）
+      const url = isAllowedPageUrl(tab.url) ? tab.url : 'about:blank'
+      void view.webContents.loadURL(url).catch(() => {})
     }
     if (this.shown !== undefined && this.shown !== tab.id) {
       const previous = this.views.get(this.shown)
@@ -61,8 +75,8 @@ export class TabViews {
   destroy(tabId: number): void {
     const view = this.views.get(tabId)
     if (!view) return
-    this.window.contentView.removeChildView(view)
-    view.webContents.close()
+    if (!this.window.isDestroyed()) this.window.contentView.removeChildView(view)
+    if (!view.webContents.isDestroyed()) view.webContents.close()
     this.views.delete(tabId)
     if (this.shown === tabId) this.shown = undefined
   }
@@ -78,27 +92,35 @@ export class TabViews {
       }
     })
     const wc = view.webContents
-    // ページのカメラ・通知などの権限は、F16（サイトの権限）ができるまで、すべて拒否する
-    wc.session.setPermissionRequestHandler((_wc, _permission, callback) => callback(false))
-    wc.session.setPermissionCheckHandler(() => false)
-    const notify = (): void =>
-      this.handlers.onPageChanged(tabId, {
-        url: wc.getURL(),
-        title: wc.getTitle(),
-        canGoBack: wc.navigationHistory.canGoBack(),
-        canGoForward: wc.navigationHistory.canGoForward(),
-        loading: wc.isLoading()
-      })
-    for (const event of [
-      'did-start-loading',
-      'did-stop-loading',
-      'did-navigate',
-      'did-navigate-in-page',
-      'page-title-updated'
-    ] as const) {
-      wc.on(event as 'did-start-loading', notify)
+    // ページのカメラ・通知などの権限は、F16（サイトの権限）ができるまで、すべて拒否する（パーティションごとに1回）
+    const partition = `persist:workspace-${workspaceId}`
+    if (!this.guarded.has(partition)) {
+      wc.session.setPermissionRequestHandler((_wc, _permission, callback) => callback(false))
+      wc.session.setPermissionCheckHandler(() => false)
+      this.guarded.add(partition)
     }
-    // http・https 以外（file: など）へは移動しない
+    // 閉じた後に届いた知らせは捨てる（破棄した webContents を触ると例外になる）
+    const notify = (committed: boolean) => (): void => {
+      if (wc.isDestroyed() || this.views.get(tabId) !== view) return
+      this.handlers.onPageChanged(
+        tabId,
+        {
+          url: wc.getURL(),
+          title: wc.getTitle(),
+          canGoBack: wc.navigationHistory.canGoBack(),
+          canGoForward: wc.navigationHistory.canGoForward(),
+          loading: wc.isLoading()
+        },
+        committed
+      )
+    }
+    wc.on('did-start-loading', notify(false))
+    wc.on('did-stop-loading', notify(false))
+    wc.on('did-navigate', notify(true))
+    wc.on('did-navigate-in-page', notify(true))
+    wc.on('page-title-updated', notify(true))
+    // メインフレームは http・https・about:blank 以外（file:・blob:・data: など）へ移動しない。
+    // サブフレームの移動は Chromium の制限（file: など）と、権限の全拒否（外部プロトコル）に任せる
     const guard = (event: Electron.Event<{ url: string }>): void => {
       if (!isAllowedPageUrl(event.url)) event.preventDefault()
     }

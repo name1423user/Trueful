@@ -1,7 +1,8 @@
 import type { DatabaseSync } from 'node:sqlite'
+import { getCurrentWorkspaceId } from '../../workspace/services/workspaceDB'
 import { getTab, updateTabPage, type Tab } from '../services/tabDB'
 import type { PageState, TabViews } from '../services/tabViews'
-import { resolveInput, type Shortcut } from '../services/urlInput'
+import { isAllowedPageUrl, resolveInput, type Shortcut } from '../services/urlInput'
 import { TabNotFoundError, type TabFlows } from './tabFlows'
 
 type Notify = {
@@ -18,8 +19,10 @@ export class TabPages {
     private readonly notify: Notify
   ) {}
 
-  // Workspace の選択中のタブを表示する（Workspace の切り替え、タブの作成・選択・閉じるの後）
+  // Workspace の選択中のタブを表示する（Workspace の切り替え、タブの作成・選択・閉じるの後）。
+  // 今の Workspace でなければ表示しない（別の Workspace のページを重ねない）
   showActive(db: DatabaseSync, workspaceId: number): void {
+    if (getCurrentWorkspaceId(db) !== workspaceId) return
     const { tabs, activeId } = this.tabs.list(db, workspaceId)
     const active = tabs.find((t) => t.id === activeId)
     if (active) this.views.show(active)
@@ -37,15 +40,18 @@ export class TabPages {
     const url = resolveInput(input, shortcuts)
     updateTabPage(db, id, { url, title: tab.title })
     const wc = this.views.webContents(id)
-    if (wc) void wc.loadURL(url).catch(() => {})
+    if (wc && isAllowedPageUrl(url)) void wc.loadURL(url).catch(() => {})
     else this.showActive(db, workspaceId)
     return getTab(db, id)!
   }
 
-  // TabViews から: ページが移動した・タイトルが変わった
-  pageChanged(tabId: number, page: PageState): void {
+  // TabViews から: ページの様子が変わった。移動が確定したとき（committed）だけ URL とタイトルを記録する
+  // （読み込み中の知らせの URL は前のページのことがあり、navigate で記録した行き先を上書きしてしまう）
+  pageChanged(tabId: number, page: PageState, committed = true): void {
     const db = this.getDb()
-    if (db && getTab(db, tabId) && page.url) updateTabPage(db, tabId, page)
+    // 閉じたタブの知らせは記録も通知もしない
+    if (!db || !getTab(db, tabId)) return
+    if (committed && page.url) updateTabPage(db, tabId, page)
     this.notify.page(tabId, page)
   }
 

@@ -8,7 +8,7 @@ test('Workspace を作ると COM 側のマニフェストができ、同じ id �
   const leftover = (dir: string): string => join(dir, 'Partitions', 'workspace-1')
   const { app, userDataDir, cleanup } = await launchApp((dir) => {
     mkdirSync(leftover(dir), { recursive: true })
-    writeFileSync(join(leftover(dir), 'Cookies'), 'old')
+    writeFileSync(join(leftover(dir), 'leftover-marker'), 'old')
   })
   try {
     const window = await app.firstWindow()
@@ -20,7 +20,8 @@ test('Workspace を作ると COM 側のマニフェストができ、同じ id �
 
     const manifest = join(userDataDir, 'workspaces', '1', 'com.json')
     expect(JSON.parse(readFileSync(manifest, 'utf8'))).toEqual({ id: 1 })
-    expect(existsSync(leftover(userDataDir))).toBe(false)
+    // 作るとすぐにページを表示するので、Electron が同じ名前のフォルダを作り直す。残りの中身が消えたことを見る
+    expect(existsSync(join(leftover(userDataDir), 'leftover-marker'))).toBe(false)
 
     // 消したフォルダが、Electron が persist:workspace-1 に使う場所と同じであることを確かめる
     // （このあとパーティションが作られるので、最後に行う）

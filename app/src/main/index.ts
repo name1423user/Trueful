@@ -50,6 +50,9 @@ let quitting = false
 let settingsStore: SettingsStore | undefined
 let mainWindow: BrowserWindow | undefined
 
+// ウィンドウを閉じたときの片付け（タブのページの破棄。whenReady の中で設定する）
+let onWindowClosed = (): void => {}
+
 // UI から外へ出るリンクは、http(s) だけ既定のブラウザに渡す
 function openExternal(url: string): void {
   if (!isExternalUrl(url)) return
@@ -83,6 +86,7 @@ function createWindow(): void {
   window.on('ready-to-show', () => window.show())
   window.on('closed', () => {
     if (mainWindow === window) mainWindow = undefined
+    onWindowClosed()
   })
 
   const appUrl = getAppUrl()
@@ -166,18 +170,21 @@ app.whenReady().then(() => {
   const window = mainWindow!
   const tabs = new TabFlows()
   const views = new TabViews(window, {
-    onPageChanged: (tabId, page) => pages.pageChanged(tabId, page)
+    onPageChanged: (tabId, page, committed) => pages.pageChanged(tabId, page, committed)
   })
   const pages: TabPages = new TabPages(tabs, views, () => database, {
     page: (tabId, page) => mainWindow?.webContents.send(channelNames.tabPageChanged, tabId, page)
   })
-  // 起動したら、今の Workspace の選択中のタブを表示する
-  void databaseReady
-    .then((db) => {
-      const current = getCurrentWorkspaceId(db)
-      if (current !== null && !quitting) pages.showActive(db, current)
-    })
-    .catch(() => {})
+  // 起動したら・ウィンドウを開き直したら、今の Workspace の選択中のタブを表示する
+  const showCurrent = (): void =>
+    void databaseReady
+      .then((db) => {
+        const current = getCurrentWorkspaceId(db)
+        if (current !== null && !quitting && db.isOpen) pages.showActive(db, current)
+      })
+      .catch((e) => console.error('[main] ページを表示できなかった', e))
+  showCurrent()
+  onWindowClosed = () => views.destroyAll()
 
   const createWorkspace = createWorkspaceFlow(prepareWorkspaceFiles(workspaceRoots))
   handle(workspaceList, async () => {
@@ -259,7 +266,10 @@ app.whenReady().then(() => {
   })
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length > 0) return
+    createWindow()
+    views.attach(mainWindow!)
+    showCurrent()
   })
 })
 
