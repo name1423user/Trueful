@@ -5,7 +5,18 @@ import type { SettingsSnapshot } from '../main/settings/flows/settingsStore'
 import type { Settings } from '../main/settings/services/settingsSchema'
 import type { TabState } from '../main/tab/flows/tabFlows'
 import type { Tab } from '../main/tab/services/tabDB'
+import type { PageState } from '../main/tab/services/tabViews'
 import type { Workspace, WorkspaceMode } from '../main/workspace/services/workspaceDB'
+
+// Main からの知らせを受け取る。event は渡さない（送り元の webContents などを Renderer に出さないため）
+function subscribe<A extends unknown[]>(
+  channel: string,
+  listener: (...args: A) => void
+): () => void {
+  const wrapped = (_event: IpcRendererEvent, ...args: unknown[]): void => listener(...(args as A))
+  ipcRenderer.on(channel, wrapped)
+  return () => ipcRenderer.removeListener(channel, wrapped)
+}
 
 // Renderer に公開する API。用途別の関数だけを出し、ipcRenderer はそのまま渡さない（CLAUDE.md、SPEC 7章）。
 // チャネルの定義と引数の検証は app/src/main/ipc/ にある。ここでは名前（channelNames）と型だけを使う
@@ -15,12 +26,8 @@ const api = {
     update: (patch: Partial<Settings>): Promise<IpcResult<Settings>> =>
       ipcRenderer.invoke(channelNames.settingsUpdate, patch),
     // 変わったら知らせる（手で編集されたときも含む）。戻り値の関数で登録を外す
-    onChanged: (listener: (snapshot: SettingsSnapshot) => void): (() => void) => {
-      const wrapped = (_event: IpcRendererEvent, snapshot: SettingsSnapshot): void =>
-        listener(snapshot)
-      ipcRenderer.on(channelNames.settingsChanged, wrapped)
-      return () => ipcRenderer.removeListener(channelNames.settingsChanged, wrapped)
-    }
+    onChanged: (listener: (snapshot: SettingsSnapshot) => void): (() => void) =>
+      subscribe(channelNames.settingsChanged, listener)
   },
   workspace: {
     list: (): Promise<IpcResult<{ workspaces: Workspace[]; currentId: number | null }>> =>
@@ -44,7 +51,21 @@ const api = {
     reopenClosed: (workspaceId: number): Promise<IpcResult<Tab | null>> =>
       ipcRenderer.invoke(channelNames.tabReopenClosed, { workspaceId }),
     activate: (workspaceId: number, id: number): Promise<IpcResult<Tab>> =>
-      ipcRenderer.invoke(channelNames.tabActivate, { workspaceId, id })
+      ipcRenderer.invoke(channelNames.tabActivate, { workspaceId, id }),
+    navigate: (workspaceId: number, id: number, input: string): Promise<IpcResult<Tab>> =>
+      ipcRenderer.invoke(channelNames.tabNavigate, { workspaceId, id, input }),
+    // ページの様子が変わったら知らせる。戻り値の関数で登録を外す
+    onPageChanged: (listener: (tabId: number, page: PageState) => void): (() => void) =>
+      subscribe(channelNames.tabPageChanged, listener)
+  },
+  view: {
+    // ページを表示する場所（空の div の getBoundingClientRect を整数にしたもの）
+    setBounds: (bounds: {
+      x: number
+      y: number
+      width: number
+      height: number
+    }): Promise<IpcResult<null>> => ipcRenderer.invoke(channelNames.viewSetBounds, bounds)
   }
 }
 

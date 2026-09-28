@@ -7,9 +7,19 @@ import { channelNames } from './ipc/channelNames'
 import { createIpc, isFromAppMainFrame } from './ipc/handle'
 import { IpcHandlerError } from './ipc/channels'
 import { settingsGet, settingsUpdate } from './ipc/settingsChannels'
-import { tabActivate, tabClose, tabCreate, tabList, tabReopenClosed } from './ipc/tabChannels'
+import {
+  tabActivate,
+  tabClose,
+  tabCreate,
+  tabList,
+  tabNavigate,
+  tabReopenClosed,
+  viewSetBounds
+} from './ipc/tabChannels'
 import { workspaceCreate, workspaceList, workspaceSwitch } from './ipc/workspaceChannels'
 import { TabFlows, TabNotFoundError } from './tab/flows/tabFlows'
+import { TabPages } from './tab/flows/tabPages'
+import { TabViews } from './tab/services/tabViews'
 import {
   createWorkspaceFlow,
   switchWorkspace,
@@ -151,28 +161,49 @@ app.whenReady().then(() => {
     if (!db || !db.isOpen) throw new IpcHandlerError('unavailable', 'DB を使えない')
     return db
   }
+  // ウィンドウと、タブのページの表示（ADR-008）。ページの様子とタブ列の変化は Renderer に知らせる
+  createWindow()
+  const window = mainWindow!
+  const tabs = new TabFlows()
+  const views = new TabViews(window, {
+    onPageChanged: (tabId, page) => pages.pageChanged(tabId, page)
+  })
+  const pages: TabPages = new TabPages(tabs, views, () => database, {
+    page: (tabId, page) => mainWindow?.webContents.send(channelNames.tabPageChanged, tabId, page)
+  })
+  // 起動したら、今の Workspace の選択中のタブを表示する
+  void databaseReady
+    .then((db) => {
+      const current = getCurrentWorkspaceId(db)
+      if (current !== null && !quitting) pages.showActive(db, current)
+    })
+    .catch(() => {})
+
   const createWorkspace = createWorkspaceFlow(prepareWorkspaceFiles(workspaceRoots))
   handle(workspaceList, async () => {
     const db = await getDatabase()
     return { workspaces: listWorkspaces(db), currentId: getCurrentWorkspaceId(db) }
   })
   handle(workspaceCreate, async (input) => {
-    const created = await createWorkspace(await getDatabase(), input)
+    const db = await getDatabase()
+    const created = await createWorkspace(db, input)
     purgeTrash() // 作成で片付け用の場所へ移したフォルダを、トランザクションの外で消す
+    pages.showActive(db, created.id)
     return created
   })
   handle(workspaceSwitch, async ({ id }) => {
     const db = await getDatabase()
     try {
-      return switchWorkspace(db, id)
+      const switched = switchWorkspace(db, id)
+      pages.showActive(db, id)
+      return switched
     } catch (e) {
       if (e instanceof WorkspaceNotFoundError) throw new IpcHandlerError('not-found', e.message)
       throw e
     }
   })
 
-  // タブ（F02）。ない Workspace・タブは not-found で返す
-  const tabs = new TabFlows()
+  // タブ（F02）。ない Workspace・タブは not-found で返す。作成・閉じる・戻す・選ぶの後は、選択中のタブを表示する
   const notFoundAs = <T>(fn: () => T): T => {
     try {
       return fn()
@@ -191,24 +222,42 @@ app.whenReady().then(() => {
   handle(tabList, async ({ workspaceId }) =>
     tabs.list(await getWorkspaceDatabase(workspaceId), workspaceId)
   )
-  handle(tabCreate, async ({ workspaceId }) =>
-    tabs.create(await getWorkspaceDatabase(workspaceId), workspaceId)
-  )
+  const thenShow = <T>(db: DatabaseSync, workspaceId: number, value: T): T => {
+    pages.showActive(db, workspaceId)
+    return value
+  }
+  handle(tabCreate, async ({ workspaceId }) => {
+    const db = await getWorkspaceDatabase(workspaceId)
+    return thenShow(db, workspaceId, tabs.create(db, workspaceId))
+  })
   handle(tabClose, async ({ workspaceId, id }) => {
     const db = await getWorkspaceDatabase(workspaceId)
-    return notFoundAs(() => tabs.close(db, workspaceId, id))
+    const state = notFoundAs(() => tabs.close(db, workspaceId, id))
+    views.destroy(id)
+    return thenShow(db, workspaceId, state)
   })
-  handle(
-    tabReopenClosed,
-    async ({ workspaceId }) =>
-      tabs.reopenClosed(await getWorkspaceDatabase(workspaceId), workspaceId) ?? null
-  )
+  handle(tabReopenClosed, async ({ workspaceId }) => {
+    const db = await getWorkspaceDatabase(workspaceId)
+    return thenShow(db, workspaceId, tabs.reopenClosed(db, workspaceId) ?? null)
+  })
   handle(tabActivate, async ({ workspaceId, id }) => {
     const db = await getWorkspaceDatabase(workspaceId)
-    return notFoundAs(() => tabs.activate(db, workspaceId, id))
+    return thenShow(
+      db,
+      workspaceId,
+      notFoundAs(() => tabs.activate(db, workspaceId, id))
+    )
+  })
+  handle(tabNavigate, async ({ workspaceId, id, input }) => {
+    const db = await getWorkspaceDatabase(workspaceId)
+    const { shortcuts } = store.get().settings
+    return notFoundAs(() => pages.navigate(db, workspaceId, id, input, shortcuts))
+  })
+  handle(viewSetBounds, (bounds) => {
+    views.setBounds(bounds)
+    return null
   })
 
-  createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })

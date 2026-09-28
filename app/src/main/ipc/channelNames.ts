@@ -10,6 +10,9 @@ export const channelNames = {
   tabClose: 'tab:close',
   tabReopenClosed: 'tab:reopenClosed',
   tabActivate: 'tab:activate',
+  tabNavigate: 'tab:navigate',
+  viewSetBounds: 'view:setBounds',
   // Main → Renderer の知らせ（webContents.send。ADR-007）
-  settingsChanged: 'settings:changed'
+  settingsChanged: 'settings:changed',
+  tabPageChanged: 'tab:pageChanged'
 } as const

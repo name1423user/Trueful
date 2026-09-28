@@ -32,3 +32,15 @@ export const tabActivate = defineChannel<Tab>()(
   channelNames.tabActivate,
   z.object({ workspaceId: id, id }).strict()
 )
+
+// アドレスバーの入力を開く（URL・検索語・近道の解釈は Main で行う。http・https 以外は開かない）
+export const tabNavigate = defineChannel<Tab>()(
+  channelNames.tabNavigate,
+  z.object({ workspaceId: id, id, input: z.string().max(8192) }).strict()
+)
+// ページを表示する場所（Renderer の空の div の位置と大きさ、CSS ピクセル。ADR-008）
+const length = z.int().min(0).max(100_000)
+export const viewSetBounds = defineChannel<null>()(
+  channelNames.viewSetBounds,
+  z.object({ x: length, y: length, width: length, height: length }).strict()
+)

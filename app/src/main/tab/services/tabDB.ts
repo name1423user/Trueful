@@ -91,6 +91,15 @@ export function latestActiveTime(db: DatabaseSync, workspaceId: number): number 
   return v === null || v === undefined ? undefined : Number(v)
 }
 
+// ページの URL とタイトルを記録する（ページが移動したとき）
+export function updateTabPage(
+  db: DatabaseSync,
+  id: number,
+  page: { url: string; title: string }
+): void {
+  db.prepare('UPDATE tab SET url = ?, title = ? WHERE id = ?').run(page.url, page.title, id)
+}
+
 export function deleteTab(db: DatabaseSync, id: number): boolean {
   return db.prepare('DELETE FROM tab WHERE id = ?').run(id).changes === 1
 }
