@@ -7,6 +7,7 @@ import type { TabState } from '../main/tab/flows/tabFlows'
 import type { TabListState } from '../main/tab/flows/tabPages'
 import type { Tab } from '../main/tab/services/tabDB'
 import type { PageState } from '../main/tab/services/tabViews'
+import type { HistoryEntry } from '../main/history/services/historyDB'
 import type { Workspace, WorkspaceMode } from '../main/workspace/services/workspaceDB'
 
 // Main からの知らせを受け取る。event は渡さない（送り元の webContents などを Renderer に出さないため）
@@ -44,6 +45,16 @@ const api = {
     // 削除する（ログインとサイトのデータも消える。確認は画面で済ませてから呼ぶ）
     delete: (id: number): Promise<IpcResult<{ currentId: number | null }>> =>
       ipcRenderer.invoke(channelNames.workspaceDelete, { id })
+  },
+  history: {
+    search: (input: {
+      query: string
+      workspaceId?: number
+      limit?: number
+    }): Promise<IpcResult<HistoryEntry[]>> => ipcRenderer.invoke(channelNames.historySearch, input),
+    // 訪問の時刻（Unix ミリ秒）の範囲を消す。省略すると全部
+    delete: (range: { fromMs?: number; toMs?: number }): Promise<IpcResult<{ removed: number }>> =>
+      ipcRenderer.invoke(channelNames.historyDelete, range)
   },
   tab: {
     list: (workspaceId: number): Promise<IpcResult<TabListState>> =>

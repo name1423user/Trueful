@@ -4,6 +4,12 @@ import {
   getWorkspace,
   listWorkspaces
 } from '../../workspace/services/workspaceDB'
+import {
+  historyUrl,
+  isHistoryUrl,
+  recordVisit,
+  updateHistoryTitle
+} from '../../history/services/historyDB'
 import { getTab, listTabs, updateTabPage, updateTabScroll, type Tab } from '../services/tabDB'
 import type { PageState, TabViews } from '../services/tabViews'
 import { isAllowedPageUrl, resolveInput, type Shortcut } from '../services/urlInput'
@@ -98,6 +104,7 @@ export class TabPages {
   close(db: DatabaseSync, workspaceId: number, id: number): TabState {
     const state = this.tabs.close(db, workspaceId, id)
     this.views.destroy(id)
+    this.lastRecorded.delete(id)
     this.showActive(db, workspaceId)
     return state
   }
@@ -153,8 +160,31 @@ export class TabPages {
     if (!db || !getTab(db, tabId)) return
     // 開いてよい URL だけを記録する（file: へのリダイレクトは Chromium が止めてエラーページになるが、
     // その URL は file: のまま。復元のときに開かないよう、記録しない）
-    if (committed && isAllowedPageUrl(page.url)) updateTabPage(db, tabId, page)
+    if (committed && isAllowedPageUrl(page.url)) {
+      updateTabPage(db, tabId, page)
+      this.recordHistory(db, tabId, page)
+    }
     this.notify.page(tabId, page)
+  }
+
+  // 履歴（F09）。タブが別の URL へ移ったら、訪問を1回記録する（再読み込みや同じ URL のままの題名の更新は数えない）。
+  // 移った時点の題名は前のページのことがあるので、題名は空で記録し、決まってから更新する
+  private readonly lastRecorded = new Map<number, string>()
+  // フラグメント（#以降）だけの移動は数えない。履歴の失敗で、ページの表示や通知を止めない
+  private recordHistory(db: DatabaseSync, tabId: number, page: PageState): void {
+    try {
+      const tab = getTab(db, tabId)
+      if (!tab || !isHistoryUrl(page.url)) return
+      const url = historyUrl(page.url)
+      if (this.lastRecorded.get(tabId) === url) {
+        updateHistoryTitle(db, tab.workspaceId, url, page.title)
+        return
+      }
+      this.lastRecorded.set(tabId, url)
+      recordVisit(db, { workspaceId: tab.workspaceId, url, title: '', now: Date.now() })
+    } catch (e) {
+      console.error('[main] 履歴を記録できなかった', e)
+    }
   }
 
   private owned(db: DatabaseSync, workspaceId: number, id: number): Tab {
