@@ -86,7 +86,22 @@ export function updateBookmark(
 
 // 消す（フォルダなら中身もいっしょに）。ない id は false
 export function deleteBookmark(db: DatabaseSync, id: number): boolean {
-  return Number(db.prepare('DELETE FROM bookmark WHERE id = ?').run(id).changes) > 0
+  return inTransaction(db, () => {
+    const row = db.prepare('SELECT parent_id FROM bookmark WHERE id = ?').get(id)
+    if (!row) return false
+    db.prepare('DELETE FROM bookmark WHERE id = ?').run(id)
+    compact(db, row['parent_id'] === null ? null : Number(row['parent_id']))
+    return true
+  })
+}
+
+// 同じフォルダの順番を 0 から詰め直す
+function compact(db: DatabaseSync, parentId: number | null): void {
+  db.prepare('SELECT id FROM bookmark WHERE parent_id IS ? ORDER BY position')
+    .all(parentId)
+    .forEach((r, i) =>
+      db.prepare('UPDATE bookmark SET position = ? WHERE id = ?').run(i, Number(r['id']))
+    )
 }
 
 // 別のフォルダ（null なら一番上）の一番下へ移す。自分自身・自分の中のフォルダへは移せない（循環）。
@@ -110,12 +125,7 @@ export function moveBookmark(db: DatabaseSync, id: number, parentId: number | nu
       nextPosition(db, parentId),
       id
     )
-    const rows = db
-      .prepare('SELECT id FROM bookmark WHERE parent_id IS ? ORDER BY position')
-      .all(from['parent_id'])
-    rows.forEach((r, i) =>
-      db.prepare('UPDATE bookmark SET position = ? WHERE id = ?').run(i, Number(r['id']))
-    )
+    compact(db, from['parent_id'] === null ? null : Number(from['parent_id']))
   })
 }
 

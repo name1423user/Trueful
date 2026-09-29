@@ -78,6 +78,41 @@ describe('Chrome の Bookmarks（JSON）の取り込み（F08）', () => {
   })
 })
 
+describe('壊れた・極端な入力', () => {
+  it('深すぎる入れ子は、溢れずに扱う（JSON は失敗として数え、HTML は例外）', () => {
+    let node: unknown = { type: 'url', name: 'leaf', url: 'https://leaf.example/' }
+    for (let i = 0; i < 300; i++) node = { type: 'folder', name: 'f', children: [node] }
+    const { nodes, failed } = parseChromeBookmarks(
+      JSON.stringify({ roots: { bookmark_bar: node } })
+    )
+    expect(nodes).toEqual([])
+    expect(failed).toBeGreaterThan(0)
+    expect(() => parseHtmlBookmarks('<DL>'.repeat(50_000))).toThrow('入れ子が深すぎる')
+  })
+
+  it('roots にフォルダ以外の値があっても、失敗に数えない。HREF のない <A>、属性値の > も扱う', () => {
+    expect(
+      parseChromeBookmarks(
+        JSON.stringify({
+          roots: {
+            sync_transaction_version: '1',
+            bookmark_bar: {
+              type: 'folder',
+              name: 'b',
+              children: [{ type: 'url', name: 'a', url: 'https://a.example/' }]
+            }
+          }
+        })
+      ).failed
+    ).toBe(0)
+    const { nodes, failed } = parseHtmlBookmarks(
+      `<DL><DT><A NAME="x">アンカー</A><DT><A HREF="https://a.example/?x>y" ICON='q'>A</A></DL></DL></DL>`
+    )
+    expect(failed).toBe(0)
+    expect(nodes).toEqual([{ kind: 'url', title: 'A', url: 'https://a.example/?x>y' }])
+  })
+})
+
 describe('Chrome のプロファイルの場所（3 OS）', () => {
   const existing =
     (paths: string[]) =>
@@ -101,6 +136,19 @@ describe('Chrome のプロファイルの場所（3 OS）', () => {
       platform: 'win32',
       home: 'C:\\Users\\me',
       localAppData: 'C:\\Users\\me\\AppData\\Local',
+      exists: () => true,
+      listDir: list(['Default'])
+    })
+    expect(files[0]).toBe(
+      'C:\\Users\\me\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Bookmarks'
+    )
+  })
+
+  it('Windows: LOCALAPPDATA が空文字なら、ホームの下の AppData\\Local を使う（相対パスにしない）', () => {
+    const files = chromeBookmarkFiles({
+      platform: 'win32',
+      home: 'C:\\Users\\me',
+      localAppData: '',
       exists: () => true,
       listDir: list(['Default'])
     })

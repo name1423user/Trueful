@@ -10,3 +10,6 @@ export type ParsedBookmarks = { nodes: ImportNode[]; failed: number }
 export function isBookmarkUrl(url: string): boolean {
   return /^https?:\/\//i.test(url)
 }
+
+// フォルダの入れ子の深さの上限（これより深いものは取り込まない。再帰で溢れさせないため）
+export const MAX_DEPTH = 100

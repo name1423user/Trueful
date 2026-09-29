@@ -1,4 +1,4 @@
-import { isBookmarkUrl, type ImportNode, type ParsedBookmarks } from './bookmarkTree'
+import { isBookmarkUrl, MAX_DEPTH, type ImportNode, type ParsedBookmarks } from './bookmarkTree'
 
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" }
 
@@ -23,14 +23,17 @@ export function parseHtmlBookmarks(html: string): ParsedBookmarks {
   let pending: ImportNode[] | undefined // <H3> の直後の <DL> が、このフォルダの中身になる
   let failed = 0
   let sawList = false
-  for (const m of html.matchAll(/<(\/?)(DL|H3|A)\b([^>]*)>([^<]*)/gi)) {
+  for (const m of html.matchAll(
+    /<(\/?)(DL|H3|A)\b((?:"[^"]*"|'[^']*'|[^>"']){0,4096})>([^<]*)/gi
+  )) {
     const [, close, tag, attrs, text] = m as unknown as [string, string, string, string, string]
     const name = tag.toUpperCase()
     if (name === 'DL') {
       if (close) {
-        stack.pop()
+        stack.pop() // 余分な </DL> は、何も積んでいなければ無視する
       } else {
         sawList = true
+        if (stack.length >= MAX_DEPTH) throw new Error('入れ子が深すぎる')
         stack.push(pending ?? stack[stack.length - 1] ?? root)
         pending = undefined
       }
@@ -45,8 +48,11 @@ export function parseHtmlBookmarks(html: string): ParsedBookmarks {
       })
       pending = children
     } else {
-      const href = /\bHREF\s*=\s*"([^"]*)"/i.exec(attrs)?.[1]
-      const url = href === undefined ? '' : decode(href)
+      pending = undefined // <H3> の直後の <DL> だけが、そのフォルダの中身
+      const href = /\bHREF\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(attrs)
+      const raw = href?.[1] ?? href?.[2]
+      if (raw === undefined) continue // HREF のない <A>（名前だけのアンカー）は数えない
+      const url = decode(raw).trim()
       if (isBookmarkUrl(url)) {
         ;(stack[stack.length - 1] ?? root).push({ kind: 'url', title: decode(text.trim()), url })
       } else {

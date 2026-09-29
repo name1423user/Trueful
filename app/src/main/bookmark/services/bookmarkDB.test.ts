@@ -57,6 +57,17 @@ describe('ブックマークの追加・編集・削除（F08）', () => {
     expect(updateBookmark(db, 999, { title: 'x' })).toBe(false)
   })
 
+  it('消したら、同じフォルダの順番を詰める', () => {
+    const a = insertBookmark(db, { kind: 'url', title: 'A', url: 'https://a.example/' }, 1)
+    insertBookmark(db, { kind: 'url', title: 'B', url: 'https://b.example/' }, 2)
+    insertBookmark(db, { kind: 'url', title: 'C', url: 'https://c.example/' }, 3)
+    deleteBookmark(db, a.id)
+    expect(listBookmarks(db).map((b) => [b.title, b.position])).toEqual([
+      ['B', 0],
+      ['C', 1]
+    ])
+  })
+
   it('フォルダを消すと、中身もいっしょに消える。ない id は false', () => {
     const f = insertBookmark(db, { kind: 'folder', title: 'F' }, 1)
     insertBookmark(db, { kind: 'url', title: 'C', url: 'https://c.example/', parentId: f.id }, 2)
@@ -78,6 +89,12 @@ describe('フォルダの移動（循環しない）', () => {
         .filter((b) => b.parentId === null)
         .map((b) => b.position)
     ).toEqual([0, 1])
+  })
+
+  it('URL の下へは移せない（親はフォルダだけ）', () => {
+    const f = insertBookmark(db, { kind: 'folder', title: 'F' }, 1)
+    const a = insertBookmark(db, { kind: 'url', title: 'A', url: 'https://a.example/' }, 2)
+    expect(() => moveBookmark(db, f.id, a.id)).toThrow()
   })
 
   it('自分自身・自分の中のフォルダへは移せない', () => {
