@@ -430,3 +430,55 @@ body {
   margin: 0;
   flex: none;
 }
+
+/* 左パネルのダウンロード（F07。8px グリッド） */
+.download-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px;
+}
+
+.download-item {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.download-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: bold;
+}
+
+.download-state,
+.download-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.download-empty {
+  padding: 8px;
+}
+
+.download-progress {
+  width: 100%;
+}
+
+.download-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.download-actions button {
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}

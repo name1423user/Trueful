@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { DownloadPanel } from './download/DownloadPanel'
+import { useDownloads } from './download/useDownloads'
 import { ActivityBar, type PanelView } from './panel/ActivityBar'
 import { AddressBar } from './tab/AddressBar'
 import { PageArea } from './tab/PageArea'
@@ -18,6 +20,7 @@ function App(): React.JSX.Element {
   const [switchError, setSwitchError] = useState<IpcErrorCode>()
   const [panelView, setPanelView] = useState<PanelView>('tabs')
   const [collapsed, setCollapsed] = useSidePanelCollapsed()
+  const downloads = useDownloads(state.status === 'ready' ? state.currentId : null)
   const tabs = useTabs(state.status === 'ready' ? state.currentId : null)
   // 作成画面を閉じたら、フォーカスを左パネルの今の Workspace に戻す（キーボードで続けて操作できるように）。
   // 戻し先は作った（やめたときは今の）Workspace の id。その Workspace が「今の」になった描画の後（effect）で探す。
@@ -117,29 +120,39 @@ function App(): React.JSX.Element {
           setPanelView(view)
         }}
       />
-      <WorkspaceList
-        workspaces={state.workspaces}
-        currentId={state.currentId}
-        onSwitch={async (id) => {
-          setAdding(false)
-          setSwitchError(await switchTo(id))
-        }}
-        onAdd={() => {
-          setSwitchError(undefined)
-          setAdding(true)
-        }}
-      >
-        {!showCreate && panelView === 'tabs' && (
-          <TabList
-            tabs={tabs.tabs}
-            activeId={tabs.activeId}
-            discardedIds={tabs.discardedIds}
-            onActivate={(id) => void tabs.run((api, ws) => api.activate(ws, id))}
-            onClose={(id) => void tabs.run((api, ws) => api.close(ws, id))}
-            onCreate={() => void tabs.run((api, ws) => api.create(ws))}
-          />
-        )}
-      </WorkspaceList>
+      {panelView === 'downloads' ? (
+        <DownloadPanel
+          downloads={downloads.downloads}
+          onPause={downloads.pause}
+          onResume={downloads.resume}
+          onCancel={downloads.cancel}
+          onShowInFolder={downloads.showInFolder}
+        />
+      ) : (
+        <WorkspaceList
+          workspaces={state.workspaces}
+          currentId={state.currentId}
+          onSwitch={async (id) => {
+            setAdding(false)
+            setSwitchError(await switchTo(id))
+          }}
+          onAdd={() => {
+            setSwitchError(undefined)
+            setAdding(true)
+          }}
+        >
+          {!showCreate && panelView === 'tabs' && (
+            <TabList
+              tabs={tabs.tabs}
+              activeId={tabs.activeId}
+              discardedIds={tabs.discardedIds}
+              onActivate={(id) => void tabs.run((api, ws) => api.activate(ws, id))}
+              onClose={(id) => void tabs.run((api, ws) => api.close(ws, id))}
+              onCreate={() => void tabs.run((api, ws) => api.create(ws))}
+            />
+          )}
+        </WorkspaceList>
+      )}
       <main className={showCreate ? 'content center' : 'content'}>
         {showCreate ? (
           <WorkspaceCreateForm
