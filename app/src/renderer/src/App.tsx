@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { BookmarkPanel } from './bookmark/BookmarkPanel'
+import { useBookmarks } from './bookmark/useBookmarks'
 import { ActivityBar, type PanelView } from './panel/ActivityBar'
 import { AddressBar } from './tab/AddressBar'
 import { PageArea } from './tab/PageArea'
@@ -18,6 +20,8 @@ function App(): React.JSX.Element {
   const [switchError, setSwitchError] = useState<IpcErrorCode>()
   const [panelView, setPanelView] = useState<PanelView>('tabs')
   const [collapsed, setCollapsed] = useSidePanelCollapsed()
+  const bookmarks = useBookmarks()
+  const [bookmarkMessage, setBookmarkMessage] = useState<string>()
   const tabs = useTabs(state.status === 'ready' ? state.currentId : null)
   // 作成画面を閉じたら、フォーカスを左パネルの今の Workspace に戻す（キーボードで続けて操作できるように）。
   // 戻し先は作った（やめたときは今の）Workspace の id。その Workspace が「今の」になった描画の後（effect）で探す。
@@ -42,6 +46,25 @@ function App(): React.JSX.Element {
     }
   }, [collapsed])
 
+  // 今のページをブックマークに足す（Cmd/Ctrl+D と、パネルのボタン）。http・https のページだけ
+  const activeTab = tabs.tabs.find((tab) => tab.id === tabs.activeId)
+  const addCurrentPage = async (): Promise<void> => {
+    const url = activeTab?.url ?? ''
+    const ok = /^https?:\/\//i.test(url) && (await bookmarks.add(activeTab!.title || url, url))
+    setBookmarkMessage(t(ok ? 'bookmark.added' : 'bookmark.addFailed'))
+  }
+  const addCurrentPageRef = useRef(addCurrentPage)
+  useEffect(() => {
+    addCurrentPageRef.current = addCurrentPage
+  })
+  useEffect(
+    () =>
+      window.trueful.ui.onCommand((command) => {
+        if (command === 'bookmark-page') void addCurrentPageRef.current()
+      }),
+    []
+  )
+
   if (state.status === 'loading') return <div className="app-shell" />
   if (state.status === 'error') {
     return (
@@ -65,7 +88,6 @@ function App(): React.JSX.Element {
     setAdding(false)
   }
 
-  const activeTab = tabs.tabs.find((tab) => tab.id === tabs.activeId)
   return (
     <div className={collapsed ? 'app-shell side-collapsed' : 'app-shell'}>
       <header className="top-bar">
@@ -117,29 +139,42 @@ function App(): React.JSX.Element {
           setPanelView(view)
         }}
       />
-      <WorkspaceList
-        workspaces={state.workspaces}
-        currentId={state.currentId}
-        onSwitch={async (id) => {
-          setAdding(false)
-          setSwitchError(await switchTo(id))
-        }}
-        onAdd={() => {
-          setSwitchError(undefined)
-          setAdding(true)
-        }}
-      >
-        {!showCreate && panelView === 'tabs' && (
-          <TabList
-            tabs={tabs.tabs}
-            activeId={tabs.activeId}
-            discardedIds={tabs.discardedIds}
-            onActivate={(id) => void tabs.run((api, ws) => api.activate(ws, id))}
-            onClose={(id) => void tabs.run((api, ws) => api.close(ws, id))}
-            onCreate={() => void tabs.run((api, ws) => api.create(ws))}
-          />
-        )}
-      </WorkspaceList>
+      {panelView === 'bookmarks' ? (
+        <BookmarkPanel
+          bookmarks={bookmarks.bookmarks}
+          canAddPage={!showCreate && /^https?:\/\//i.test(activeTab?.url ?? '')}
+          message={bookmarkMessage}
+          onOpen={(url) => void tabs.run((api, ws) => api.navigate(ws, activeTab!.id, url))}
+          onAddPage={() => void addCurrentPage()}
+          onUpdate={bookmarks.update}
+          onRemove={(id) => void bookmarks.remove(id)}
+          onImport={bookmarks.importFrom}
+        />
+      ) : (
+        <WorkspaceList
+          workspaces={state.workspaces}
+          currentId={state.currentId}
+          onSwitch={async (id) => {
+            setAdding(false)
+            setSwitchError(await switchTo(id))
+          }}
+          onAdd={() => {
+            setSwitchError(undefined)
+            setAdding(true)
+          }}
+        >
+          {!showCreate && panelView === 'tabs' && (
+            <TabList
+              tabs={tabs.tabs}
+              activeId={tabs.activeId}
+              discardedIds={tabs.discardedIds}
+              onActivate={(id) => void tabs.run((api, ws) => api.activate(ws, id))}
+              onClose={(id) => void tabs.run((api, ws) => api.close(ws, id))}
+              onCreate={() => void tabs.run((api, ws) => api.create(ws))}
+            />
+          )}
+        </WorkspaceList>
+      )}
       <main className={showCreate ? 'content center' : 'content'}>
         {showCreate ? (
           <WorkspaceCreateForm

@@ -41,9 +41,29 @@
     "view-menu": "表示",
     "page-reload": "ページを再読み込み",
     "toggle-side-panel": "左パネルを畳む・開く",
+    "bookmark-page": "このページをブックマークに追加",
     "close-window": "ウィンドウを閉じる",
     "focus-search": "統合検索へ移動",
     "page-devtools": "開発者ツール"
+  },
+  "bookmark": {
+    "listLabel": "ブックマーク",
+    "empty": "ブックマークはまだありません。",
+    "addPage": "このページを追加",
+    "added": "ブックマークに追加しました。",
+    "addFailed": "このページは追加できません。",
+    "importChrome": "Chrome から取り込む",
+    "importHtml": "HTML から取り込む",
+    "imported": "{{imported}} 件を取り込みました。",
+    "importedWithFailures": "{{imported}} 件を取り込みました（{{failed}} 件は取り込めませんでした）。",
+    "importNotFound": "Chrome のブックマークが見つかりません。HTML から取り込んでください。",
+    "importUnreadable": "取り込めませんでした。ブックマークのファイルか確かめてください。",
+    "edit": "{{name}} を編集",
+    "remove": "{{name}} を削除",
+    "titleLabel": "タイトル",
+    "urlLabel": "URL",
+    "save": "保存",
+    "cancel": "やめる"
   },
   "tab": {
     "listLabel": "タブ",
@@ -59,6 +79,7 @@
   },
   "panel": {
     "railLabel": "パネルの切り替え",
-    "tabs": "タブ"
+    "tabs": "タブ",
+    "bookmarks": "ブックマーク"
   }
 }

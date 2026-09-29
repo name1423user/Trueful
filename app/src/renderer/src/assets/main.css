@@ -430,3 +430,89 @@ body {
   margin: 0;
   flex: none;
 }
+
+/* 左パネルのブックマーク（F08。8px グリッド） */
+.bookmark-tools {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+}
+
+.bookmark-add,
+.bookmark-import,
+.bookmark-edit button {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bookmark-add:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.bookmark-status,
+.bookmark-empty {
+  margin: 0;
+  padding: 0 8px 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.bookmark-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 8px 0 16px;
+}
+
+.bookmark-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.bookmark-row,
+.bookmark-folder {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bookmark-row {
+  cursor: pointer;
+}
+
+.bookmark-folder {
+  font-weight: bold;
+}
+
+.bookmark-item > .bookmark-list {
+  flex-basis: 100%;
+}
+
+.bookmark-action {
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.bookmark-edit {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 4px 0;
+}
