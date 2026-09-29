@@ -100,3 +100,49 @@ describe('Workspace の切り替え', () => {
     expect(getCurrentWorkspaceId(db)).toBe(a.id)
   })
 })
+
+describe('休止と復帰（F01・ADR-011）', () => {
+  // 1000, 2000, ... の時刻で n 個作る
+  const createMany = async (n: number): Promise<number[]> => {
+    const create = createWorkspaceFlow()
+    const ids: number[] = []
+    for (let i = 0; i < n; i++) {
+      const w = await create(
+        db,
+        { name: `W${i + 1}`, mode: 'custom', requestId: `r${i}` },
+        (i + 1) * 1000
+      )
+      ids.push(w.id)
+    }
+    return ids
+  }
+  const statuses = (): [string, string, number | null][] =>
+    listWorkspaces(db).map((w) => [w.name, w.status, w.dormantedTimeMs])
+
+  it('5 個目までは休止しない。6 個目を作ると、いちばん長く使っていないものが休止する', async () => {
+    await createMany(5)
+    expect(listWorkspaces(db).every((w) => w.status === 'active')).toBe(true)
+    await createWorkspaceFlow()(db, { name: 'W6', mode: 'custom', requestId: 'r6' }, 6000)
+    expect(statuses()[0]).toEqual(['W1', 'dormant', 6000])
+    expect(
+      statuses()
+        .slice(1)
+        .every(([, s]) => s === 'active')
+    ).toBe(true)
+  })
+
+  it('休止した Workspace に切り替えると復帰し、代わりにいちばん長く使っていないもの（自分以外）が休止する', async () => {
+    const ids = await createMany(6)
+    switchWorkspace(db, ids[0]!, 7000)
+    expect(statuses()[0]).toEqual(['W1', 'active', null])
+    expect(statuses()[1]).toEqual(['W2', 'dormant', 7000])
+    expect(listWorkspaces(db).filter((w) => w.status === 'active')).toHaveLength(5)
+    expect(getCurrentWorkspaceId(db)).toBe(ids[0])
+  })
+
+  it('フルアクティブの Workspace に切り替えても、上限内なら何も休止しない', async () => {
+    const ids = await createMany(5)
+    switchWorkspace(db, ids[0]!, 7000)
+    expect(listWorkspaces(db).every((w) => w.status === 'active')).toBe(true)
+  })
+})
