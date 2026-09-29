@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync } from 'node:fs'
+import { lstatSync, mkdirSync, realpathSync } from 'node:fs'
+import { sep } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import { getWorkspace } from '../../workspace/services/workspaceDB'
 import {
@@ -29,6 +30,16 @@ export type DownloadItemLike = {
     event: 'done',
     listener: (event: unknown, state: 'completed' | 'cancelled' | 'interrupted') => void
   ): unknown
+}
+
+// 存在の確認。壊れたシンボリックリンクも「ある」と数える（existsSync は、リンクの先がないと false を返す）
+function lexists(path: string): boolean {
+  try {
+    lstatSync(path)
+    return true
+  } catch {
+    return false
+  }
 }
 
 // 進み具合を DB に書く間隔（ミリ秒）。届くたびに書くと多すぎる
@@ -65,28 +76,47 @@ export class DownloadFlows {
     try {
       const dir = downloadDir(this.deps.downloadsDir, workspace.name)
       mkdirSync(dir, { recursive: true })
+      // フォルダが、ダウンロードのフォルダの外へのリンクなら使わない（リンクの先へ書かせない）
+      const root = realpathSync(this.deps.downloadsDir)
+      if (!(realpathSync(dir) + sep).startsWith(root + sep))
+        throw new Error('保存先がフォルダの外を指している')
       path = uniquePath(
         dir,
         sanitizeFileName(item.getFilename()),
-        (p) => existsSync(p) || this.reserved.has(p)
+        (p) => lexists(p) || this.reserved.has(p)
       )
     } catch (e) {
       console.error('[main] ダウンロードの保存先を用意できなかった', e)
       return item.cancel()
     }
     this.reserved.add(path)
-    item.setSavePath(path)
     const total = item.getTotalBytes()
-    const id = insertDownload(
-      db,
-      { workspaceId, url: item.getURL(), path, totalBytes: total > 0 ? total : null },
-      this.now()
-    )
+    let id: number
+    try {
+      id = insertDownload(
+        db,
+        { workspaceId, url: item.getURL(), path, totalBytes: total > 0 ? total : null },
+        this.now()
+      )
+      item.setSavePath(path)
+    } catch (e) {
+      // 記録できなかったら、記録のないファイルを残さない
+      console.error('[main] ダウンロードを記録できなかった', e)
+      this.reserved.delete(path)
+      return item.cancel()
+    }
     this.items.set(id, item)
     let lastWrite = this.now()
-    lastWrite = Number.NEGATIVE_INFINITY < lastWrite ? this.now() : lastWrite
     item.on('updated', (_e, state) => {
-      if (state !== 'progressing' || !db.isOpen) return
+      if (!db.isOpen) return
+      // ネットワークが切れた。再開できるなら一時停止として見せる（再開を押せる）。できないときは done を待つ
+      if (state === 'interrupted') {
+        if (item.canResume()) {
+          updateDownload(db, id, { state: 'paused' })
+          this.deps.notifyChanged()
+        }
+        return
+      }
       const now = this.now()
       if (now - lastWrite < WRITE_INTERVAL_MS) return
       lastWrite = now
@@ -139,11 +169,16 @@ export class DownloadFlows {
     return ok
   }
 
+  // 終了のとき、動いているダウンロードをすべて取り消す（DB を閉じる前に呼ぶ。記録が in_progress のまま残らない）
+  dispose(): void {
+    for (const item of [...this.items.values()]) item.cancel()
+  }
+
   // 保存したファイルを、フォルダで表示する（記録にある保存先だけ。任意のパスは受けない）
   showInFolder(id: number): boolean {
     const db = this.deps.getDb()
     const row = db?.isOpen ? listDownloads(db).find((d) => d.id === id) : undefined
-    if (!row) return false
+    if (!row || !lexists(row.path)) return false // 記録はあっても、ファイルが消えていたら false
     this.deps.showItemInFolder(row.path)
     return true
   }

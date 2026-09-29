@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
@@ -103,6 +103,53 @@ describe('ダウンロードを受ける（F07）', () => {
   })
 })
 
+describe('失敗・異常なとき', () => {
+  it('記録に失敗したら、予約を戻して取り消す（記録のないファイルを残さない）', () => {
+    db.exec('DROP TABLE download')
+    const item = new FakeItem('a.txt')
+    expect(() => flows.handle(ws, item)).not.toThrow()
+    expect(item.cancelled).toBe(true)
+  })
+
+  it('保存先のフォルダが、別の場所へのリンクなら、取り消す（リンクの先へ書かせない）', () => {
+    const outside = mkdtempSync(join(tmpdir(), 'trueful-dl-outside-'))
+    try {
+      mkdirSync(join(base, 'Trueful'), { recursive: true })
+      symlinkSync(outside, join(base, 'Trueful', '案件_A'), 'junction')
+      const item = new FakeItem('a.txt')
+      flows.handle(ws, item)
+      expect(item.cancelled).toBe(true)
+      expect(item.savePath).toBeUndefined()
+      expect(listDownloads(db)).toEqual([])
+    } finally {
+      rmSync(outside, { recursive: true, force: true })
+    }
+  })
+
+  it('ネットワークが切れた（interrupted）とき、再開できるなら paused にして知らせる。できないなら done を待つ', () => {
+    const a = new FakeItem('a')
+    flows.handle(ws, a)
+    const before = changes
+    a.emit('updated', {}, 'interrupted')
+    expect(listDownloads(db)[0]!.state).toBe('paused')
+    expect(changes).toBeGreaterThan(before)
+    const b = new FakeItem('b')
+    b.resumable = false
+    flows.handle(ws, b)
+    b.emit('updated', {}, 'interrupted')
+    expect(listDownloads(db).find((d) => d.url.endsWith('/b'))!.state).toBe('in_progress')
+  })
+
+  it('終了のとき（dispose）は、動いているダウンロードをすべて取り消す', () => {
+    const a = new FakeItem('a')
+    const b = new FakeItem('b')
+    flows.handle(ws, a)
+    flows.handle(ws, b)
+    flows.dispose()
+    expect([a.cancelled, b.cancelled]).toEqual([true, true])
+  })
+})
+
 describe('進み具合と終わり', () => {
   it('進み具合を記録する（書き込みは 500ms に 1 回まで）。終わったら完了と時刻', () => {
     const item = new FakeItem('a.bin')
@@ -176,6 +223,8 @@ describe('一時停止・再開・取り消し・フォルダで表示', () => {
     const item = new FakeItem('a.txt')
     flows.handle(ws, item)
     const row = listDownloads(db)[0]!
+    expect(flows.showInFolder(row.id)).toBe(false) // ファイルがまだない
+    writeFileSync(row.path, 'x')
     expect(flows.showInFolder(row.id)).toBe(true)
     expect(shown).toEqual([row.path])
     expect(flows.showInFolder(9999)).toBe(false)

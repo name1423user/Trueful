@@ -85,6 +85,7 @@ const pageViewLimit =
 let database: DatabaseSync | undefined
 let quitting = false
 let settingsStore: SettingsStore | undefined
+let downloadFlows: DownloadFlows | undefined
 let mainWindow: BrowserWindow | undefined
 
 // ウィンドウを閉じたときの片付け（タブのページの破棄。whenReady の中で設定する）
@@ -225,6 +226,7 @@ app.whenReady().then(() => {
     notifyChanged: () => mainWindow?.webContents.send(channelNames.downloadChanged),
     showItemInFolder: (path) => shell.showItemInFolder(path)
   })
+  downloadFlows = downloads
   const tabs = new TabFlows()
   const views = new TabViews(
     window,
@@ -467,6 +469,7 @@ app.whenReady().then(() => {
 // 終了は止めない（止めると、あとの app.quit() が効かずに終了できなくなる）
 app.on('will-quit', () => {
   quitting = true
+  downloadFlows?.dispose()
   settingsStore?.close()
   database?.close()
   database = undefined
