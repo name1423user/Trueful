@@ -1,4 +1,10 @@
-import { WebContentsView, type BaseWindow, type Rectangle, type WebContents } from 'electron'
+import {
+  WebContentsView,
+  type BaseWindow,
+  type DownloadItem,
+  type Rectangle,
+  type WebContents
+} from 'electron'
 import { isAllowedPageUrl } from './urlInput'
 import { pageUserAgent } from './userAgent'
 import { MAX_PAGE_VIEWS, viewsToDiscard } from './viewLimit'
@@ -19,6 +25,8 @@ type Handlers = {
   // ページが新しいウィンドウで開こうとした（target=_blank・window.open）。http・https で、
   // 直前にユーザーの入力があったときだけ呼ぶ。background は Cmd/Ctrl+クリック・中クリック（選ばずに開く）
   onOpenRequest: (tabId: number, url: string, background: boolean) => void
+  // ページがダウンロードを始めた（F07。パーティションごとに1回、セッションに付ける）
+  onDownload: (workspaceId: number, item: DownloadItem) => void
   // ページにフォーカスがあるときに押された、ページに奪わせないショートカット（Chrome と同じ予約キー）
   onReservedShortcut: (command: ReservedShortcut) => void
   // 上限（F02）を超えたので、これらのタブのページを破棄した（URL とタイトルは DB に残っている）
@@ -212,6 +220,7 @@ export class TabViews {
       wc.session.setPermissionCheckHandler(() => false)
       // Service Worker などの要求にも効くように、セッションにも設定する（作り済みのページには効かない）
       wc.session.setUserAgent(pageUserAgent(wc.session.getUserAgent()))
+      wc.session.on('will-download', (_event, item) => this.handlers.onDownload(workspaceId, item))
       this.guarded.add(partition)
     }
     // このページ自身にも設定する（セッションの設定の前に作ったページの保険。何度通しても同じ値になる）

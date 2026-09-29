@@ -41,10 +41,48 @@
     "view-menu": "表示",
     "page-reload": "ページを再読み込み",
     "toggle-side-panel": "左パネルを畳む・開く",
-    "bookmark-page": "このページをブックマークに追加",
     "close-window": "ウィンドウを閉じる",
     "focus-search": "統合検索へ移動",
-    "page-devtools": "開発者ツール"
+    "page-devtools": "開発者ツール",
+    "bookmark-page": "このページをブックマークに追加"
+  },
+  "download": {
+    "listLabel": "ダウンロード",
+    "empty": "ダウンロードはまだありません。",
+    "state": {
+      "in_progress": "ダウンロード中",
+      "paused": "一時停止",
+      "completed": "完了",
+      "cancelled": "取り消しました",
+      "interrupted": "中断（アプリを閉じる前に終わらなかったか、失敗しました）"
+    },
+    "progress": "{{name}} の進み具合",
+    "pause": "一時停止",
+    "resume": "再開",
+    "cancel": "取り消し",
+    "showInFolder": "フォルダで表示",
+    "pauseNamed": "{{name}} を一時停止",
+    "resumeNamed": "{{name}} を再開",
+    "cancelNamed": "{{name}} を取り消し",
+    "showInFolderNamed": "{{name}} をフォルダで表示"
+  },
+  "tab": {
+    "listLabel": "タブ",
+    "newTab": "新しいタブ",
+    "close": "{{title}} を閉じる",
+    "back": "戻る",
+    "forward": "進む",
+    "reload": "再読み込み",
+    "stop": "読み込みを止める",
+    "address": "アドレス",
+    "addressPlaceholder": "URL を入力、または検索",
+    "discarded": "（休止中）"
+  },
+  "panel": {
+    "railLabel": "パネルの切り替え",
+    "tabs": "タブ",
+    "downloads": "ダウンロード",
+    "bookmarks": "ブックマーク"
   },
   "bookmark": {
     "listLabel": "ブックマーク",
@@ -66,22 +104,5 @@
     "urlLabel": "URL",
     "save": "保存",
     "cancel": "やめる"
-  },
-  "tab": {
-    "listLabel": "タブ",
-    "newTab": "新しいタブ",
-    "close": "{{title}} を閉じる",
-    "back": "戻る",
-    "forward": "進む",
-    "reload": "再読み込み",
-    "stop": "読み込みを止める",
-    "address": "アドレス",
-    "addressPlaceholder": "URL を入力、または検索",
-    "discarded": "（休止中）"
-  },
-  "panel": {
-    "railLabel": "パネルの切り替え",
-    "tabs": "タブ",
-    "bookmarks": "ブックマーク"
   }
 }

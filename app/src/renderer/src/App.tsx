@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { BookmarkPanel } from './bookmark/BookmarkPanel'
 import { importMessageKey } from './bookmark/tree'
 import { useBookmarks } from './bookmark/useBookmarks'
+import { DownloadPanel } from './download/DownloadPanel'
+import { useDownloads } from './download/useDownloads'
 import { ActivityBar, type PanelView } from './panel/ActivityBar'
 import { AddressBar } from './tab/AddressBar'
 import { PageArea } from './tab/PageArea'
@@ -21,6 +23,10 @@ function App(): React.JSX.Element {
   const [switchError, setSwitchError] = useState<IpcErrorCode>()
   const [panelView, setPanelView] = useState<PanelView>('tabs')
   const [collapsed, setCollapsed] = useSidePanelCollapsed()
+  const downloads = useDownloads(
+    state.status === 'ready' ? state.currentId : null,
+    panelView === 'downloads' && !collapsed
+  )
   const bookmarks = useBookmarks()
   const [bookmarkMessage, setBookmarkMessage] = useState<string>()
   const tabs = useTabs(state.status === 'ready' ? state.currentId : null)
@@ -150,7 +156,15 @@ function App(): React.JSX.Element {
           setPanelView(view)
         }}
       />
-      {panelView === 'bookmarks' ? (
+      {panelView === 'downloads' && !adding ? (
+        <DownloadPanel
+          downloads={downloads.downloads}
+          onPause={downloads.pause}
+          onResume={downloads.resume}
+          onCancel={downloads.cancel}
+          onShowInFolder={downloads.showInFolder}
+        />
+      ) : panelView === 'bookmarks' ? (
         <BookmarkPanel
           bookmarks={bookmarks.bookmarks}
           canAddPage={!showCreate && /^https?:\/\//i.test(activeTab?.url ?? '')}
