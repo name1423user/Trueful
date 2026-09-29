@@ -4,12 +4,16 @@ import { insertTab, NEW_TAB_URL } from '../../tab/services/tabDB'
 import {
   getWorkspace,
   insertWorkspace,
+  listWorkspaces,
   setCurrentWorkspaceId,
+  setWorkspaceActive,
+  setWorkspaceDormant,
   skipWorkspaceId,
   touchWorkspace,
   type Workspace,
   type WorkspaceMode
 } from '../services/workspaceDB'
+import { MAX_ACTIVE_WORKSPACES, workspacesToDormant } from '../services/workspaceLimit'
 
 export class WorkspaceNotFoundError extends Error {
   constructor(readonly id: number) {
@@ -44,6 +48,7 @@ export function createWorkspaceFlow(
           const created = insertWorkspace(db, { name, mode }, now)
           setCurrentWorkspaceId(db, created.id)
           insertTab(db, { workspaceId: created.id, url: NEW_TAB_URL }, now)
+          limitActiveWorkspaces(db, created.id, now)
           preparing = created.id
           prepare(created)
           return created
@@ -62,11 +67,23 @@ export function createWorkspaceFlow(
   }
 }
 
-// Workspace を切り替える。最後に使った時刻を更新し、次の起動で開くものとして記録する
+// Workspace を切り替える。最後に使った時刻を更新し、次の起動で開くものとして記録する。
+// 休止していたら復帰させ、上限を超えたらほかの Workspace を休止にする
 export function switchWorkspace(db: DatabaseSync, id: number, now = Date.now()): Workspace {
   return inTransaction(db, () => {
     if (!touchWorkspace(db, id, now)) throw new WorkspaceNotFoundError(id)
+    setWorkspaceActive(db, id)
     setCurrentWorkspaceId(db, id)
+    limitActiveWorkspaces(db, id, now)
     return getWorkspace(db, id)!
   })
+}
+
+// フルアクティブな Workspace が上限（5 個）を超えていたら、いちばん長く使っていないものを休止にする。
+// 開こうとしている Workspace（keepId）は選ばない（ADR-011）。ページの実体の破棄は呼び出し側で行う
+function limitActiveWorkspaces(db: DatabaseSync, keepId: number, now: number): void {
+  const active = listWorkspaces(db).filter((w) => w.status === 'active')
+  for (const id of workspacesToDormant(active, MAX_ACTIVE_WORKSPACES, keepId)) {
+    setWorkspaceDormant(db, id, now)
+  }
 }

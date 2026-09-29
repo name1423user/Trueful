@@ -241,11 +241,15 @@ app.whenReady().then(() => {
     const db = await getDatabase()
     return { workspaces: listWorkspaces(db), currentId: getCurrentWorkspaceId(db) }
   })
+  // 休止した Workspace のページを破棄する（作成・切り替えの返事は待たせない）
+  const releaseDormant = (db: DatabaseSync): void =>
+    void pages.releaseDormant(db).catch((e) => console.error('[main] 休止のページの破棄に失敗', e))
   handle(workspaceCreate, async (input) => {
     const db = await getDatabase()
     const created = await createWorkspace(db, input)
     purgeTrash() // 作成で片付け用の場所へ移したフォルダを、トランザクションの外で消す
     pages.showActive(db, created.id)
+    releaseDormant(db)
     return created
   })
   handle(workspaceSwitch, async ({ id }) => {
@@ -253,6 +257,7 @@ app.whenReady().then(() => {
     try {
       const switched = switchWorkspace(db, id)
       pages.showActive(db, id)
+      releaseDormant(db)
       return switched
     } catch (e) {
       if (e instanceof WorkspaceNotFoundError) throw new IpcHandlerError('not-found', e.message)

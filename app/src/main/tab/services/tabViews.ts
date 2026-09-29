@@ -43,6 +43,12 @@ export function reservedShortcut(
 // ユーザーの入力から、この時間の間だけ新しいタブを開ける（入力1回につき1つ）
 const GESTURE_MS = 1000
 
+// スクロール位置の読み書きは、ページのスクリプトとは別の世界（isolated world）で行う
+// （ページが scrollY などを書き換えていても、その影響を受けない）
+const TRUEFUL_WORLD = 1000
+// 休止の前にスクロール位置を読むのを待つ上限（固まったページで休止を止めない）
+const SCROLL_READ_MS = 500
+
 // タブのページを WebContentsView で表示する（ADR-008）。表示するのは1つだけで、ほかは外しておく。
 // Workspace ごとのパーティション persist:workspace-<id> を使う（ログインを Workspace で分ける。F03）。
 // 実体は全 Workspace で最大 maxViews 個。超えたら、いちばん長く表示していないページを破棄する（F02）
@@ -76,9 +82,10 @@ export class TabViews {
     this.window = window
   }
 
-  // そのタブのページを表示する（なければ作って url を読み込む）
-  show(tab: { id: number; workspaceId: number; url: string }): void {
-    if (this.window.isDestroyed()) return
+  // そのタブのページを表示する（なければ作って url を読み込み、scrollY があれば読み込んだ後に戻す）。
+  // ページを作ったら true
+  show(tab: { id: number; workspaceId: number; url: string; scrollY?: number }): boolean {
+    if (this.window.isDestroyed()) return false
     let view = this.views.get(tab.id)
     const created = !view
     if (!view) {
@@ -86,6 +93,16 @@ export class TabViews {
       this.discarded.delete(tab.id)
       // DB の URL も、読み込む前に確かめる（多層防御）
       const url = isAllowedPageUrl(tab.url) ? tab.url : 'about:blank'
+      const scrollY = tab.scrollY ?? 0
+      if (scrollY > 0) {
+        const wc = view.webContents
+        wc.once('did-finish-load', () => {
+          if (wc.isDestroyed()) return
+          wc.executeJavaScriptInIsolatedWorld(TRUEFUL_WORLD, [
+            { code: `window.scrollTo(0, ${Math.floor(scrollY)})` }
+          ]).catch(() => {})
+        })
+      }
       void view.webContents.loadURL(url).catch(() => {})
     }
     if (this.shown !== undefined && this.shown !== tab.id) {
@@ -99,6 +116,23 @@ export class TabViews {
     this.shown = tab.id
     this.lastShown.set(tab.id, ++this.showCount)
     if (created) this.enforceLimit(tab.id)
+    return created
+  }
+
+  // ページのスクロール位置を読んでから、ページを破棄する（Workspace の休止。F01）。
+  // 読んでいる間に状況が変わったら（stillRelease が false）、破棄せずに undefined を返す。
+  // 読めなかったら undefined（ページがない、固まっている、読んだ値がおかしい）
+  async release(tabId: number, stillRelease: () => boolean): Promise<number | undefined> {
+    const wc = this.views.get(tabId)?.webContents
+    if (!wc || wc.isDestroyed()) return undefined
+    const read = wc
+      .executeJavaScriptInIsolatedWorld(TRUEFUL_WORLD, [{ code: 'Math.round(window.scrollY)' }])
+      .catch(() => undefined)
+    const timeout = new Promise<undefined>((resolve) => setTimeout(resolve, SCROLL_READ_MS))
+    const y: unknown = await Promise.race([read, timeout])
+    if (!stillRelease()) return undefined
+    this.destroy(tabId)
+    return Number.isSafeInteger(y) && (y as number) >= 0 ? (y as number) : undefined
   }
 
   // 上限を超えていたら、いちばん長く表示していないページから破棄する（表示中のものは残す）

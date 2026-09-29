@@ -100,6 +100,11 @@ export function updateTabPage(
   db.prepare('UPDATE tab SET url = ?, title = ? WHERE id = ?').run(page.url, page.title, id)
 }
 
+// ページのスクロール位置を記録する（休止の前。復帰したら戻して 0 にする。F01）
+export function updateTabScroll(db: DatabaseSync, id: number, scrollY: number): void {
+  db.prepare('UPDATE tab SET scroll_y = ? WHERE id = ?').run(scrollY, id)
+}
+
 export function deleteTab(db: DatabaseSync, id: number): boolean {
   return db.prepare('DELETE FROM tab WHERE id = ?').run(id).changes === 1
 }

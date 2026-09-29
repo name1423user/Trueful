@@ -73,6 +73,19 @@ export function touchWorkspace(db: DatabaseSync, id: number, now: number): boole
   )
 }
 
+// 休止にする・復帰させる（ADR-012: 休止した時刻は dormanted_time_ms、復帰したら NULL）
+export function setWorkspaceDormant(db: DatabaseSync, id: number, now: number): void {
+  db.prepare(
+    "UPDATE workspace SET status = 'dormant', dormanted_time_ms = ? WHERE id = ? AND status = 'active'"
+  ).run(now, id)
+}
+
+export function setWorkspaceActive(db: DatabaseSync, id: number): void {
+  db.prepare("UPDATE workspace SET status = 'active', dormanted_time_ms = NULL WHERE id = ?").run(
+    id
+  )
+}
+
 export function getCurrentWorkspaceId(db: DatabaseSync): number | null {
   const v = db.prepare('SELECT last_workspace_id v FROM app_state WHERE id = 1').get()?.['v']
   return v === null || v === undefined ? null : Number(v)

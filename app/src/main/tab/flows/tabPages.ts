@@ -1,6 +1,10 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { getCurrentWorkspaceId } from '../../workspace/services/workspaceDB'
-import { getTab, updateTabPage, type Tab } from '../services/tabDB'
+import {
+  getCurrentWorkspaceId,
+  getWorkspace,
+  listWorkspaces
+} from '../../workspace/services/workspaceDB'
+import { getTab, listTabs, updateTabPage, updateTabScroll, type Tab } from '../services/tabDB'
 import type { PageState, TabViews } from '../services/tabViews'
 import { isAllowedPageUrl, resolveInput, type Shortcut } from '../services/urlInput'
 import { TabNotFoundError, type TabFlows, type TabState } from './tabFlows'
@@ -32,7 +36,25 @@ export class TabPages {
     if (getCurrentWorkspaceId(db) !== workspaceId) return
     const { tabs, activeId } = this.tabs.list(db, workspaceId)
     const active = tabs.find((t) => t.id === activeId)
-    if (active) this.views.show(active)
+    // 休止の前のスクロール位置は、ページを作り直したときに1回だけ戻す
+    if (active && this.views.show(active) && active.scrollY > 0) {
+      updateTabScroll(db, active.id, 0)
+    }
+  }
+
+  // 休止した Workspace のページを、スクロール位置を記録してから破棄する（F01。URL は DB に残っている）
+  async releaseDormant(db: DatabaseSync): Promise<void> {
+    for (const workspace of listWorkspaces(db).filter((w) => w.status === 'dormant')) {
+      for (const tab of listTabs(db, workspace.id)) {
+        if (!this.views.webContents(tab.id)) continue
+        // 待っている間に復帰した（切り替えで開いた）Workspace のページは破棄しない
+        const stillDormant = (): boolean =>
+          db.isOpen && getWorkspace(db, workspace.id)?.status === 'dormant'
+        if (!stillDormant()) break
+        const y = await this.views.release(tab.id, stillDormant)
+        if (y !== undefined && db.isOpen && getTab(db, tab.id)) updateTabScroll(db, tab.id, y)
+      }
+    }
   }
 
   // タブ列と、上限のためにページを破棄したタブ（画面では薄く出す。F02・F15）
