@@ -51,15 +51,19 @@ test('ページの実体が上限を超えたら、いちばん長く見てい�
     await expect(tabs.nth(0)).not.toHaveClass(/tab-discarded/)
     await expect(address).toHaveValue(`${origin}/a`)
     await expect(tabs.nth(1)).toHaveClass(/tab-discarded/)
-    const pageUrls = await app.evaluate(
-      ({ webContents }, o) =>
-        webContents
-          .getAllWebContents()
-          .map((wc) => wc.getURL())
-          .filter((u) => u.startsWith(o)),
-      origin
-    )
-    expect(pageUrls).toEqual([`${origin}/a`])
+    // 残っているページの実体は、作り直した1つ目だけ（読み込みの確定を待つ）
+    await expect
+      .poll(() =>
+        app.evaluate(
+          ({ webContents }, o) =>
+            webContents
+              .getAllWebContents()
+              .map((wc) => wc.getURL())
+              .filter((u) => u.startsWith(o)),
+          origin
+        )
+      )
+      .toEqual([`${origin}/a`])
   } finally {
     await app.close()
     cleanup()
