@@ -45,6 +45,26 @@
     "focus-search": "統合検索へ移動",
     "page-devtools": "開発者ツール"
   },
+  "download": {
+    "listLabel": "ダウンロード",
+    "empty": "ダウンロードはまだありません。",
+    "state": {
+      "in_progress": "ダウンロード中",
+      "paused": "一時停止",
+      "completed": "完了",
+      "cancelled": "取り消しました",
+      "interrupted": "中断（アプリを閉じる前に終わらなかったか、失敗しました）"
+    },
+    "progress": "{{name}} の進み具合",
+    "pause": "一時停止",
+    "resume": "再開",
+    "cancel": "取り消し",
+    "showInFolder": "フォルダで表示",
+    "pauseNamed": "{{name}} を一時停止",
+    "resumeNamed": "{{name}} を再開",
+    "cancelNamed": "{{name}} を取り消し",
+    "showInFolderNamed": "{{name}} をフォルダで表示"
+  },
   "tab": {
     "listLabel": "タブ",
     "newTab": "新しいタブ",
@@ -59,6 +79,7 @@
   },
   "panel": {
     "railLabel": "パネルの切り替え",
-    "tabs": "タブ"
+    "tabs": "タブ",
+    "downloads": "ダウンロード"
   }
 }
