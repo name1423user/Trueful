@@ -7,6 +7,7 @@ import {
 } from 'electron'
 import { isAllowedPageUrl } from './urlInput'
 import { pageUserAgent } from './userAgent'
+import { classifyLoadError, type LoadError } from './loadError'
 import { MAX_PAGE_VIEWS, viewsToDiscard } from './viewLimit'
 
 // ページの様子（Renderer のアドレスバーと戻る・進むのボタンに使う）
@@ -16,6 +17,8 @@ export type PageState = {
   canGoBack: boolean
   canGoForward: boolean
   loading: boolean
+  // 読み込みに失敗したとき（F16）。ページの実体は隠し、Renderer が同じ場所にエラー画面を出す
+  error?: LoadError
 }
 
 type Handlers = {
@@ -70,6 +73,8 @@ export class TabViews {
   private showCount = 0
   // 上限のために破棄したタブ（もう一度表示すると作り直す。画面では薄く出す）
   private readonly discarded = new Set<number>()
+  // 読み込みに失敗しているタブ（メインフレーム。次に移動が確定するまで）
+  private readonly errors = new Map<number, LoadError>()
   // 権限のハンドラと User-Agent を設定したパーティション（1つのセッションに1回だけ設定する）
   private readonly guarded = new Set<string>()
 
@@ -127,6 +132,7 @@ export class TabViews {
       this.lastShown.set(this.shown, ++this.showCount)
     }
     this.window.contentView.addChildView(view)
+    view.setVisible(!this.errors.has(tab.id))
     view.setBounds(this.bounds)
     this.shown = tab.id
     this.lastShown.set(tab.id, ++this.showCount)
@@ -194,6 +200,7 @@ export class TabViews {
     // 破棄済み（ページがない）のタブを閉じたときも、記録は消す
     this.lastShown.delete(tabId)
     this.discarded.delete(tabId)
+    this.errors.delete(tabId)
     const view = this.views.get(tabId)
     if (!view) return
     if (!this.window.isDestroyed()) this.window.contentView.removeChildView(view)
@@ -235,11 +242,31 @@ export class TabViews {
           title: wc.getTitle(),
           canGoBack: wc.navigationHistory.canGoBack(),
           canGoForward: wc.navigationHistory.canGoForward(),
-          loading: wc.isLoading()
+          loading: wc.isLoading(),
+          error: this.errors.get(tabId)
         },
         committed
       )
     }
+    // 読み込みの失敗（F16）。メインフレームだけ。取りやめ（ERR_ABORTED）は失敗ではない。
+    // ページの実体は隠して、同じ場所に Renderer がエラー画面を出す（証明書エラーで先に進む道は作らない）
+    wc.on('did-fail-load', (_e, code, description, validatedURL, isMainFrame) => {
+      const kind = classifyLoadError(code)
+      if (!isMainFrame || kind === 'ignore' || wc.isDestroyed()) return
+      this.errors.set(tabId, { kind, url: validatedURL, description })
+      view.setVisible(false)
+      notify(false)()
+    })
+    // 証明書のエラーは、いつも拒否する（既定の動きを、決めごととして明示する）
+    wc.on('certificate-error', (event, _url, _error, _certificate, callback) => {
+      event.preventDefault()
+      callback(false)
+    })
+    // 別のページへの移動が確定したら、エラーを外してページを出す（エラーページ自身の移動は数えない）
+    wc.on('did-navigate', (_e, url) => {
+      if (url.startsWith('chrome-error://') || !this.errors.delete(tabId)) return
+      view.setVisible(true)
+    })
     wc.on('did-start-loading', notify(false))
     wc.on('did-stop-loading', notify(false))
     wc.on('did-navigate', notify(true))
