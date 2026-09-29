@@ -94,14 +94,15 @@ function App(): React.JSX.Element {
           </p>
         )}
         {/* 自動で休止したことの事後の知らせ（ADR-011）。ページの外（上端）に出し、読み上げる */}
-        <div role="status" className="dormant-notice-area">
+        {/* 読み上げの領域は常に置き、中身だけ出し入れする。閉じるボタンは領域の外 */}
+        <div className={notice.length > 0 ? 'dormant-notice' : undefined}>
+          <p role="status" aria-live="polite">
+            {notice.length > 0 && t('workspace.dormantNotice', { names: notice.join('」「') })}
+          </p>
           {notice.length > 0 && (
-            <p className="dormant-notice">
-              {t('workspace.dormantNotice', { names: notice.join('」「') })}
-              <button type="button" className="dormant-notice-close" onClick={dismissNotice}>
-                {t('workspace.dormantNoticeClose')}
-              </button>
-            </p>
+            <button type="button" className="dormant-notice-close" onClick={dismissNotice}>
+              {t('workspace.dormantNoticeClose')}
+            </button>
           )}
         </div>
       </header>

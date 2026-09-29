@@ -220,6 +220,10 @@ body {
   border-style: dashed;
 }
 
+.dormant-notice p {
+  margin: 0;
+}
+
 .dormant-notice {
   display: flex;
   align-items: center;

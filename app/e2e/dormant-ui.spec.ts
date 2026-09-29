@@ -13,6 +13,8 @@ test('6 個目を作ると、いちばん古い Workspace に「休止中」の�
       await window.getByLabel('名前').fill(`W${i}`)
       await window.getByRole('button', { name: '作成' }).click()
       await expect(rows).toHaveCount(i)
+      // 作成画面が閉じてから、次を操作する
+      await expect(window.getByLabel('名前')).toBeHidden()
       // 5 個目までは印も知らせもない
       if (i <= 5) {
         await expect(window.locator('.workspace-state')).toHaveCount(0)
@@ -21,7 +23,7 @@ test('6 個目を作ると、いちばん古い Workspace に「休止中」の�
     }
 
     // 6 個目で W1 が休止する。印は文字（色だけに頼らない）
-    await expect(rows.nth(0)).toContainText('休止中')
+    await expect(rows.filter({ hasText: 'W1' })).toContainText('休止中')
     await expect(window.locator('.workspace-state')).toHaveCount(1)
     await expect(notice).toContainText('「W1」')
     await window.screenshot({ path: `test-results/dormant-ui-${process.platform}.png` })
@@ -31,9 +33,9 @@ test('6 個目を作ると、いちばん古い Workspace に「休止中」の�
     await expect(notice).toHaveCount(0)
 
     // W1 を選ぶと復帰して印が消え、代わりに W2 が休止する（切り替えの後に一覧を読み直す）
-    await rows.nth(0).click()
-    await expect(rows.nth(0)).not.toContainText('休止中')
-    await expect(rows.nth(1)).toContainText('休止中')
+    await rows.filter({ hasText: 'W1' }).click()
+    await expect(rows.filter({ hasText: 'W1' })).not.toContainText('休止中')
+    await expect(rows.filter({ hasText: 'W2' })).toContainText('休止中')
     await expect(notice).toContainText('「W2」')
   } finally {
     await app.close()

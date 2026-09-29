@@ -43,23 +43,28 @@ export function useWorkspaces(): {
     if (result.ok) {
       const names = newlyDormant(known.current, result.value.workspaces).map((w) => w.name)
       known.current = result.value.workspaces
-      if (names.length > 0) setNotice(names)
+      // 閉じる前に次の休止があったら、名前を足す（前の分を消さない）
+      if (names.length > 0) setNotice((prev) => [...new Set([...prev, ...names])])
     }
     setState(toState(result))
   }, [])
 
-  const reload = useCallback(async () => apply(await api.list()), [apply])
-
-  // 最初の読み込み。画面が消えた後に返事が来たら捨てる
-  useEffect(() => {
-    let active = true
-    void api.list().then((result) => {
-      if (active) apply(result)
-    })
-    return () => {
-      active = false
-    }
+  // 一覧の読み込み。続けて呼んだら、最後の呼び出しの返事だけを使う（古い返事で一覧と known を戻さない）。
+  // 画面が消えた後に返事が来たら捨てる
+  const latest = useRef(0)
+  const reload = useCallback(async () => {
+    const mine = ++latest.current
+    const result = await api.list()
+    if (mine === latest.current) apply(result)
   }, [apply])
+
+  // 最初の読み込み。画面が消えたら、返事を捨てる
+  useEffect(() => {
+    void reload()
+    return () => {
+      latest.current = -1
+    }
+  }, [reload])
 
   // requestId は作成画面が1回の作成ごとに1つ用意する。同じ requestId の依頼は Main が1回だけ処理する
   const create = useCallback(
