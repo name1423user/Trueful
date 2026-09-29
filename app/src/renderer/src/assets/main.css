@@ -487,3 +487,64 @@ body {
   outline: 2px solid var(--text);
   outline-offset: 1px;
 }
+
+/* 読み込みに失敗したときの画面（F16。ページの実体を隠した同じ場所に出る） */
+.page-area {
+  position: relative;
+}
+
+.error-screen {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  padding: 32px;
+  background: var(--bg);
+}
+
+.error-screen h2 {
+  margin: 0 0 16px;
+  font-size: 20px;
+}
+
+.error-screen p {
+  margin: 0 0 8px;
+  max-width: 60ch;
+}
+
+.error-screen-detail {
+  display: grid;
+  gap: 4px;
+  margin: 16px 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.error-screen-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.error-screen-actions button {
+  padding: 4px 16px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.error-screen-actions button:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.error-screen-actions button:hover:not(:disabled) {
+  background: var(--selected);
+}
+
+.error-screen-actions button:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
