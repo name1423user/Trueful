@@ -301,14 +301,19 @@ app.whenReady().then(() => {
     if (!found) throw new IpcHandlerError('not-found', `ブックマーク ${id} がない`)
     return null
   }
+  // 親がない（外部キー）・親がフォルダでない（トリガー）・自分の中へは移せない、だけを not-found にする。
+  // ほかの失敗（DB の混雑など）は、そのまま投げて internal にする
+  const asParentError = (e: unknown): unknown =>
+    e instanceof Error && /constraint|bookmark parent|自分の中|がない/i.test(e.message)
+      ? new IpcHandlerError('not-found', e.message)
+      : e
   handle(bookmarkList, async () => listBookmarks(await getDatabase()))
   handle(bookmarkAdd, async (input) => {
     const db = await getDatabase()
     try {
       return insertBookmark(db, input, Date.now())
     } catch (e) {
-      // 親がない（外部キー）・親がフォルダでない（トリガー）
-      throw new IpcHandlerError('not-found', e instanceof Error ? e.message : String(e))
+      throw asParentError(e)
     }
   })
   handle(bookmarkUpdate, async ({ id, ...patch }) =>
@@ -321,7 +326,7 @@ app.whenReady().then(() => {
       moveBookmark(db, id, parentId)
       return null
     } catch (e) {
-      throw new IpcHandlerError('not-found', e instanceof Error ? e.message : String(e))
+      throw asParentError(e)
     }
   })
   // Chrome のプロファイルは、見つかった最初のもの（Default が先）から取り込む
@@ -338,15 +343,24 @@ app.whenReady().then(() => {
       ? { status: 'not-found' as const }
       : importFromFile(db, file, 'chrome', Date.now())
   })
+  // ダイアログを開いている間の2回目の呼び出しは、取りやめとして返す
+  let choosingHtml = false
   handle(bookmarkImportHtml, async () => {
     const db = await getDatabase()
+    if (choosingHtml) return { status: 'cancelled' as const }
+    choosingHtml = true
     const options = {
       properties: ['openFile' as const],
       filters: [{ name: 'HTML', extensions: ['html', 'htm'] }]
     }
-    const chosen = mainWindow
-      ? await dialog.showOpenDialog(mainWindow, options)
-      : await dialog.showOpenDialog(options)
+    let chosen: Awaited<ReturnType<typeof dialog.showOpenDialog>>
+    try {
+      chosen = mainWindow
+        ? await dialog.showOpenDialog(mainWindow, options)
+        : await dialog.showOpenDialog(options)
+    } finally {
+      choosingHtml = false
+    }
     const [file] = chosen.filePaths
     return chosen.canceled || file === undefined
       ? { status: 'cancelled' as const }
