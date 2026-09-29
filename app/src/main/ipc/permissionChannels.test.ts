@@ -17,6 +17,8 @@ describe('permission:* の引数', () => {
       { ...ok, workspaceId: 0 },
       { ...ok, origin: 'file:///x' },
       { ...ok, origin: 'a.example' },
+      { ...ok, origin: 'https://a.example/path' }, // origin の形（パスなし）だけ
+      { ...ok, origin: 'HTTPS://A.EXAMPLE' },
       { ...ok, permission: 'usb' },
       { ...ok, extra: 1 },
       { workspaceId: 1, origin: 'https://a.example' }

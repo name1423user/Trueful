@@ -32,7 +32,7 @@ type Handlers = {
     workspaceId: number,
     url: string,
     permission: string,
-    details: { mediaTypes?: string[] }
+    details: { mediaTypes?: string[]; isMainFrame?: boolean; topLevelUrl?: string }
   ) => Promise<boolean>
   // 権限の同期の確認（記憶した許可だけが true）
   onPermissionCheck: (
@@ -231,10 +231,15 @@ export class TabViews {
     const partition = `persist:workspace-${workspaceId}`
     if (!this.guarded.has(partition)) {
       // 権限は、Workspace とサイトごとに記憶した答えで決める（決めていなければ確認を出す。確認できないときは拒否）
-      wc.session.setPermissionRequestHandler((_wc, permission, callback, details) => {
+      wc.session.setPermissionRequestHandler((requester, permission, callback, details) => {
         const mediaTypes = (details as { mediaTypes?: string[] }).mediaTypes
+        // メインフレームの要求は、今のページの URL とも照らす（古い URL の要求を通さない）
         void this.handlers
-          .onPermissionRequest(workspaceId, details.requestingUrl, permission, { mediaTypes })
+          .onPermissionRequest(workspaceId, details.requestingUrl, permission, {
+            mediaTypes,
+            isMainFrame: details.isMainFrame,
+            topLevelUrl: details.isMainFrame ? requester.getURL() : undefined
+          })
           .then(callback, () => callback(false))
       })
       wc.session.setPermissionCheckHandler((_wc, permission, requestingOrigin, details) => {

@@ -12,6 +12,7 @@ export const PERMISSIONS = [
 export type Permission = (typeof PERMISSIONS)[number]
 
 // 要求に必要な権限。確認の対象でないもの（全画面・外部アプリを開く・ポインタのロックなど）は空で、いつも拒否する。
+// midiSysex（デバイスへの書き込み）は、midi とは別の権限にしないと、許可が広がるので、決まるまで拒否（空）
 // media は、カメラ（video）・マイク（audio）の種類ごと。種類が分からないときは両方
 export function requiredPermissions(
   electronPermission: string,
@@ -33,7 +34,6 @@ export function requiredPermissions(
     case 'idle-detection':
       return [electronPermission]
     case 'midi':
-    case 'midiSysex':
       return ['midi']
     default:
       return []

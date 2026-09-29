@@ -18,7 +18,6 @@ describe('Electron の権限名から、記憶する権限への対応（F16）'
     expect(requiredPermissions('clipboard-read')).toEqual(['clipboard-read'])
     expect(requiredPermissions('display-capture')).toEqual(['display-capture'])
     expect(requiredPermissions('midi')).toEqual(['midi'])
-    expect(requiredPermissions('midiSysex')).toEqual(['midi'])
     expect(requiredPermissions('idle-detection')).toEqual(['idle-detection'])
   })
 

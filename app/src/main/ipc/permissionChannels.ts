@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { SitePermission } from '../permission/services/permissionDB'
-import { PERMISSIONS } from '../permission/services/permissionMap'
+import { originOf, PERMISSIONS } from '../permission/services/permissionMap'
 import { channelNames } from './channelNames'
 import { defineChannel } from './channels'
 
@@ -18,10 +18,11 @@ export const permissionRevoke = defineChannel<boolean>()(
   z
     .object({
       workspaceId: id,
+      // 記憶している origin と同じ形（正規化したもの）だけ。表記が違うと、取り消しが黙って何もしなくなる
       origin: z
         .string()
         .max(2048)
-        .refine((o) => /^https?:\/\//i.test(o), { message: 'http・https のサイト' }),
+        .refine((o) => originOf(o) === o, { message: 'http・https のサイト（origin の形）' }),
       permission: z.enum(PERMISSIONS)
     })
     .strict()
