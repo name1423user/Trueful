@@ -7,6 +7,8 @@ import type { TabState } from '../main/tab/flows/tabFlows'
 import type { TabListState } from '../main/tab/flows/tabPages'
 import type { Tab } from '../main/tab/services/tabDB'
 import type { PageState } from '../main/tab/services/tabViews'
+import type { Bookmark } from '../main/bookmark/services/bookmarkDB'
+import type { BookmarkImportOutcome } from '../main/ipc/bookmarkChannels'
 import type { HistoryEntry } from '../main/history/services/historyDB'
 import type { Workspace, WorkspaceMode } from '../main/workspace/services/workspaceDB'
 
@@ -55,6 +57,26 @@ const api = {
     // 訪問の時刻（Unix ミリ秒）の範囲を消す。省略すると全部
     delete: (range: { fromMs?: number; toMs?: number }): Promise<IpcResult<{ removed: number }>> =>
       ipcRenderer.invoke(channelNames.historyDelete, range)
+  },
+  bookmark: {
+    list: (): Promise<IpcResult<Bookmark[]>> => ipcRenderer.invoke(channelNames.bookmarkList),
+    add: (
+      input:
+        | { kind: 'folder'; title: string; parentId?: number }
+        | { kind: 'url'; title: string; url: string; parentId?: number }
+    ): Promise<IpcResult<Bookmark>> => ipcRenderer.invoke(channelNames.bookmarkAdd, input),
+    update: (input: { id: number; title?: string; url?: string }): Promise<IpcResult<null>> =>
+      ipcRenderer.invoke(channelNames.bookmarkUpdate, input),
+    delete: (id: number): Promise<IpcResult<null>> =>
+      ipcRenderer.invoke(channelNames.bookmarkDelete, { id }),
+    move: (id: number, parentId: number | null): Promise<IpcResult<null>> =>
+      ipcRenderer.invoke(channelNames.bookmarkMove, { id, parentId }),
+    // Chrome のプロファイルから取り込む（場所は Main が探す）
+    importChrome: (): Promise<IpcResult<BookmarkImportOutcome>> =>
+      ipcRenderer.invoke(channelNames.bookmarkImportChrome),
+    // Chrome の HTML エクスポートを、ファイル選択で選んで取り込む
+    importHtml: (): Promise<IpcResult<BookmarkImportOutcome>> =>
+      ipcRenderer.invoke(channelNames.bookmarkImportHtml)
   },
   tab: {
     list: (workspaceId: number): Promise<IpcResult<TabListState>> =>
