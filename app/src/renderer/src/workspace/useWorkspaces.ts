@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { newlyDormant } from './dormant'
 
 type Api = Window['trueful']['workspace']
 type ListValue = Extract<Awaited<ReturnType<Api['list']>>, { ok: true }>['value']
@@ -29,21 +30,36 @@ export function useWorkspaces(): {
     requestId: string
   ) => Promise<{ ok: true; id: number } | { ok: false; code: IpcErrorCode }>
   switchTo: (id: number) => Promise<IpcErrorCode | undefined>
+  // 自動で休止した Workspace の名前（事後の知らせ。ADR-011）
+  notice: string[]
+  dismissNotice: () => void
 } {
   const [state, setState] = useState<WorkspacesState>({ status: 'loading' })
+  const [notice, setNotice] = useState<string[]>([])
+  // 読み直しのとき、前の一覧と比べて、新しく休止したものを知らせる
+  const known = useRef<Workspace[]>([])
 
-  const reload = useCallback(async () => setState(toState(await api.list())), [])
+  const apply = useCallback((result: Awaited<ReturnType<Api['list']>>) => {
+    if (result.ok) {
+      const names = newlyDormant(known.current, result.value.workspaces).map((w) => w.name)
+      known.current = result.value.workspaces
+      if (names.length > 0) setNotice(names)
+    }
+    setState(toState(result))
+  }, [])
+
+  const reload = useCallback(async () => apply(await api.list()), [apply])
 
   // 最初の読み込み。画面が消えた後に返事が来たら捨てる
   useEffect(() => {
     let active = true
     void api.list().then((result) => {
-      if (active) setState(toState(result))
+      if (active) apply(result)
     })
     return () => {
       active = false
     }
-  }, [])
+  }, [apply])
 
   // requestId は作成画面が1回の作成ごとに1つ用意する。同じ requestId の依頼は Main が1回だけ処理する
   const create = useCallback(
@@ -66,10 +82,14 @@ export function useWorkspaces(): {
         return result.error.code
       }
       setState((s) => (s.status === 'ready' ? { ...s, currentId: id } : s))
+      // 休止・復帰の結果は、画面を切り替えた後に読み直して知る
+      void reload()
       return undefined
     },
     [reload]
   )
 
-  return { state, create, switchTo }
+  const dismissNotice = useCallback(() => setNotice([]), [])
+
+  return { state, create, switchTo, notice, dismissNotice }
 }

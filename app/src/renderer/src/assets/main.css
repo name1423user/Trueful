@@ -197,6 +197,52 @@ body {
   font-weight: bold;
 }
 
+.workspace-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 休止中・アーカイブの印。色だけに頼らず、文字で示す */
+.workspace-state {
+  flex: none;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: normal;
+}
+
+.workspace-state.state-archived {
+  border-style: dashed;
+}
+
+.dormant-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.dormant-notice-close {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
 .workspace-add {
   color: var(--text-muted);
   margin: 0 8px;
