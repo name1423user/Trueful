@@ -27,6 +27,13 @@ import {
   bookmarkMove,
   bookmarkUpdate
 } from './ipc/bookmarkChannels'
+import {
+  downloadCancel,
+  downloadList,
+  downloadPause,
+  downloadResume,
+  downloadShowInFolder
+} from './ipc/downloadChannels'
 import { historyDelete, historySearch } from './ipc/historyChannels'
 import { workspaceCreate, workspaceList, workspaceSwitch } from './ipc/workspaceChannels'
 import { chromeBookmarkFiles } from './bookmark/services/chromeBookmarks'
@@ -38,6 +45,8 @@ import {
   moveBookmark,
   updateBookmark
 } from './bookmark/services/bookmarkDB'
+import { DownloadFlows } from './download/flows/downloadFlows'
+import { interruptUnfinishedDownloads, listDownloads } from './download/services/downloadDB'
 import { deleteHistory, purgeExpiredHistory, searchHistory } from './history/services/historyDB'
 import { TabFlows, TabNotFoundError } from './tab/flows/tabFlows'
 import { TabPages } from './tab/flows/tabPages'
@@ -170,6 +179,12 @@ app.whenReady().then(() => {
         console.error('[main] マニフェストをそろえられなかった', e)
       }
       purgeTrash()
+      // 再起動の前に終わらなかったダウンロードは「中断」にする（F07）。最初のダウンロードが始まる前に、ここで1回だけ
+      try {
+        interruptUnfinishedDownloads(db, Date.now())
+      } catch (e) {
+        console.error('[main] ダウンロードの中断を記録できなかった', e)
+      }
       // 保存期間（設定。既定 90 日）を過ぎた履歴を消す（F09）
       try {
         purgeExpiredHistory(db, Date.now(), store.get().settings.historyRetentionDays)
@@ -202,12 +217,21 @@ app.whenReady().then(() => {
   // ウィンドウと、タブのページの表示（ADR-008）。ページの様子とタブ列の変化は Renderer に知らせる
   createWindow()
   const window = mainWindow!
+  // ダウンロード（F07）。ページのダウンロードは、Workspace ごとのフォルダに保存する
+  const downloads = new DownloadFlows({
+    getDb: () => database,
+    // E2E では、普段のダウンロードのフォルダを汚さないよう、環境変数で差し替える
+    downloadsDir: process.env['TRUEFUL_DOWNLOADS_DIR'] ?? app.getPath('downloads'),
+    notifyChanged: () => mainWindow?.webContents.send(channelNames.downloadChanged),
+    showItemInFolder: (path) => shell.showItemInFolder(path)
+  })
   const tabs = new TabFlows()
   const views = new TabViews(
     window,
     {
       onPageChanged: (tabId, page, committed) => pages.pageChanged(tabId, page, committed),
       onOpenRequest: (tabId, url, background) => pages.openRequested(tabId, url, background),
+      onDownload: (workspaceId, item) => downloads.handle(workspaceId, item),
       onReservedShortcut: (command) => runMenuCommand(command),
       onDiscarded: (tabIds) => pages.discarded(tabIds)
     },
@@ -291,6 +315,13 @@ app.whenReady().then(() => {
       throw e
     }
   })
+
+  // ダウンロード（F07）
+  handle(downloadList, async ({ workspaceId }) => listDownloads(await getDatabase(), workspaceId))
+  handle(downloadPause, ({ id }) => downloads.pause(id))
+  handle(downloadResume, ({ id }) => downloads.resume(id))
+  handle(downloadCancel, ({ id }) => downloads.cancel(id))
+  handle(downloadShowInFolder, ({ id }) => downloads.showInFolder(id))
 
   // 閲覧履歴（F09）
   handle(historySearch, async (input) => searchHistory(await getDatabase(), input))
