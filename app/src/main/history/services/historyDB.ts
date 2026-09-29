@@ -24,6 +24,13 @@ function toEntry(row: Record<string, unknown>): HistoryEntry {
   }
 }
 
+// 履歴に残す URL からは、フラグメント（#以降）を除く。SPA の画面遷移ごとに行が増えるのを防ぎ、
+// OAuth の #access_token= のようなフラグメントのトークンを残さない
+export function historyUrl(url: string): string {
+  const i = url.indexOf('#')
+  return i < 0 ? url : url.slice(0, i)
+}
+
 // 履歴に残すのは http・https のページだけ（about:blank やエラーページなどは残さない）
 export function isHistoryUrl(url: string): boolean {
   return /^https?:\/\//i.test(url)
@@ -35,6 +42,7 @@ export function recordVisit(
   input: { workspaceId: number; url: string; title: string; now: number }
 ): void {
   if (!isHistoryUrl(input.url)) return
+  const url = historyUrl(input.url)
   inTransaction(db, () => {
     db.prepare(
       `INSERT INTO history_url (workspace_id, url, title, visit_count, last_visited_time_ms)
@@ -43,10 +51,10 @@ export function recordVisit(
          visit_count = visit_count + 1,
          last_visited_time_ms = excluded.last_visited_time_ms,
          title = CASE WHEN excluded.title <> '' THEN excluded.title ELSE title END`
-    ).run(input.workspaceId, input.url, input.title, input.now)
+    ).run(input.workspaceId, url, input.title, input.now)
     const id = db
       .prepare('SELECT id FROM history_url WHERE workspace_id = ? AND url = ?')
-      .get(input.workspaceId, input.url)?.['id']
+      .get(input.workspaceId, url)?.['id']
     db.prepare('INSERT INTO history_visit (url_id, visited_time_ms) VALUES (?, ?)').run(
       id as number,
       input.now
@@ -69,7 +77,7 @@ export function updateHistoryTitle(
 
 // 検索（タイトルと URL の部分一致、新しい順。16ms 以内。data-schema.md「履歴の検索」）。
 // 3文字以上: 全文検索（trigram）で最大 200 件を取り、その中を新しい順に並べる。
-// 2文字以下: 新しい 5,000 件の URL だけを LIKE で見る
+// 2文字以下: 新しい 5,000 件（Workspace の指定があればその中で）のタイトルと URL を LIKE で見る
 const FTS_CANDIDATES = 200
 const SHORT_SCAN = 5000
 
@@ -85,11 +93,14 @@ export function searchHistory(
   if ([...query].length >= 3) {
     // 入力全体を1つの語（フレーズ）として探す。" は "" に直す
     const match = `"${query.replaceAll('"', '""')}"`
+    // 候補の 200 件は、Workspace の絞り込みの後に数える（絞り込みで取りこぼさない）。
+    // CROSS JOIN は、全文検索の表から先に引かせるため（指定しないと Workspace の索引から引き、337ms かかった）
     return db
       .prepare(
         `SELECT ${COLUMNS} FROM history_url h
-         WHERE h.id IN (SELECT rowid FROM history_url_fts WHERE history_url_fts MATCH ? LIMIT ${FTS_CANDIDATES})
-         ${workspace}
+         WHERE h.id IN (
+           SELECT f.rowid FROM history_url_fts f CROSS JOIN history_url h ON h.id = f.rowid
+           WHERE history_url_fts MATCH ? ${workspace} LIMIT ${FTS_CANDIDATES})
          ORDER BY h.last_visited_time_ms DESC LIMIT ?`
       )
       .all(match, ...workspaceArgs, limit)
@@ -99,12 +110,13 @@ export function searchHistory(
   return db
     .prepare(
       `SELECT ${COLUMNS} FROM (
-         SELECT * FROM history_url ORDER BY last_visited_time_ms DESC LIMIT ${SHORT_SCAN}
+         SELECT * FROM history_url h ${workspace ? 'WHERE h.workspace_id = ?' : ''}
+         ORDER BY last_visited_time_ms DESC LIMIT ${SHORT_SCAN}
        ) h
-       WHERE (h.title LIKE ? ESCAPE '\\' OR h.url LIKE ? ESCAPE '\\') ${workspace}
+       WHERE (h.title LIKE ? ESCAPE '\\' OR h.url LIKE ? ESCAPE '\\')
        ORDER BY h.last_visited_time_ms DESC LIMIT ?`
     )
-    .all(like, like, ...workspaceArgs, limit)
+    .all(...workspaceArgs, like, like, limit)
     .map(toEntry)
 }
 

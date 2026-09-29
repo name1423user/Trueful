@@ -5,6 +5,7 @@ import { migrate } from '../../db/services/migrate'
 import { insertWorkspace } from '../../workspace/services/workspaceDB'
 import {
   deleteHistory,
+  historyUrl,
   purgeExpiredHistory,
   recordVisit,
   searchHistory,
@@ -54,6 +55,17 @@ describe('訪問の記録（F09）', () => {
   })
 })
 
+describe('URL のフラグメントは残さない', () => {
+  it('# 以降を除く。フラグメントだけが違う訪問は同じ URL の訪問になる', () => {
+    expect(historyUrl('https://a.example/p?x=1#access_token=secret')).toBe(
+      'https://a.example/p?x=1'
+    )
+    recordVisit(db, { workspaceId: ws1, url: 'https://a.example/#a', title: '', now: 1 })
+    recordVisit(db, { workspaceId: ws1, url: 'https://a.example/#b', title: '', now: 2 })
+    expect(rows()).toEqual([{ url: 'https://a.example/', visit_count: 2, last: 2 }])
+  })
+})
+
 describe('検索（F09・F10）', () => {
   beforeEach(() => {
     recordVisit(db, {
@@ -94,6 +106,22 @@ describe('検索（F09・F10）', () => {
   it('全文検索の記号（" や *）が入っても壊れない。空の入力は空', () => {
     expect(() => searchHistory(db, { query: '"react" OR *' })).not.toThrow()
     expect(searchHistory(db, { query: '   ' })).toEqual([])
+  })
+
+  it('Workspace の絞り込みは、候補の上限（200 件）で切る前に行う（別の Workspace の新しい行に埋もれない）', () => {
+    for (let i = 0; i < 300; i++) {
+      recordVisit(db, {
+        workspaceId: ws1,
+        url: `https://zzz.example/${i}`,
+        title: '',
+        now: 5000 + i
+      })
+    }
+    recordVisit(db, { workspaceId: ws2, url: 'https://zzz.example/only-b', title: '', now: 100 })
+    expect(searchHistory(db, { query: 'zzz.example', workspaceId: ws2 }).map((r) => r.url)).toEqual(
+      ['https://zzz.example/only-b']
+    )
+    expect(searchHistory(db, { query: 'zz', workspaceId: ws2 })).toHaveLength(1) // 2文字以下も
   })
 
   it('Workspace を指定すると、その Workspace だけ。件数の上限も効く', () => {
@@ -168,5 +196,5 @@ describe('10 万件での検索は 16ms 以内（F09、SPEC の性能予算）',
     expect(best('react')).toBeLessThan(16)
     expect(best('page/9')).toBeLessThan(16)
     expect(best('re')).toBeLessThan(16)
-  })
+  }, 60_000) // 10 万件の準備（全文検索の索引つき）に、CI では 5 秒以上かかる
 })

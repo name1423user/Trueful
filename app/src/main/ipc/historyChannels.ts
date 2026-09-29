@@ -23,5 +23,7 @@ export const historyDelete = defineChannel<{ removed: number }>()(
       toMs: z.int().nonnegative().optional()
     })
     .strict()
-    .refine((r) => r.fromMs === undefined || r.toMs === undefined || r.fromMs <= r.toMs)
+    .refine((r) => r.fromMs === undefined || r.toMs === undefined || r.fromMs <= r.toMs, {
+      message: 'fromMs は toMs 以下'
+    })
 )
