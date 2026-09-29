@@ -20,11 +20,14 @@ function App(): React.JSX.Element {
   const [collapsed, setCollapsed] = useSidePanelCollapsed()
   const tabs = useTabs(state.status === 'ready' ? state.currentId : null)
   // 作成画面を閉じたら、フォーカスを左パネルの今の Workspace に戻す（キーボードで続けて操作できるように）。
-  // 新しい一覧が画面に反映された後（effect）で探す。rAF では描き直しより先に動くことがある
-  const refocus = useRef(false)
+  // 戻し先は作った（やめたときは今の）Workspace の id。その Workspace が「今の」になった描画の後（effect）で探す。
+  // 作成画面を閉じる描画が、新しい一覧の描画より先に来ることがあり（負荷が高いとき）、
+  // そのとき「今の」行を探すと前の Workspace に戻してしまう。rAF では描き直しより先に動くことがある
+  const refocus = useRef<number | null>(null)
   useEffect(() => {
-    if (!refocus.current) return
-    refocus.current = false
+    if (refocus.current === null) return
+    if (state.status !== 'ready' || state.currentId !== refocus.current) return
+    refocus.current = null
     // 2段目を畳んでいるときは、1段目のボタンへ
     const row = document.querySelector<HTMLElement>('.workspace-row[aria-current="true"]')
     ;(row?.checkVisibility()
@@ -57,8 +60,8 @@ function App(): React.JSX.Element {
   // Workspace が0個のときは、中央に最初の Workspace を作る画面を出す（SPEC のエッジケース）
   const showCreate = state.workspaces.length === 0 || adding
 
-  const closeCreate = (): void => {
-    refocus.current = true
+  const closeCreate = (focusId: number | null): void => {
+    refocus.current = focusId
     setAdding(false)
   }
 
@@ -129,11 +132,12 @@ function App(): React.JSX.Element {
         {showCreate ? (
           <WorkspaceCreateForm
             onCreate={async (name, mode, requestId) => {
-              const code = await create(name, mode, requestId)
-              if (!code) closeCreate()
-              return code
+              const result = await create(name, mode, requestId)
+              if (!result.ok) return result.code
+              closeCreate(result.id)
+              return undefined
             }}
-            onCancel={state.workspaces.length > 0 ? closeCreate : undefined}
+            onCancel={state.workspaces.length > 0 ? () => closeCreate(state.currentId) : undefined}
           />
         ) : (
           <PageArea />

@@ -27,7 +27,7 @@ export function useWorkspaces(): {
     name: string,
     mode: WorkspaceMode,
     requestId: string
-  ) => Promise<IpcErrorCode | undefined>
+  ) => Promise<{ ok: true; id: number } | { ok: false; code: IpcErrorCode }>
   switchTo: (id: number) => Promise<IpcErrorCode | undefined>
 } {
   const [state, setState] = useState<WorkspacesState>({ status: 'loading' })
@@ -49,9 +49,9 @@ export function useWorkspaces(): {
   const create = useCallback(
     async (name: string, mode: WorkspaceMode, requestId: string) => {
       const result = await api.create({ name, mode, requestId })
-      if (!result.ok) return result.error.code
+      if (!result.ok) return { ok: false as const, code: result.error.code }
       await reload()
-      return undefined
+      return { ok: true as const, id: result.value.id }
     },
     [reload]
   )
