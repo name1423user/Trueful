@@ -32,6 +32,10 @@ IPCはinvoke型（request/response）を採用。詳細は [ADR-007](./adr/adr-0
 | `bookmark:move` | R→M | 別のフォルダ（`null` なら一番上）の一番下へ移す。自分の中・URL の下へは移せない（`not-found`） |
 | `bookmark:importChrome` | R→M | Chrome のプロファイル（3 OS。見つかった最初のもの）から取り込む。結果は `imported`（件数つき）・`not-found`・`unreadable`。ファイルの場所は Renderer から渡さない |
 | `bookmark:importHtml` | R→M | Chrome の HTML エクスポートを、Main のファイル選択で選んで取り込む。結果は `imported`・`cancelled`・`unreadable`。20MB まで |
+| `download:list` | R→M | ダウンロードの記録（新しい順。`workspaceId` で絞れる。F07） |
+| `download:pause` / `download:resume` / `download:cancel` | R→M | 動いているダウンロードの一時停止・再開・取り消し（できたら `true`。終わった・再起動で中断したものは `false`。再開はアプリを起動している間だけ） |
+| `download:showInFolder` | R→M | 保存したファイルをフォルダで表示する（記録の id だけを受ける。記録がなければ `false`） |
+| `download:changed` | M→R | ダウンロードの進み具合・状態が変わった（画面は `download:list` を読み直す） |
 | `history:search` | R→M | 履歴をタイトルと URL の部分一致で探す（新しい順、`workspaceId` で絞れる、`limit` は 1〜100。F09） |
 | `history:delete` | R→M | 訪問の時刻（Unix ミリ秒）の範囲 `fromMs`〜`toMs`（両端を含む）を消す。両方省略すると全部。返事は消した訪問の数（F09） |
 | `tab:list` | R→M | Workspace のタブ（並び順）と選択中のタブの id（F02。選択中は最後に選んだタブ）。タブが1つもなければ空のタブを開いてから返す。`discardedIds` は、ページの実体の上限（全 Workspace で 30 個）のためにページを破棄したタブ（選ぶと読み込み直す） |
