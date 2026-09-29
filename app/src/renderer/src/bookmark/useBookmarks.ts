@@ -11,29 +11,27 @@ const api = window.trueful.bookmark
 // 変えたら一覧を読み直す。続けて読み直したときは、最後の返事だけを使う
 export function useBookmarks(): {
   bookmarks: Bookmark[]
-  failed: boolean
   add: (title: string, url: string) => Promise<boolean>
   update: (id: number, patch: { title: string; url?: string }) => Promise<boolean>
   remove: (id: number) => Promise<void>
   importFrom: (source: 'chrome' | 'html') => Promise<ImportOutcome | undefined>
 } {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
-  const [failed, setFailed] = useState(false)
   const latest = useRef(0)
 
   const reload = useCallback(async () => {
     const mine = ++latest.current
     const result = await api.list()
     if (mine !== latest.current) return
-    setFailed(!result.ok)
     if (result.ok) setBookmarks(result.value)
   }, [])
   // 最初の読み込み。画面が消えたら、返事を捨てる
   useEffect(() => {
     let alive = true
+    const mine = ++latest.current
     void api.list().then((result) => {
-      if (!alive) return
-      setFailed(!result.ok)
+      // 後から始めた読み直しがあれば、この返事は古い
+      if (!alive || mine !== latest.current) return
       if (result.ok) setBookmarks(result.value)
     })
     return () => {
@@ -72,5 +70,5 @@ export function useBookmarks(): {
     },
     [reload]
   )
-  return { bookmarks, failed, add, update, remove, importFrom }
+  return { bookmarks, add, update, remove, importFrom }
 }

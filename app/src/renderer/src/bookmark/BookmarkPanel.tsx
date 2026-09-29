@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { buildTree, importMessageKey, type TreeNode } from './tree'
-import type { Bookmark, ImportOutcome } from './useBookmarks'
+import { buildTree, type TreeNode } from './tree'
+import type { Bookmark } from './useBookmarks'
 
 // 左パネルの2段目のブックマーク（F08・F15）。フォルダは入れ子で出し、URL の行を選ぶと今のタブで開く。
 // 編集は行の中で（タイトルと URL）、削除は行のボタンで。取り込み（Chrome・HTML）の結果は role="status" で知らせる
@@ -13,17 +13,21 @@ export function BookmarkPanel(props: {
   onAddPage: () => void
   onUpdate: (id: number, patch: { title: string; url?: string }) => Promise<boolean>
   onRemove: (id: number) => void
-  onImport: (source: 'chrome' | 'html') => Promise<ImportOutcome | undefined>
+  onImport: (source: 'chrome' | 'html') => void
 }): React.JSX.Element {
   const { t } = useTranslation()
   const [editing, setEditing] = useState<number>()
-  const [result, setResult] = useState<string>()
-  const runImport = async (source: 'chrome' | 'html'): Promise<void> => {
-    const outcome = await props.onImport(source)
-    // 呼び出しに失敗したときは「読めない」と同じ扱い。ファイルを選ばなかったときは何も出さない
-    const key = outcome ? importMessageKey(outcome) : 'bookmark.importUnreadable'
-    const counts = outcome?.status === 'imported' ? outcome : { imported: 0, failed: 0 }
-    setResult(key ? t(key, { imported: counts.imported, failed: counts.failed }) : undefined)
+  // 編集を閉じたら、フォーカスをその行の「編集」ボタンに戻す（見えなくなったボタンにフォーカスを残さない）
+  const lastEdited = useRef<number>(undefined)
+  useEffect(() => {
+    if (editing === undefined && lastEdited.current !== undefined) {
+      document.querySelector<HTMLElement>(`[data-bookmark-edit="${lastEdited.current}"]`)?.focus()
+      lastEdited.current = undefined
+    }
+  }, [editing])
+  const startEdit = (id: number): void => {
+    lastEdited.current = id
+    setEditing(id)
   }
   const row = (node: TreeNode<Bookmark>): React.JSX.Element => {
     const b = node.item
@@ -33,7 +37,9 @@ export function BookmarkPanel(props: {
           key={b.id}
           bookmark={b}
           onSave={async (patch) => {
-            if (await props.onUpdate(b.id, patch)) setEditing(undefined)
+            const ok = await props.onUpdate(b.id, patch)
+            if (ok) setEditing(undefined)
+            return ok
           }}
           onCancel={() => setEditing(undefined)}
         />
@@ -58,7 +64,8 @@ export function BookmarkPanel(props: {
           type="button"
           className="bookmark-action"
           aria-label={t('bookmark.edit', { name })}
-          onClick={() => setEditing(b.id)}
+          data-bookmark-edit={b.id}
+          onClick={() => startEdit(b.id)}
         >
           <span aria-hidden="true">✎</span>
         </button>
@@ -87,15 +94,15 @@ export function BookmarkPanel(props: {
           <span aria-hidden="true">+ </span>
           {t('bookmark.addPage')}
         </button>
-        <button type="button" className="bookmark-import" onClick={() => void runImport('chrome')}>
+        <button type="button" className="bookmark-import" onClick={() => props.onImport('chrome')}>
           {t('bookmark.importChrome')}
         </button>
-        <button type="button" className="bookmark-import" onClick={() => void runImport('html')}>
+        <button type="button" className="bookmark-import" onClick={() => props.onImport('html')}>
           {t('bookmark.importHtml')}
         </button>
       </div>
       <p role="status" className="bookmark-status">
-        {props.message ?? result}
+        {props.message}
       </p>
       {tree.length === 0 ? (
         <p className="bookmark-empty">{t('bookmark.empty')}</p>
@@ -108,20 +115,24 @@ export function BookmarkPanel(props: {
 
 function EditRow(props: {
   bookmark: Bookmark
-  onSave: (patch: { title: string; url?: string }) => Promise<void>
+  onSave: (patch: { title: string; url?: string }) => Promise<boolean>
   onCancel: () => void
 }): React.JSX.Element {
   const { t } = useTranslation()
   const [title, setTitle] = useState(props.bookmark.title)
   const [url, setUrl] = useState(props.bookmark.url ?? '')
+  const [failed, setFailed] = useState(false)
   const isUrl = props.bookmark.kind === 'url'
   return (
     <li className="bookmark-item">
       <form
         className="bookmark-edit"
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') props.onCancel()
+        }}
         onSubmit={(e) => {
           e.preventDefault()
-          void props.onSave(isUrl ? { title, url } : { title })
+          void props.onSave(isUrl ? { title, url } : { title }).then((ok) => setFailed(!ok))
         }}
       >
         <input
@@ -136,6 +147,7 @@ function EditRow(props: {
             onChange={(e) => setUrl(e.target.value)}
           />
         )}
+        {failed && <p role="alert">{t('bookmark.saveFailed')}</p>}
         <button type="submit">{t('bookmark.save')}</button>
         <button type="button" onClick={props.onCancel}>
           {t('bookmark.cancel')}

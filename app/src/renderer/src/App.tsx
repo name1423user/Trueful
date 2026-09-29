@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BookmarkPanel } from './bookmark/BookmarkPanel'
+import { importMessageKey } from './bookmark/tree'
 import { useBookmarks } from './bookmark/useBookmarks'
 import { ActivityBar, type PanelView } from './panel/ActivityBar'
 import { AddressBar } from './tab/AddressBar'
@@ -48,10 +49,20 @@ function App(): React.JSX.Element {
 
   // 今のページをブックマークに足す（Cmd/Ctrl+D と、パネルのボタン）。http・https のページだけ
   const activeTab = tabs.tabs.find((tab) => tab.id === tabs.activeId)
+  const addingPage = useRef(false)
   const addCurrentPage = async (): Promise<void> => {
+    // 作成画面が開いているとき・進行中・http・https でないページは追加しない（ボタンとショートカットで同じ）
+    if (adding || addingPage.current) return
     const url = activeTab?.url ?? ''
-    const ok = /^https?:\/\//i.test(url) && (await bookmarks.add(activeTab!.title || url, url))
-    setBookmarkMessage(t(ok ? 'bookmark.added' : 'bookmark.addFailed'))
+    if (!activeTab || !/^https?:\/\//i.test(url))
+      return setBookmarkMessage(t('bookmark.addUnsupported'))
+    addingPage.current = true
+    try {
+      const ok = await bookmarks.add(activeTab.title || url, url)
+      setBookmarkMessage(t(ok ? 'bookmark.added' : 'bookmark.addFailed'))
+    } finally {
+      addingPage.current = false
+    }
   }
   const addCurrentPageRef = useRef(addCurrentPage)
   useEffect(() => {
@@ -144,11 +155,23 @@ function App(): React.JSX.Element {
           bookmarks={bookmarks.bookmarks}
           canAddPage={!showCreate && /^https?:\/\//i.test(activeTab?.url ?? '')}
           message={bookmarkMessage}
-          onOpen={(url) => void tabs.run((api, ws) => api.navigate(ws, activeTab!.id, url))}
+          onOpen={(url) => {
+            // 保存されている URL でも、http・https 以外は開かない
+            if (activeTab && /^https?:\/\//i.test(url)) {
+              void tabs.run((api, ws) => api.navigate(ws, activeTab.id, url))
+            }
+          }}
           onAddPage={() => void addCurrentPage()}
           onUpdate={bookmarks.update}
           onRemove={(id) => void bookmarks.remove(id)}
-          onImport={bookmarks.importFrom}
+          onImport={(source) =>
+            void bookmarks.importFrom(source).then((outcome) => {
+              // 結果は、追加の知らせと同じ1つの場所に出す（ファイルを選ばなかったときは消す）
+              const key = outcome ? importMessageKey(outcome) : 'bookmark.importUnreadable'
+              const counts = outcome?.status === 'imported' ? outcome : { imported: 0, failed: 0 }
+              setBookmarkMessage(key ? t(key, counts) : undefined)
+            })
+          }
         />
       ) : (
         <WorkspaceList
