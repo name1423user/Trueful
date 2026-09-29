@@ -1,7 +1,9 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { inTransaction } from '../../db/services/transaction'
-import { insertTab, NEW_TAB_URL } from '../../tab/services/tabDB'
+import { insertTab, listTabs, NEW_TAB_URL } from '../../tab/services/tabDB'
 import {
+  deleteWorkspaceRow,
+  getCurrentWorkspaceId,
   getWorkspace,
   insertWorkspace,
   listWorkspaces,
@@ -13,6 +15,7 @@ import {
   type Workspace,
   type WorkspaceMode
 } from '../services/workspaceDB'
+import { buildSnapshot, insertSnapshot } from '../services/workspaceSnapshot'
 import { MAX_ACTIVE_WORKSPACES, workspacesToDormant } from '../services/workspaceLimit'
 
 export class WorkspaceNotFoundError extends Error {
@@ -70,12 +73,40 @@ export function createWorkspaceFlow(
 // Workspace を切り替える。最後に使った時刻を更新し、次の起動で開くものとして記録する。
 // 休止していたら復帰させ、上限を超えたらほかの Workspace を休止にする
 export function switchWorkspace(db: DatabaseSync, id: number, now = Date.now()): Workspace {
+  return inTransaction(db, () => activateWorkspace(db, id, now))
+}
+
+function activateWorkspace(db: DatabaseSync, id: number, now: number): Workspace {
+  if (!touchWorkspace(db, id, now)) throw new WorkspaceNotFoundError(id)
+  setWorkspaceActive(db, id)
+  setCurrentWorkspaceId(db, id)
+  limitActiveWorkspaces(db, id, now)
+  return getWorkspace(db, id)!
+}
+
+// Workspace を削除する（F01）。スナップショットを書いてから行を消す（タブ・履歴などは外部キーで消える）。
+// 今の Workspace を消したら、残りのうち最後に使ったものへ移る（なければ今の Workspace なし）。
+// ページ（WebContentsView）とパーティションのデータの片付けは、呼び出し側で行う（DB が成功した後）。
+// 返すのは、ページを破棄するタブの id と、削除後の今の Workspace の id
+export function deleteWorkspaceFlow(
+  db: DatabaseSync,
+  id: number,
+  now = Date.now()
+): { tabIds: number[]; currentId: number | null } {
   return inTransaction(db, () => {
-    if (!touchWorkspace(db, id, now)) throw new WorkspaceNotFoundError(id)
-    setWorkspaceActive(db, id)
-    setCurrentWorkspaceId(db, id)
-    limitActiveWorkspaces(db, id, now)
-    return getWorkspace(db, id)!
+    const wasCurrent = getCurrentWorkspaceId(db) === id
+    if (!getWorkspace(db, id)) throw new WorkspaceNotFoundError(id)
+    const snapshot = buildSnapshot(db, id)
+    const tabIds = listTabs(db, id).map((t) => t.id)
+    insertSnapshot(db, id, snapshot, now)
+    deleteWorkspaceRow(db, id)
+    if (wasCurrent) {
+      const next = listWorkspaces(db).sort(
+        (a, b) => b.lastUsedTimeMs - a.lastUsedTimeMs || a.id - b.id
+      )[0]
+      if (next) activateWorkspace(db, next.id, now)
+    }
+    return { tabIds, currentId: getCurrentWorkspaceId(db) }
   })
 }
 

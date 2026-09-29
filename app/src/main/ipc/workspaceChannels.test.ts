@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { workspaceCreate } from './workspaceChannels'
+import { workspaceCreate, workspaceDelete } from './workspaceChannels'
 
 describe('workspace:create の引数', () => {
   const args = (name: string): unknown => ({
@@ -22,5 +22,15 @@ describe('workspace:create の引数', () => {
     expect(
       workspaceCreate.args.safeParse({ ...(args('A') as object), requestId: 'x' }).success
     ).toBe(false)
+  })
+})
+
+describe('workspace:delete の引数', () => {
+  it('正の整数の id だけ受け付け、余分な項目・不正な値は拒否する', () => {
+    expect(workspaceDelete.args.safeParse({ id: 3 }).success).toBe(true)
+    for (const bad of [undefined, {}, { id: 0 }, { id: -1 }, { id: 1.5 }, { id: '3' }]) {
+      expect(workspaceDelete.args.safeParse(bad).success).toBe(false)
+    }
+    expect(workspaceDelete.args.safeParse({ id: 3, force: true }).success).toBe(false)
   })
 })

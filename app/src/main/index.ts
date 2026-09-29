@@ -17,16 +17,24 @@ import {
   tabReopenClosed,
   viewSetBounds
 } from './ipc/tabChannels'
-import { workspaceCreate, workspaceList, workspaceSwitch } from './ipc/workspaceChannels'
+import {
+  workspaceCreate,
+  workspaceDelete,
+  workspaceList,
+  workspaceSwitch
+} from './ipc/workspaceChannels'
 import { TabFlows, TabNotFoundError } from './tab/flows/tabFlows'
 import { TabPages } from './tab/flows/tabPages'
 import { TabViews } from './tab/services/tabViews'
 import {
   createWorkspaceFlow,
+  deleteWorkspaceFlow,
   switchWorkspace,
   WorkspaceNotFoundError
 } from './workspace/flows/workspaceFlows'
+import { purgeExpiredSnapshots } from './workspace/services/workspaceSnapshot'
 import {
+  cleanupDeletedWorkspaceFiles,
   ensureComManifests,
   prepareWorkspaceFiles,
   purgeWorkspaceTrash
@@ -149,6 +157,12 @@ app.whenReady().then(() => {
         console.error('[main] マニフェストをそろえられなかった', e)
       }
       purgeTrash()
+      // 削除前のスナップショットのうち、30 日たったものを消す（data-schema.md）
+      try {
+        purgeExpiredSnapshots(db, Date.now())
+      } catch (e) {
+        console.error('[main] スナップショットの期限切れを消せなかった', e)
+      }
     })
     .catch((e) => console.error('[main] DB の準備に失敗', e))
 
@@ -263,6 +277,29 @@ app.whenReady().then(() => {
       if (e instanceof WorkspaceNotFoundError) throw new IpcHandlerError('not-found', e.message)
       throw e
     }
+  })
+  // 削除。DB（スナップショットと行）が先。成功したら、ページを破棄し、ログインとサイトのデータを消す
+  handle(workspaceDelete, async ({ id }) => {
+    const db = await getDatabase()
+    let deleted: ReturnType<typeof deleteWorkspaceFlow>
+    try {
+      deleted = deleteWorkspaceFlow(db, id)
+    } catch (e) {
+      if (e instanceof WorkspaceNotFoundError) throw new IpcHandlerError('not-found', e.message)
+      throw e
+    }
+    for (const tabId of deleted.tabIds) views.destroy(tabId)
+    if (deleted.currentId !== null) pages.showActive(db, deleted.currentId)
+    releaseDormant(db)
+    void cleanupDeletedWorkspaceFiles(workspaceRoots, id, async (workspaceId) => {
+      const ses = session.fromPartition(`persist:workspace-${workspaceId}`)
+      await ses.clearStorageData()
+      await ses.clearCache()
+    }).then((errors) => {
+      if (errors.length > 0)
+        console.warn('[main] 削除した Workspace のファイルを消せなかった', errors)
+    })
+    return { currentId: deleted.currentId }
   })
 
   // タブ（F02）。ない Workspace・タブは not-found で返す。作成・閉じる・戻す・選ぶの後は、選択中のタブを表示する

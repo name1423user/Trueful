@@ -4,7 +4,12 @@ import { migrations } from '../../db/migrations'
 import { migrate } from '../../db/services/migrate'
 import { listTabs, NEW_TAB_URL } from '../../tab/services/tabDB'
 import { getCurrentWorkspaceId, listWorkspaces } from '../services/workspaceDB'
-import { createWorkspaceFlow, switchWorkspace, WorkspaceNotFoundError } from './workspaceFlows'
+import {
+  createWorkspaceFlow,
+  deleteWorkspaceFlow,
+  switchWorkspace,
+  WorkspaceNotFoundError
+} from './workspaceFlows'
 
 let db: DatabaseSync
 beforeEach(() => {
@@ -144,5 +149,55 @@ describe('休止と復帰（F01・ADR-011）', () => {
     const ids = await createMany(5)
     switchWorkspace(db, ids[0]!, 7000)
     expect(listWorkspaces(db).every((w) => w.status === 'active')).toBe(true)
+  })
+})
+
+describe('Workspace の削除（F01）', () => {
+  const make = async (names: string[]): Promise<number[]> => {
+    const create = createWorkspaceFlow()
+    const ids: number[] = []
+    for (const [i, name] of names.entries()) {
+      ids.push((await create(db, { name, mode: 'custom', requestId: `r${i}` }, 1000 + i)).id)
+    }
+    return ids
+  }
+  const snapshots = (): { workspace_id: number; snapshot_json: string }[] =>
+    db.prepare('SELECT workspace_id, snapshot_json FROM workspace_snapshot').all() as never
+
+  it('削除の前にスナップショットを1回書き、行とタブは消える。スナップショットは残る', async () => {
+    const [a, b] = await make(['A', 'B'])
+    const result = deleteWorkspaceFlow(db, a!, 5000)
+    expect(result.tabIds).toHaveLength(1)
+    expect(listWorkspaces(db).map((w) => w.id)).toEqual([b])
+    expect(listTabs(db, a!)).toEqual([])
+    expect(snapshots()).toHaveLength(1)
+    expect(snapshots()[0]).toMatchObject({ workspace_id: a })
+    expect(JSON.parse(snapshots()[0]!.snapshot_json)).toMatchObject({ name: 'A', mode: 'custom' })
+  })
+
+  it('今の Workspace を消したら、残りのうち最後に使ったものが今の Workspace になる', async () => {
+    const [a, b, c] = await make(['A', 'B', 'C']) // C が今の Workspace
+    switchWorkspace(db, a!, 3000)
+    switchWorkspace(db, c!, 4000)
+    expect(deleteWorkspaceFlow(db, c!, 5000).currentId).toBe(a)
+    expect(getCurrentWorkspaceId(db)).toBe(a)
+    expect(b).toBeDefined()
+  })
+
+  it('今でない Workspace を消しても、今の Workspace は変わらない', async () => {
+    const [a, b] = await make(['A', 'B'])
+    expect(deleteWorkspaceFlow(db, a!, 5000).currentId).toBe(b)
+  })
+
+  it('最後の1つを消すと、今の Workspace はなくなる', async () => {
+    const [a] = await make(['A'])
+    expect(deleteWorkspaceFlow(db, a!, 5000).currentId).toBeNull()
+    expect(listWorkspaces(db)).toEqual([])
+  })
+
+  it('ない Workspace は WorkspaceNotFoundError、スナップショットも書かない', async () => {
+    await make(['A'])
+    expect(() => deleteWorkspaceFlow(db, 999)).toThrow()
+    expect(snapshots()).toEqual([])
   })
 })

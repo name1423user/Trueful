@@ -5,6 +5,7 @@ export const channelNames = {
   workspaceList: 'workspace:list',
   workspaceCreate: 'workspace:create',
   workspaceSwitch: 'workspace:switch',
+  workspaceDelete: 'workspace:delete',
   tabList: 'tab:list',
   tabCreate: 'tab:create',
   tabClose: 'tab:close',
