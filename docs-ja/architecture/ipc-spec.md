@@ -24,6 +24,8 @@ IPCはinvoke型（request/response）を採用。詳細は [ADR-007](./adr/adr-0
 | `workspace:list` | R→M | Workspace の一覧（左パネルの並び順）と、今の Workspace の id（F01） |
 | `workspace:create` | R→M | 名前（1〜100文字、前後の空白は除く）と Mode で作り、今の Workspace にする。同じ `requestId` の二度目は、中身（名前・Mode）を見ずに最初の結果を返す |
 | `workspace:switch` | R→M | 切り替える（ない id は `not-found`） |
+| `history:search` | R→M | 履歴をタイトルと URL の部分一致で探す（新しい順、`workspaceId` で絞れる、`limit` は 1〜100。F09） |
+| `history:delete` | R→M | 訪問の時刻（Unix ミリ秒）の範囲 `fromMs`〜`toMs`（両端を含む）を消す。両方省略すると全部。返事は消した訪問の数（F09） |
 | `tab:list` | R→M | Workspace のタブ（並び順）と選択中のタブの id（F02。選択中は最後に選んだタブ）。タブが1つもなければ空のタブを開いてから返す。`discardedIds` は、ページの実体の上限（全 Workspace で 30 個）のためにページを破棄したタブ（選ぶと読み込み直す） |
 | `tab:create` | R→M | 空のタブを一番右に開いて選ぶ（Cmd/Ctrl+T） |
 | `tab:close` | R→M | タブを閉じる（Cmd/Ctrl+W）。選択中を閉じたら、その前に選んでいたタブを選ぶ（使った順）。最後の1つを閉じたら空のタブを開く。閉じた後のタブ列を返す。`workspaceId` とタブの持ち主が違えば `not-found` |

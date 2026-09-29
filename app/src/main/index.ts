@@ -17,7 +17,9 @@ import {
   tabReopenClosed,
   viewSetBounds
 } from './ipc/tabChannels'
+import { historyDelete, historySearch } from './ipc/historyChannels'
 import { workspaceCreate, workspaceList, workspaceSwitch } from './ipc/workspaceChannels'
+import { deleteHistory, purgeExpiredHistory, searchHistory } from './history/services/historyDB'
 import { TabFlows, TabNotFoundError } from './tab/flows/tabFlows'
 import { TabPages } from './tab/flows/tabPages'
 import { TabViews } from './tab/services/tabViews'
@@ -149,6 +151,12 @@ app.whenReady().then(() => {
         console.error('[main] マニフェストをそろえられなかった', e)
       }
       purgeTrash()
+      // 保存期間（設定。既定 90 日）を過ぎた履歴を消す（F09）
+      try {
+        purgeExpiredHistory(db, Date.now(), store.get().settings.historyRetentionDays)
+      } catch (e) {
+        console.error('[main] 履歴の期限切れを消せなかった', e)
+      }
     })
     .catch((e) => console.error('[main] DB の準備に失敗', e))
 
@@ -264,6 +272,10 @@ app.whenReady().then(() => {
       throw e
     }
   })
+
+  // 閲覧履歴（F09）
+  handle(historySearch, async (input) => searchHistory(await getDatabase(), input))
+  handle(historyDelete, async (range) => ({ removed: deleteHistory(await getDatabase(), range) }))
 
   // タブ（F02）。ない Workspace・タブは not-found で返す。作成・閉じる・戻す・選ぶの後は、選択中のタブを表示する
   const notFoundAs = <T>(fn: () => T): T => {
