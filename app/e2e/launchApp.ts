@@ -6,10 +6,11 @@ import { join } from 'node:path'
 // E2E ごとに空の保存場所（userData）を作って起動する。普段使っている DB や設定に触れないため。
 // 終わったら app.close() のあとで cleanup() を呼び、保存場所を消す。
 // prepare で、起動の前に保存場所へファイルを置ける（壊れた settings.json など）。
-// userDataDir を渡すと、その保存場所で起動する（再起動の確かめ用。cleanup は最後の1回だけ呼ぶ）
+// userDataDir を渡すと、その保存場所で起動する（再起動の確かめ用。cleanup は最後の1回だけ呼ぶ）。
+// env で、E2E 用の環境変数（TRUEFUL_MAX_PAGE_VIEWS など）を足せる
 export async function launchApp(
   prepare?: (userDataDir: string) => void,
-  options: { userDataDir?: string } = {}
+  options: { userDataDir?: string; env?: Record<string, string> } = {}
 ): Promise<{
   app: ElectronApplication
   userDataDir: string
@@ -22,7 +23,7 @@ export async function launchApp(
   )
   const app = await electron.launch({
     args: ['.'],
-    env: { ...env, TRUEFUL_USER_DATA_DIR: userDataDir }
+    env: { ...env, ...options.env, TRUEFUL_USER_DATA_DIR: userDataDir }
   })
   // Windows では、閉じた直後の子プロセスがファイルを掴んでいることがあるので、少し待って再試行する
   const cleanup = (): void =>

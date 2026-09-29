@@ -4,6 +4,9 @@ import { defineConfig } from '@playwright/test'
 export default defineConfig({
   testDir: 'e2e',
   timeout: 60_000,
+  // Electron は1つずつ動かす。2つ同時だと、ウィンドウの前面・フォーカスの取り合いと負荷で、
+  // 表示の遅れ（ready-to-show）やフォーカスの確認が不安定になった（#35・#36 の CI）
+  workers: 1,
   outputDir: 'test-results',
   reporter: process.env.CI ? [['list'], ['github']] : 'list'
 })

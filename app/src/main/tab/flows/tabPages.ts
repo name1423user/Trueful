@@ -7,6 +7,9 @@ import { TabNotFoundError, type TabFlows, type TabState } from './tabFlows'
 
 export type PageAction = 'back' | 'forward' | 'reload' | 'stop'
 
+// tab:list の返事。discardedIds は、上限のためにページを破棄したタブ（F02）
+export type TabListState = TabState & { discardedIds: number[] }
+
 type Notify = {
   // ページの様子が変わった（アドレスバー・戻る・進む・タイトル）
   page: (tabId: number, page: PageState) => void
@@ -30,6 +33,26 @@ export class TabPages {
     const { tabs, activeId } = this.tabs.list(db, workspaceId)
     const active = tabs.find((t) => t.id === activeId)
     if (active) this.views.show(active)
+  }
+
+  // タブ列と、上限のためにページを破棄したタブ（画面では薄く出す。F02・F15）
+  list(db: DatabaseSync, workspaceId: number): TabListState {
+    const state = this.tabs.list(db, workspaceId)
+    return {
+      ...state,
+      discardedIds: state.tabs.filter((t) => this.views.isDiscarded(t.id)).map((t) => t.id)
+    }
+  }
+
+  // TabViews から: 上限のためにページを破棄した → そのタブの Workspace のタブ列が変わったと知らせる
+  discarded(tabIds: number[]): void {
+    const db = this.getDb()
+    // 終了の途中（DB を閉じた後）なら知らせない
+    if (!db?.isOpen) return
+    const workspaceIds = new Set(tabIds.map((id) => getTab(db, id)?.workspaceId))
+    for (const workspaceId of workspaceIds) {
+      if (workspaceId !== undefined) this.notify.tabsChanged(workspaceId)
+    }
   }
 
   // アドレスバーの入力を開く

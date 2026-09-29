@@ -332,6 +332,7 @@ body {
 }
 
 .tab-row {
+  position: relative;
   flex: 1;
   min-width: 0;
   padding: 8px;
@@ -339,6 +340,17 @@ body {
   white-space: nowrap;
   text-overflow: ellipsis;
   text-align: left;
+}
+
+.tab-discarded {
+  color: var(--text-muted);
+}
+
+.tab-discarded-mark {
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  vertical-align: -1px;
 }
 
 .tab-row[aria-current='true'] {

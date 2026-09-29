@@ -48,7 +48,8 @@
     "reload": "再読み込み",
     "stop": "読み込みを止める",
     "address": "アドレス",
-    "addressPlaceholder": "URL を入力、または検索"
+    "addressPlaceholder": "URL を入力、または検索",
+    "discarded": "（休止中）"
   },
   "panel": {
     "railLabel": "パネルの切り替え",

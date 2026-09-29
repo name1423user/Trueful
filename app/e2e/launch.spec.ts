@@ -40,6 +40,13 @@ test('起動してウィンドウが出る（三ペインの枠、セキュリ�
       process: 'undefined'
     })
 
+    // ウィンドウは ready-to-show の後に表示する。表示される前は撮れないので待つ
+    await expect
+      .poll(
+        () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.isVisible()),
+        { timeout: 15_000 }
+      )
+      .toBe(true)
     await window.screenshot({ path: `test-results/launch-${process.platform}.png` })
   } finally {
     await app.close()

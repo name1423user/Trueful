@@ -1,6 +1,7 @@
 import { WebContentsView, type BaseWindow, type Rectangle, type WebContents } from 'electron'
 import { isAllowedPageUrl } from './urlInput'
 import { pageUserAgent } from './userAgent'
+import { MAX_PAGE_VIEWS, viewsToDiscard } from './viewLimit'
 
 // ページの様子（Renderer のアドレスバーと戻る・進むのボタンに使う）
 export type PageState = {
@@ -20,6 +21,8 @@ type Handlers = {
   onOpenRequest: (tabId: number, url: string, background: boolean) => void
   // ページにフォーカスがあるときに押された、ページに奪わせないショートカット（Chrome と同じ予約キー）
   onReservedShortcut: (command: ReservedShortcut) => void
+  // 上限（F02）を超えたので、これらのタブのページを破棄した（URL とタイトルは DB に残っている）
+  onDiscarded: (tabIds: number[]) => void
 }
 
 export type ReservedShortcut = 'tab-new' | 'tab-close' | 'tab-reopen'
@@ -42,17 +45,24 @@ const GESTURE_MS = 1000
 
 // タブのページを WebContentsView で表示する（ADR-008）。表示するのは1つだけで、ほかは外しておく。
 // Workspace ごとのパーティション persist:workspace-<id> を使う（ログインを Workspace で分ける。F03）。
-// 実体の数の上限（30個）は T2-5 で扱う
+// 実体は全 Workspace で最大 maxViews 個。超えたら、いちばん長く表示していないページを破棄する（F02）
 export class TabViews {
   private readonly views = new Map<number, WebContentsView>()
   private shown: number | undefined
   private bounds: Rectangle = { x: 0, y: 0, width: 0, height: 0 }
+  // 最後に見ていた順の番号（表示し始めたときと、ほかのタブに切り替えて外したときに振る）。
+  // 上限を超えたときに、いちばん長く見ていないものから破棄する
+  private readonly lastShown = new Map<number, number>()
+  private showCount = 0
+  // 上限のために破棄したタブ（もう一度表示すると作り直す。画面では薄く出す）
+  private readonly discarded = new Set<number>()
   // 権限のハンドラと User-Agent を設定したパーティション（1つのセッションに1回だけ設定する）
   private readonly guarded = new Set<string>()
 
   constructor(
     private window: BaseWindow,
-    private readonly handlers: Handlers
+    private readonly handlers: Handlers,
+    private readonly maxViews = MAX_PAGE_VIEWS
   ) {}
 
   // ウィンドウを閉じたら、すべてのページを破棄する（WebContentsView のページは、ウィンドウを閉じても
@@ -70,8 +80,10 @@ export class TabViews {
   show(tab: { id: number; workspaceId: number; url: string }): void {
     if (this.window.isDestroyed()) return
     let view = this.views.get(tab.id)
+    const created = !view
     if (!view) {
       view = this.create(tab.id, tab.workspaceId)
+      this.discarded.delete(tab.id)
       // DB の URL も、読み込む前に確かめる（多層防御）
       const url = isAllowedPageUrl(tab.url) ? tab.url : 'about:blank'
       void view.webContents.loadURL(url).catch(() => {})
@@ -79,10 +91,34 @@ export class TabViews {
     if (this.shown !== undefined && this.shown !== tab.id) {
       const previous = this.views.get(this.shown)
       if (previous) this.window.contentView.removeChildView(previous)
+      // 直前まで見ていたタブは「いま見終わった」ので、いちばん新しい番号にする
+      this.lastShown.set(this.shown, ++this.showCount)
     }
     this.window.contentView.addChildView(view)
     view.setBounds(this.bounds)
     this.shown = tab.id
+    this.lastShown.set(tab.id, ++this.showCount)
+    if (created) this.enforceLimit(tab.id)
+  }
+
+  // 上限を超えていたら、いちばん長く表示していないページから破棄する（表示中のものは残す）
+  private enforceLimit(keepTabId: number): void {
+    const ids = viewsToDiscard(
+      [...this.views.keys()].map((tabId) => ({ tabId, lastShown: this.lastShown.get(tabId) ?? 0 })),
+      this.maxViews,
+      keepTabId
+    )
+    if (ids.length === 0) return
+    for (const id of ids) {
+      this.destroy(id)
+      this.discarded.add(id)
+    }
+    this.handlers.onDiscarded(ids)
+  }
+
+  // 上限のために破棄したタブか
+  isDiscarded(tabId: number): boolean {
+    return this.discarded.has(tabId)
   }
 
   // 表示する場所（Renderer の空の div の位置と大きさ。ADR-008）
@@ -102,6 +138,9 @@ export class TabViews {
 
   // タブを閉じたとき
   destroy(tabId: number): void {
+    // 破棄済み（ページがない）のタブを閉じたときも、記録は消す
+    this.lastShown.delete(tabId)
+    this.discarded.delete(tabId)
     const view = this.views.get(tabId)
     if (!view) return
     if (!this.window.isDestroyed()) this.window.contentView.removeChildView(view)

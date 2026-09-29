@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { TabState } from '../tab/flows/tabFlows'
+import type { TabListState } from '../tab/flows/tabPages'
 import type { Tab } from '../tab/services/tabDB'
 import { channelNames } from './channelNames'
 import { defineChannel } from './channels'
@@ -8,7 +9,7 @@ import { defineChannel } from './channels'
 // tab:list は、タブが1つもない Workspace には空のタブを開いてから返す
 const id = z.int().positive()
 
-export const tabList = defineChannel<TabState>()(
+export const tabList = defineChannel<TabListState>()(
   channelNames.tabList,
   z.object({ workspaceId: id }).strict()
 )

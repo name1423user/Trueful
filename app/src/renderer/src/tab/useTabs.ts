@@ -14,6 +14,8 @@ const api = window.trueful.tab
 export function useTabs(workspaceId: number | null): {
   tabs: Tab[]
   activeId: number | null
+  // 上限のためにページを破棄したタブ（F02。画面では薄く出す）
+  discardedIds: number[]
   pages: Pages
   // 操作が成功したら true（失敗したら、画面は入力などを残す）
   run: (op: (api: Api, workspaceId: number) => Promise<{ ok: boolean }>) => Promise<boolean>
@@ -22,7 +24,8 @@ export function useTabs(workspaceId: number | null): {
   const [state, setState] = useState<TabState & { workspaceId: number | null }>({
     workspaceId: null,
     tabs: [],
-    activeId: null
+    activeId: null,
+    discardedIds: []
   })
   const [pages, setPages] = useState<Pages>({})
   // 今の Workspace。遅れて届いた前の Workspace のタブ列で、表示を上書きしないため
@@ -31,10 +34,13 @@ export function useTabs(workspaceId: number | null): {
     current.current = workspaceId
   }, [workspaceId])
 
+  // 読み直しの番号。続けて読み直したとき、後から届いた古い返事で上書きしない
+  const generation = useRef(0)
   const reload = useCallback(async () => {
     if (workspaceId === null) return
+    const mine = ++generation.current
     const result = await api.list(workspaceId)
-    if (!result.ok || current.current !== workspaceId) return
+    if (!result.ok || current.current !== workspaceId || mine !== generation.current) return
     setState({ workspaceId, ...result.value })
     // 閉じたタブのページの様子は捨てる
     const ids = new Set(result.value.tabs.map((t) => t.id))
@@ -77,5 +83,11 @@ export function useTabs(workspaceId: number | null): {
   )
 
   const mine = state.workspaceId === workspaceId
-  return { tabs: mine ? state.tabs : [], activeId: mine ? state.activeId : null, pages, run }
+  return {
+    tabs: mine ? state.tabs : [],
+    activeId: mine ? state.activeId : null,
+    discardedIds: mine ? state.discardedIds : [],
+    pages,
+    run
+  }
 }
