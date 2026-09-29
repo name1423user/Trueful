@@ -272,7 +272,7 @@ workspace_snapshot（外部キーなし。削除された Workspace の控え）
 ### Workspace の削除（F01）
 1. `workspace_snapshot` に控えを書く（名前・Mode・タブの URL とタイトルだけ）。
 2. `workspace` の行を消す（関係する行は外部キーで消える）。1 と 2 は同じトランザクション。今の Workspace を消したら、残りのうち最後に使ったものへ移る。
-3. ページ（WebContentsView）を破棄し、パーティション `persist:workspace-<id>` のデータを消す（`session.clearStorageData()` と、保存場所のフォルダを片付け用の場所へ移してから削除）。拡張の service worker は `clearStorageData()` だけでは消えないので、フォルダごと消す（T0-5 の追加調査）。消しきれなかった分は、次の起動の片付けで消す。
+3. ページ（WebContentsView）を破棄し、パーティション `persist:workspace-<id>` のデータを消す（`session.clearStorageData()` と、保存場所のフォルダを片付け用の場所へ移してから削除）。拡張の service worker は `clearStorageData()` だけでは消えないので、フォルダごと消す（T0-5 の追加調査）。フォルダを移せないとき（Windows でセッションが掴んでいる: EBUSY・EPERM）は、250ms 待って最大 4 回やり直す。それでも移せなかったフォルダは残り、警告を記録する（起動時の片付けが消すのは片付け用の場所の中だけ。DB にない id のフォルダを起動時に掃除するかは、るりあの判断待ち）。
 - 順番を「DB が先、データは後」にしたのは、データを先に消して DB の削除が失敗すると、行だけが残る（ログインが消えた Workspace ができる）ため（T2-5c、2026-09-29）。
 - Workspace を作るときに、同じ id のパーティションのフォルダが残っていたら、先に消す（DB をバックアップから戻したときに、番号が使い回されるため）。
 

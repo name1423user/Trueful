@@ -295,9 +295,10 @@ app.whenReady().then(() => {
       const ses = session.fromPartition(`persist:workspace-${workspaceId}`)
       await ses.clearStorageData()
       await ses.clearCache()
+      ses.flushStorageData() // フォルダを掴んでいる書き込みを済ませてから、移す
     }).then((errors) => {
       if (errors.length > 0)
-        console.warn('[main] 削除した Workspace のファイルを消せなかった', errors)
+        console.warn(`[main] 削除した Workspace ${id} のファイルを消せなかった`, errors)
     })
     return { currentId: deleted.currentId }
   })
