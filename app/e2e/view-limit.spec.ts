@@ -41,6 +41,10 @@ test('ページの実体が上限を超えたら、いちばん長く見てい�
     await open('/a')
     await expect(tabs.nth(0)).toHaveText('page /a')
     await window.locator('.tab-new').click()
+    // 新しいタブが選ばれて、アドレスバーが空になってから入力する（前に入力すると、切り替えの描き直しで消える）
+    await expect(tabs).toHaveCount(2)
+    await expect(tabs.nth(1)).toHaveAttribute('aria-current', 'true')
+    await expect(address).toHaveValue('')
     await open('/b')
     await expect(tabs.nth(1)).toHaveText('page /b')
     await expect(tabs.nth(0)).not.toHaveClass(/tab-discarded/)
