@@ -6,9 +6,9 @@ describe('読み込みの失敗の種類（F16。Chromium の net エラー番�
     expect(classifyLoadError(-3)).toBe('ignore')
   })
 
-  it('インターネットがない（ERR_INTERNET_DISCONNECTED -106）・ネットワークが変わった（-21）は offline', () => {
+  it('インターネットがない（ERR_INTERNET_DISCONNECTED -106）は offline。ネットワークが変わった（-21）は、自動でやり直されるので load-failed', () => {
     expect(classifyLoadError(-106)).toBe('offline')
-    expect(classifyLoadError(-21)).toBe('offline')
+    expect(classifyLoadError(-21)).toBe('load-failed')
   })
 
   it('証明書のエラー（ERR_CERT_* -200〜-299。期限切れ・信頼できない発行元・名前の不一致など）は certificate', () => {

@@ -28,6 +28,8 @@ type Handlers = {
   // ページが新しいウィンドウで開こうとした（target=_blank・window.open）。http・https で、
   // 直前にユーザーの入力があったときだけ呼ぶ。background は Cmd/Ctrl+クリック・中クリック（選ばずに開く）
   onOpenRequest: (tabId: number, url: string, background: boolean) => void
+  // 読み込みの失敗でページを隠したとき、フォーカスを UI に移す（隠したページにキー入力が届かないように）
+  onLoadError: () => void
   // ページがダウンロードを始めた（F07。パーティションごとに1回、セッションに付ける）
   onDownload: (workspaceId: number, item: DownloadItem) => void
   // ページにフォーカスがあるときに押された、ページに奪わせないショートカット（Chrome と同じ予約キー）
@@ -132,7 +134,7 @@ export class TabViews {
       this.lastShown.set(this.shown, ++this.showCount)
     }
     this.window.contentView.addChildView(view)
-    view.setVisible(!this.errors.has(tab.id))
+    this.applyVisibility(tab.id)
     view.setBounds(this.bounds)
     this.shown = tab.id
     this.lastShown.set(tab.id, ++this.showCount)
@@ -158,6 +160,11 @@ export class TabViews {
     if (!stillRelease()) return undefined
     this.destroy(tabId)
     return Number.isSafeInteger(y) && (y as number) >= 0 ? (y as number) : undefined
+  }
+
+  // ページを見せるか（読み込みに失敗しているタブは隠す。見せる・隠すは、ここ1か所で決める）
+  private applyVisibility(tabId: number): void {
+    this.views.get(tabId)?.setVisible(!this.errors.has(tabId))
   }
 
   // 上限を超えていたら、いちばん長く表示していないページから破棄する（表示中のものは残す）
@@ -238,7 +245,10 @@ export class TabViews {
       this.handlers.onPageChanged(
         tabId,
         {
-          url: wc.getURL(),
+          // エラーページ自身の URL（chrome-error://）は、アドレスバーやタブに出さない（失敗した URL を出す）
+          url: wc.getURL().startsWith('chrome-error://')
+            ? (this.errors.get(tabId)?.url ?? '')
+            : wc.getURL(),
           title: wc.getTitle(),
           canGoBack: wc.navigationHistory.canGoBack(),
           canGoForward: wc.navigationHistory.canGoForward(),
@@ -254,7 +264,8 @@ export class TabViews {
       const kind = classifyLoadError(code)
       if (!isMainFrame || kind === 'ignore' || wc.isDestroyed()) return
       this.errors.set(tabId, { kind, url: validatedURL, description })
-      view.setVisible(false)
+      this.applyVisibility(tabId)
+      this.handlers.onLoadError()
       notify(false)()
     })
     // 証明書のエラーは、いつも拒否する（既定の動きを、決めごととして明示する）
@@ -263,9 +274,14 @@ export class TabViews {
       callback(false)
     })
     // 別のページへの移動が確定したら、エラーを外してページを出す（エラーページ自身の移動は数えない）
-    wc.on('did-navigate', (_e, url) => {
+    const clearError = (url: string): void => {
       if (url.startsWith('chrome-error://') || !this.errors.delete(tabId)) return
-      view.setVisible(true)
+      this.applyVisibility(tabId)
+    }
+    wc.on('did-navigate', (_e, url) => clearError(url))
+    // 同じ文書の中の移動（ハッシュだけ）で、エラーから戻ったとき（メインフレームだけ）
+    wc.on('did-navigate-in-page', (_e, url, isMainFrame) => {
+      if (isMainFrame) clearError(url)
     })
     wc.on('did-start-loading', notify(false))
     wc.on('did-stop-loading', notify(false))

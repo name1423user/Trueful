@@ -501,7 +501,7 @@ body {
   background: var(--bg);
 }
 
-.error-screen h1 {
+.error-screen h2 {
   margin: 0 0 16px;
   font-size: 20px;
 }
@@ -538,4 +538,13 @@ body {
 .error-screen-actions button:disabled {
   color: var(--text-muted);
   cursor: default;
+}
+
+.error-screen-actions button:hover:not(:disabled) {
+  background: var(--selected);
+}
+
+.error-screen-actions button:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
 }

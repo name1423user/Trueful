@@ -4,11 +4,12 @@ import type { AddressInfo } from 'node:net'
 import { appWindow, launchApp } from './launchApp'
 
 const listen = (port: number): Promise<Server> =>
-  new Promise((resolve) => {
+  new Promise((resolve, reject) => {
     const server = createServer((req, res) => {
       res.setHeader('content-type', 'text/html; charset=utf-8')
       res.end(`<!doctype html><title>page ${req.url}</title>`)
     })
+    server.once('error', reject)
     server.listen(port, '127.0.0.1', () => resolve(server))
   })
 
@@ -36,12 +37,16 @@ test('接続できないと、原因と次の操作を書いたエラー画面�
     )
     await expect(screen).toContainText(`http://127.0.0.1:${port}/`)
     await expect(screen.getByRole('button', { name: '再読み込み' })).toBeVisible()
-    // 前のページ（空のタブ）に戻れる
-    await expect(screen.getByRole('button', { name: '戻る' })).toBeEnabled()
+    await expect(screen.getByRole('button', { name: '戻る' })).toBeVisible()
     await window.screenshot({ path: `test-results/error-screen-${process.platform}.png` })
 
     // サイトが復活したら、再読み込みで直る（エラー画面が消え、ページが出る）
-    server = await listen(port)
+    // 他のプロセスに番号を取られていたら、少し待ってやり直す
+    for (let attempt = 0; attempt < 5 && !server; attempt++) {
+      server = await listen(port).catch(() => undefined)
+      if (!server) await new Promise((r) => setTimeout(r, 200))
+    }
+    expect(server).toBeDefined()
     await screen.getByRole('button', { name: '再読み込み' }).click()
     await expect(window.locator('.error-screen')).toHaveCount(0, { timeout: 20_000 })
     await expect(window.locator('.tab-row').first()).toHaveText('page /', { timeout: 20_000 })

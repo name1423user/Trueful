@@ -12,16 +12,19 @@ export function ErrorScreen(props: {
   const { t } = useTranslation()
   const { kind, url, description } = props.error
   return (
-    <section className="error-screen" role="alert" aria-labelledby="error-screen-title">
-      <h1 id="error-screen-title">{t(`errorPage.${kind}.title`)}</h1>
-      <p>{t(`errorPage.${kind}.cause`)}</p>
+    <section className="error-screen" aria-labelledby="error-screen-title">
+      {/* 読み上げは、見出しと原因まで（ボタンや URL は含めない） */}
+      <div role="alert">
+        <h2 id="error-screen-title">{t(`errorPage.${kind}.title`)}</h2>
+        <p>{t(`errorPage.${kind}.cause`)}</p>
+      </div>
       <p>{t(`errorPage.${kind}.next`)}</p>
       <p className="error-screen-detail">
         <span>{url}</span>
         <span>{description}</span>
       </p>
       <div className="error-screen-actions">
-        <button type="button" onClick={props.onReload}>
+        <button type="button" autoFocus onClick={props.onReload}>
           {t('errorPage.reload')}
         </button>
         <button type="button" disabled={!props.canGoBack} onClick={props.onBack}>
