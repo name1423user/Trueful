@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain, Menu, session, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, session, shell } from 'electron'
+import { existsSync, readdirSync } from 'node:fs'
 import type { DatabaseSync } from 'node:sqlite'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
@@ -17,8 +18,26 @@ import {
   tabReopenClosed,
   viewSetBounds
 } from './ipc/tabChannels'
+import {
+  bookmarkAdd,
+  bookmarkDelete,
+  bookmarkImportChrome,
+  bookmarkImportHtml,
+  bookmarkList,
+  bookmarkMove,
+  bookmarkUpdate
+} from './ipc/bookmarkChannels'
 import { historyDelete, historySearch } from './ipc/historyChannels'
 import { workspaceCreate, workspaceList, workspaceSwitch } from './ipc/workspaceChannels'
+import { chromeBookmarkFiles } from './bookmark/services/chromeBookmarks'
+import { importFromFile } from './bookmark/flows/importFromFile'
+import {
+  deleteBookmark,
+  insertBookmark,
+  listBookmarks,
+  moveBookmark,
+  updateBookmark
+} from './bookmark/services/bookmarkDB'
 import { deleteHistory, purgeExpiredHistory, searchHistory } from './history/services/historyDB'
 import { TabFlows, TabNotFoundError } from './tab/flows/tabFlows'
 import { TabPages } from './tab/flows/tabPages'
@@ -276,6 +295,77 @@ app.whenReady().then(() => {
   // 閲覧履歴（F09）
   handle(historySearch, async (input) => searchHistory(await getDatabase(), input))
   handle(historyDelete, async (range) => ({ removed: deleteHistory(await getDatabase(), range) }))
+
+  // ブックマーク（F08）。ない id は not-found
+  const notFoundIf = (found: boolean, id: number): null => {
+    if (!found) throw new IpcHandlerError('not-found', `ブックマーク ${id} がない`)
+    return null
+  }
+  // 親がない（外部キー）・親がフォルダでない（トリガー）・自分の中へは移せない、だけを not-found にする。
+  // ほかの失敗（DB の混雑など）は、そのまま投げて internal にする
+  const asParentError = (e: unknown): unknown =>
+    e instanceof Error && /constraint|bookmark parent|自分の中|がない/i.test(e.message)
+      ? new IpcHandlerError('not-found', e.message)
+      : e
+  handle(bookmarkList, async () => listBookmarks(await getDatabase()))
+  handle(bookmarkAdd, async (input) => {
+    const db = await getDatabase()
+    try {
+      return insertBookmark(db, input, Date.now())
+    } catch (e) {
+      throw asParentError(e)
+    }
+  })
+  handle(bookmarkUpdate, async ({ id, ...patch }) =>
+    notFoundIf(updateBookmark(await getDatabase(), id, patch), id)
+  )
+  handle(bookmarkDelete, async ({ id }) => notFoundIf(deleteBookmark(await getDatabase(), id), id))
+  handle(bookmarkMove, async ({ id, parentId }) => {
+    const db = await getDatabase()
+    try {
+      moveBookmark(db, id, parentId)
+      return null
+    } catch (e) {
+      throw asParentError(e)
+    }
+  })
+  // Chrome のプロファイルは、見つかった最初のもの（Default が先）から取り込む
+  handle(bookmarkImportChrome, async () => {
+    const db = await getDatabase()
+    const [file] = chromeBookmarkFiles({
+      platform: process.platform,
+      home: app.getPath('home'),
+      localAppData: process.env['LOCALAPPDATA'],
+      exists: existsSync,
+      listDir: (dir) => readdirSync(dir)
+    })
+    return file === undefined
+      ? { status: 'not-found' as const }
+      : importFromFile(db, file, 'chrome', Date.now())
+  })
+  // ダイアログを開いている間の2回目の呼び出しは、取りやめとして返す
+  let choosingHtml = false
+  handle(bookmarkImportHtml, async () => {
+    const db = await getDatabase()
+    if (choosingHtml) return { status: 'cancelled' as const }
+    choosingHtml = true
+    const options = {
+      properties: ['openFile' as const],
+      filters: [{ name: 'HTML', extensions: ['html', 'htm'] }]
+    }
+    let chosen: Awaited<ReturnType<typeof dialog.showOpenDialog>>
+    try {
+      chosen = mainWindow
+        ? await dialog.showOpenDialog(mainWindow, options)
+        : await dialog.showOpenDialog(options)
+    } finally {
+      choosingHtml = false
+    }
+    const [file] = chosen.filePaths
+    return chosen.canceled || file === undefined
+      ? { status: 'cancelled' as const }
+      : importFromFile(db, file, 'html', Date.now())
+  })
 
   // タブ（F02）。ない Workspace・タブは not-found で返す。作成・閉じる・戻す・選ぶの後は、選択中のタブを表示する
   const notFoundAs = <T>(fn: () => T): T => {

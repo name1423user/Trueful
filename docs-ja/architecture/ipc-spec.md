@@ -24,6 +24,13 @@ IPCはinvoke型（request/response）を採用。詳細は [ADR-007](./adr/adr-0
 | `workspace:list` | R→M | Workspace の一覧（左パネルの並び順）と、今の Workspace の id（F01） |
 | `workspace:create` | R→M | 名前（1〜100文字、前後の空白は除く）と Mode で作り、今の Workspace にする。同じ `requestId` の二度目は、中身（名前・Mode）を見ずに最初の結果を返す |
 | `workspace:switch` | R→M | 切り替える（ない id は `not-found`） |
+| `bookmark:list` | R→M | ブックマークの全部（親ごと・順番どおり。木にするのは画面。F08） |
+| `bookmark:add` | R→M | フォルダか URL（http・https だけ）を、親（省略で一番上）の一番下に足す。親がない・フォルダでなければ `not-found` |
+| `bookmark:update` | R→M | タイトルか URL を直す（ない id は `not-found`） |
+| `bookmark:delete` | R→M | 消す。フォルダは中身もいっしょに（ない id は `not-found`） |
+| `bookmark:move` | R→M | 別のフォルダ（`null` なら一番上）の一番下へ移す。自分の中・URL の下へは移せない（`not-found`） |
+| `bookmark:importChrome` | R→M | Chrome のプロファイル（3 OS。見つかった最初のもの）から取り込む。結果は `imported`（件数つき）・`not-found`・`unreadable`。ファイルの場所は Renderer から渡さない |
+| `bookmark:importHtml` | R→M | Chrome の HTML エクスポートを、Main のファイル選択で選んで取り込む。結果は `imported`・`cancelled`・`unreadable`。20MB まで |
 | `history:search` | R→M | 履歴をタイトルと URL の部分一致で探す（新しい順、`workspaceId` で絞れる、`limit` は 1〜100。F09） |
 | `history:delete` | R→M | 訪問の時刻（Unix ミリ秒）の範囲 `fromMs`〜`toMs`（両端を含む）を消す。両方省略すると全部。返事は消した訪問の数（F09） |
 | `tab:list` | R→M | Workspace のタブ（並び順）と選択中のタブの id（F02。選択中は最後に選んだタブ）。タブが1つもなければ空のタブを開いてから返す。`discardedIds` は、ページの実体の上限（全 Workspace で 30 個）のためにページを破棄したタブ（選ぶと読み込み直す） |
