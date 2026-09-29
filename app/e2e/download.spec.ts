@@ -38,10 +38,6 @@ test('ページのダウンロードは Workspace のフォルダに保存され
     await window.getByLabel('名前').fill('案件/A')
     await window.getByRole('button', { name: '作成' }).click()
     const address = window.getByLabel('アドレス')
-    for (const path of ['/one', '/two']) {
-      await address.fill(`${origin}${path}`)
-      await address.press('Enter')
-    }
     const list = (): Promise<{ path: string; state: string; receivedBytes: number }[]> =>
       window.evaluate(async () => {
         const r = await (window as unknown as Api).trueful.download.list()
@@ -52,11 +48,21 @@ test('ページのダウンロードは Workspace のフォルダに保存され
           receivedBytes: d.receivedBytes
         }))
       })
-    await expect
-      .poll(async () => (await list()).filter((d) => d.state === 'completed').length, {
-        timeout: 20_000
-      })
-      .toBe(2)
+    const completed = async (): Promise<number> =>
+      (await list()).filter((d) => d.state === 'completed').length
+    // 1件が終わってから次を始める（続けて移動すると、最初のダウンロードが始まる前に、次の移動で置き換わる）
+    let expected = 0
+    for (const path of ['/one', '/two']) {
+      await address.fill(`${origin}${path}`)
+      await address.press('Enter')
+      expected++
+      try {
+        await expect.poll(completed, { timeout: 30_000 }).toBe(expected)
+      } catch (e) {
+        // 失敗したときに、記録の中身が分かるように
+        throw new Error(`${path}: ${JSON.stringify(await list())}`, { cause: e })
+      }
+    }
     const paths = (await list()).map((d) => d.path.replaceAll('\\', '/')).sort()
     // フォルダ名は無害化（/ は _）。同名は連番
     expect(paths).toEqual([
