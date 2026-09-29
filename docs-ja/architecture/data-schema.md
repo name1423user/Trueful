@@ -270,9 +270,10 @@ workspace_snapshot（外部キーなし。削除された Workspace の控え）
 - 後から壊さないための約束（マニフェストを読む側）: 知らない項目は無視する。`schemaVersion` がないものは版 1 として扱う（形を変える必要が出たときにだけ `schemaVersion` を足す）。知っている版より新しい `schemaVersion` のものは、読めなくても書き直さない（古い版のアプリで起動しても、新しい版の項目を消さない）。
 
 ### Workspace の削除（F01）
-1. `workspace_snapshot` に控えを書く。
-2. パーティション `persist:workspace-<id>` のデータを消す（`session.clearStorageData()` と、保存場所のフォルダの削除）。拡張の service worker は `clearStorageData()` だけでは消えないので、フォルダごと消す（T0-5 の追加調査）。
-3. `workspace` の行を消す（関係する行は外部キーで消える）。
+1. `workspace_snapshot` に控えを書く（名前・Mode・タブの URL とタイトルだけ）。
+2. `workspace` の行を消す（関係する行は外部キーで消える）。1 と 2 は同じトランザクション。今の Workspace を消したら、残りのうち最後に使ったものへ移る。
+3. ページ（WebContentsView）を破棄し、パーティション `persist:workspace-<id>` のデータを消す（`session.clearStorageData()` と、保存場所のフォルダを片付け用の場所へ移してから削除）。拡張の service worker は `clearStorageData()` だけでは消えないので、フォルダごと消す（T0-5 の追加調査）。フォルダを移せないとき（Windows でセッションが掴んでいる: EBUSY・EPERM）は、250ms 待って最大 4 回やり直す。それでも移せなかったフォルダは残り、警告を記録する（起動時の片付けが消すのは片付け用の場所の中だけ。DB にない id のフォルダを起動時に掃除するかは、るりあの判断待ち）。
+- 順番を「DB が先、データは後」にしたのは、データを先に消して DB の削除が失敗すると、行だけが残る（ログインが消えた Workspace ができる）ため（T2-5c、2026-09-29）。
 - Workspace を作るときに、同じ id のパーティションのフォルダが残っていたら、先に消す（DB をバックアップから戻したときに、番号が使い回されるため）。
 
 ### マイグレーション

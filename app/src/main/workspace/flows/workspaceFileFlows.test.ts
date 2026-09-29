@@ -15,6 +15,7 @@ import {
   type WorkspaceRoots
 } from '../services/workspaceFiles'
 import {
+  cleanupDeletedWorkspaceFiles,
   ensureComManifests,
   prepareWorkspaceFiles,
   purgeWorkspaceTrash
@@ -92,5 +93,38 @@ describe('起動時にマニフェストをそろえる', () => {
     const result = ensureComManifests(db, roots)
     expect(result.repaired).toEqual([b.id])
     expect(result.failed.map((f) => f.id)).toEqual([a.id])
+  })
+})
+
+describe('削除した Workspace のファイルの片付け（F01）', () => {
+  const setup = (id: number): void => {
+    mkdirSync(partitionDir(roots, id), { recursive: true })
+    writeFileSync(join(partitionDir(roots, id), 'Cookies'), 'secret')
+    mkdirSync(workspaceDir(roots, id), { recursive: true })
+    writeFileSync(join(workspaceDir(roots, id), 'com.json'), '{"id":7}')
+  }
+
+  it('先にセッションのデータを消し、フォルダは片付け用の場所へ移してから消す', async () => {
+    setup(7)
+    const calls: number[] = []
+    const errors = await cleanupDeletedWorkspaceFiles(roots, 7, async (id) => void calls.push(id))
+    expect(calls).toEqual([7])
+    expect(errors).toEqual([])
+    expect(existsSync(partitionDir(roots, 7))).toBe(false)
+    expect(existsSync(workspaceDir(roots, 7))).toBe(false)
+    for (const dir of trashDirs(roots)) expect(existsSync(dir)).toBe(false)
+  })
+
+  it('セッションのデータを消せなくても、フォルダの片付けは続ける。失敗は返す', async () => {
+    setup(7)
+    const errors = await cleanupDeletedWorkspaceFiles(roots, 7, async () => {
+      throw new Error('clear failed')
+    })
+    expect(errors).toHaveLength(1)
+    expect(existsSync(partitionDir(roots, 7))).toBe(false)
+  })
+
+  it('フォルダがなくても失敗しない', async () => {
+    expect(await cleanupDeletedWorkspaceFiles(roots, 9, async () => {})).toEqual([])
   })
 })
