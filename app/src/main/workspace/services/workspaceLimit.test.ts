@@ -19,6 +19,10 @@ describe('フルアクティブな Workspace の上限（F01・ADR-011）', () =
     expect(workspacesToDormant(active(6), 5, 6)).toEqual([1])
   })
 
+  it('上限を超えている状態（7 個）なら、超えた分（2 個）を古い順に休止する', () => {
+    expect(workspacesToDormant(active(7), 5, 7)).toEqual([1, 2])
+  })
+
   it('開こうとしている Workspace（除外 ID）は、いちばん古くても選ばない', () => {
     expect(workspacesToDormant(active(6), 5, 1)).toEqual([2])
   })

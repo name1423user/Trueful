@@ -81,9 +81,9 @@ export function setWorkspaceDormant(db: DatabaseSync, id: number, now: number): 
 }
 
 export function setWorkspaceActive(db: DatabaseSync, id: number): void {
-  db.prepare("UPDATE workspace SET status = 'active', dormanted_time_ms = NULL WHERE id = ?").run(
-    id
-  )
+  db.prepare(
+    "UPDATE workspace SET status = 'active', dormanted_time_ms = NULL WHERE id = ? AND status = 'dormant'"
+  ).run(id)
 }
 
 export function getCurrentWorkspaceId(db: DatabaseSync): number | null {

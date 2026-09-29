@@ -96,12 +96,19 @@ export class TabViews {
       const scrollY = tab.scrollY ?? 0
       if (scrollY > 0) {
         const wc = view.webContents
-        wc.once('did-finish-load', () => {
+        // 最初の読み込み1回だけ。失敗したら戻さない（あとの別ページに古い位置を当てない）
+        const onFail = (): void => {
+          wc.removeListener('did-finish-load', onLoad)
+        }
+        const onLoad = (): void => {
+          wc.removeListener('did-fail-load', onFail)
           if (wc.isDestroyed()) return
           wc.executeJavaScriptInIsolatedWorld(TRUEFUL_WORLD, [
             { code: `window.scrollTo(0, ${Math.floor(scrollY)})` }
           ]).catch(() => {})
-        })
+        }
+        wc.once('did-finish-load', onLoad)
+        wc.once('did-fail-load', onFail)
       }
       void view.webContents.loadURL(url).catch(() => {})
     }
@@ -128,8 +135,12 @@ export class TabViews {
     const read = wc
       .executeJavaScriptInIsolatedWorld(TRUEFUL_WORLD, [{ code: 'Math.round(window.scrollY)' }])
       .catch(() => undefined)
-    const timeout = new Promise<undefined>((resolve) => setTimeout(resolve, SCROLL_READ_MS))
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const timeout = new Promise<undefined>((resolve) => {
+      timer = setTimeout(() => resolve(undefined), SCROLL_READ_MS)
+    })
     const y: unknown = await Promise.race([read, timeout])
+    clearTimeout(timer)
     if (!stillRelease()) return undefined
     this.destroy(tabId)
     return Number.isSafeInteger(y) && (y as number) >= 0 ? (y as number) : undefined
