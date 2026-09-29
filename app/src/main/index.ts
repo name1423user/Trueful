@@ -46,6 +46,10 @@ import { isExternalUrl } from './window/services/externalUrl'
 // E2E などで、保存場所を普段の userData から切り替える。配布版では使わない
 const userDataDir = process.env['TRUEFUL_USER_DATA_DIR']
 if (!app.isPackaged && userDataDir) app.setPath('userData', userDataDir)
+// E2E で、ページの実体の上限（F02 の 30 個）を小さくして確かめる。配布版では使わない
+const maxPageViews = Number(process.env['TRUEFUL_MAX_PAGE_VIEWS'])
+const pageViewLimit =
+  !app.isPackaged && Number.isInteger(maxPageViews) && maxPageViews > 0 ? maxPageViews : undefined
 
 // DB の接続。準備（非同期）の途中で終了が始まったら、準備が終わったところで閉じる
 let database: DatabaseSync | undefined
@@ -172,11 +176,16 @@ app.whenReady().then(() => {
   createWindow()
   const window = mainWindow!
   const tabs = new TabFlows()
-  const views = new TabViews(window, {
-    onPageChanged: (tabId, page, committed) => pages.pageChanged(tabId, page, committed),
-    onOpenRequest: (tabId, url, background) => pages.openRequested(tabId, url, background),
-    onReservedShortcut: (command) => runMenuCommand(command)
-  })
+  const views = new TabViews(
+    window,
+    {
+      onPageChanged: (tabId, page, committed) => pages.pageChanged(tabId, page, committed),
+      onOpenRequest: (tabId, url, background) => pages.openRequested(tabId, url, background),
+      onReservedShortcut: (command) => runMenuCommand(command),
+      onDiscarded: (tabIds) => pages.discarded(tabIds)
+    },
+    pageViewLimit
+  )
   const pages: TabPages = new TabPages(tabs, views, () => database, {
     page: (tabId, page) => mainWindow?.webContents.send(channelNames.tabPageChanged, tabId, page),
     tabsChanged: (workspaceId) =>
@@ -268,7 +277,7 @@ app.whenReady().then(() => {
     return db
   }
   handle(tabList, async ({ workspaceId }) =>
-    tabs.list(await getWorkspaceDatabase(workspaceId), workspaceId)
+    pages.list(await getWorkspaceDatabase(workspaceId), workspaceId)
   )
   const thenShow = <T>(db: DatabaseSync, workspaceId: number, value: T): T => {
     pages.showActive(db, workspaceId)

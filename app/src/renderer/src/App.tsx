@@ -118,6 +118,7 @@ function App(): React.JSX.Element {
           <TabList
             tabs={tabs.tabs}
             activeId={tabs.activeId}
+            discardedIds={tabs.discardedIds}
             onActivate={(id) => void tabs.run((api, ws) => api.activate(ws, id))}
             onClose={(id) => void tabs.run((api, ws) => api.close(ws, id))}
             onCreate={() => void tabs.run((api, ws) => api.create(ws))}

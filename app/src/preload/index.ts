@@ -4,6 +4,7 @@ import { channelNames } from '../main/ipc/channelNames'
 import type { SettingsSnapshot } from '../main/settings/flows/settingsStore'
 import type { Settings } from '../main/settings/services/settingsSchema'
 import type { TabState } from '../main/tab/flows/tabFlows'
+import type { TabListState } from '../main/tab/flows/tabPages'
 import type { Tab } from '../main/tab/services/tabDB'
 import type { PageState } from '../main/tab/services/tabViews'
 import type { Workspace, WorkspaceMode } from '../main/workspace/services/workspaceDB'
@@ -42,7 +43,7 @@ const api = {
       ipcRenderer.invoke(channelNames.workspaceSwitch, { id })
   },
   tab: {
-    list: (workspaceId: number): Promise<IpcResult<TabState>> =>
+    list: (workspaceId: number): Promise<IpcResult<TabListState>> =>
       ipcRenderer.invoke(channelNames.tabList, { workspaceId }),
     create: (workspaceId: number): Promise<IpcResult<Tab>> =>
       ipcRenderer.invoke(channelNames.tabCreate, { workspaceId }),
