@@ -9,6 +9,7 @@ import type { Tab } from '../main/tab/services/tabDB'
 import type { PageState } from '../main/tab/services/tabViews'
 import type { Bookmark } from '../main/bookmark/services/bookmarkDB'
 import type { BookmarkImportOutcome } from '../main/ipc/bookmarkChannels'
+import type { Download } from '../main/download/services/downloadDB'
 import type { HistoryEntry } from '../main/history/services/historyDB'
 import type { Workspace, WorkspaceMode } from '../main/workspace/services/workspaceDB'
 
@@ -44,6 +45,24 @@ const api = {
     }): Promise<IpcResult<Workspace>> => ipcRenderer.invoke(channelNames.workspaceCreate, input),
     switch: (id: number): Promise<IpcResult<Workspace>> =>
       ipcRenderer.invoke(channelNames.workspaceSwitch, { id })
+  },
+  download: {
+    list: (workspaceId?: number): Promise<IpcResult<Download[]>> =>
+      ipcRenderer.invoke(
+        channelNames.downloadList,
+        workspaceId === undefined ? {} : { workspaceId }
+      ),
+    pause: (id: number): Promise<IpcResult<boolean>> =>
+      ipcRenderer.invoke(channelNames.downloadPause, { id }),
+    resume: (id: number): Promise<IpcResult<boolean>> =>
+      ipcRenderer.invoke(channelNames.downloadResume, { id }),
+    cancel: (id: number): Promise<IpcResult<boolean>> =>
+      ipcRenderer.invoke(channelNames.downloadCancel, { id }),
+    showInFolder: (id: number): Promise<IpcResult<boolean>> =>
+      ipcRenderer.invoke(channelNames.downloadShowInFolder, { id }),
+    // 進み具合・状態が変わったら知らせる。戻り値の関数で登録を外す
+    onChanged: (listener: () => void): (() => void) =>
+      subscribe(channelNames.downloadChanged, listener)
   },
   history: {
     search: (input: {

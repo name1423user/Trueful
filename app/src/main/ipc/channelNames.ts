@@ -14,6 +14,11 @@ export const channelNames = {
   bookmarkMove: 'bookmark:move',
   bookmarkImportChrome: 'bookmark:importChrome',
   bookmarkImportHtml: 'bookmark:importHtml',
+  downloadList: 'download:list',
+  downloadPause: 'download:pause',
+  downloadResume: 'download:resume',
+  downloadCancel: 'download:cancel',
+  downloadShowInFolder: 'download:showInFolder',
   tabList: 'tab:list',
   tabCreate: 'tab:create',
   tabClose: 'tab:close',
@@ -26,6 +31,7 @@ export const channelNames = {
   settingsChanged: 'settings:changed',
   tabPageChanged: 'tab:pageChanged',
   tabListChanged: 'tab:listChanged',
+  downloadChanged: 'download:changed',
   // メニューのショートカットのうち、画面で行うもの（アドレスバーへのフォーカスなど）
   uiCommand: 'ui:command'
 } as const
