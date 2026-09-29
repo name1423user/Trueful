@@ -59,7 +59,11 @@
     "pause": "一時停止",
     "resume": "再開",
     "cancel": "取り消し",
-    "showInFolder": "フォルダで表示"
+    "showInFolder": "フォルダで表示",
+    "pauseNamed": "{{name}} を一時停止",
+    "resumeNamed": "{{name}} を再開",
+    "cancelNamed": "{{name}} を取り消し",
+    "showInFolderNamed": "{{name}} をフォルダで表示"
   },
   "tab": {
     "listLabel": "タブ",

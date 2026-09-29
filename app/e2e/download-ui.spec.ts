@@ -32,7 +32,7 @@ test.afterAll(
     })
 )
 
-test('ダウンロードの画面: 完了は「フォルダで表示」、進行中は進捗と、一時停止・再開・取り消し', async () => {
+test('ダウンロードの画面: 完了は「フォルダで表示」、進行中は進捗と、一時停止・取り消し', async () => {
   test.setTimeout(90_000)
   const downloads = mkdtempSync(join(tmpdir(), 'trueful-e2e-dlui-'))
   const { app, cleanup } = await launchApp(undefined, { env: { TRUEFUL_DOWNLOADS_DIR: downloads } })
@@ -48,28 +48,34 @@ test('ダウンロードの画面: 完了は「フォルダで表示」、進行
     await address.fill(`${origin}/done`)
     await address.press('Enter')
     const done = window.locator('.download-item', { hasText: 'done.txt' })
-    await expect(done).toContainText('完了', { timeout: 20_000 })
-    await expect(done.getByRole('button', { name: 'フォルダで表示' })).toBeVisible()
-    await expect(done.getByRole('button', { name: '一時停止' })).toHaveCount(0)
+    await expect(done.locator('.download-state')).toContainText('完了', { timeout: 20_000 })
+    await expect(done.getByRole('button', { name: /をフォルダで表示$/ })).toBeVisible()
+    await expect(done.getByRole('button', { name: /を一時停止$/ })).toHaveCount(0)
 
     // 進行中のもの: 進捗（<progress>）と、一時停止・取り消し
     await address.fill(`${origin}/slow`)
     await address.press('Enter')
     const slow = window.locator('.download-item', { hasText: 'slow.bin' })
-    await expect(slow).toContainText('ダウンロード中', { timeout: 20_000 })
+    await expect(slow.locator('.download-state')).toContainText('ダウンロード中', {
+      timeout: 20_000
+    })
     await expect(slow.getByRole('progressbar')).toBeVisible()
     await window.screenshot({ path: `test-results/download-ui-${process.platform}.png` })
 
-    await slow.getByRole('button', { name: '一時停止' }).click()
-    await expect(slow).toContainText('一時停止')
-    await slow.getByRole('button', { name: '再開' }).click()
-    await expect(slow).toContainText('ダウンロード中')
-    await slow.getByRole('button', { name: '取り消し' }).click()
-    await expect(slow).toContainText('取り消しました', { timeout: 20_000 })
+    // 一時停止の状態が反映されてから、取り消す。
+    // 再開は、サーバーが途中からの再開に対応していないと canResume が false になる（OS によって違う）ので、
+    // ここでは確かめない（単体テストの偽の DownloadItem と、実機で確かめる）
+    await slow.getByRole('button', { name: /を一時停止$/ }).click()
+    await expect(slow.locator('.download-state')).toContainText('一時停止')
+    await expect(slow.getByRole('button', { name: /を再開$/ })).toBeVisible()
+    await slow.getByRole('button', { name: /を取り消し$/ }).click()
+    await expect(slow.locator('.download-state')).toContainText('取り消しました', {
+      timeout: 20_000
+    })
     await expect(slow.getByRole('button')).toHaveCount(0)
   } finally {
     await app.close()
     cleanup()
-    rmSync(downloads, { recursive: true, force: true })
+    rmSync(downloads, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   }
 })

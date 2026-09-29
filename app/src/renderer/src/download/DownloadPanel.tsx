@@ -28,7 +28,7 @@ export function DownloadPanel(props: {
                 <span className="download-name" title={d.path}>
                   {name}
                 </span>
-                <span className="download-state">
+                <span className="download-state" role="status">
                   {t(`download.state.${d.state}`)}
                   {running &&
                     ` ${formatBytes(d.receivedBytes)}${d.totalBytes ? ` / ${formatBytes(d.totalBytes)}` : ''}`}
@@ -43,22 +43,38 @@ export function DownloadPanel(props: {
                 )}
                 <span className="download-actions">
                   {actions.pause && (
-                    <button type="button" onClick={() => props.onPause(d.id)}>
+                    <button
+                      type="button"
+                      aria-label={t('download.pauseNamed', { name })}
+                      onClick={() => props.onPause(d.id)}
+                    >
                       {t('download.pause')}
                     </button>
                   )}
                   {actions.resume && (
-                    <button type="button" onClick={() => props.onResume(d.id)}>
+                    <button
+                      type="button"
+                      aria-label={t('download.resumeNamed', { name })}
+                      onClick={() => props.onResume(d.id)}
+                    >
                       {t('download.resume')}
                     </button>
                   )}
                   {actions.cancel && (
-                    <button type="button" onClick={() => props.onCancel(d.id)}>
+                    <button
+                      type="button"
+                      aria-label={t('download.cancelNamed', { name })}
+                      onClick={() => props.onCancel(d.id)}
+                    >
                       {t('download.cancel')}
                     </button>
                   )}
                   {actions.show && (
-                    <button type="button" onClick={() => props.onShowInFolder(d.id)}>
+                    <button
+                      type="button"
+                      aria-label={t('download.showInFolderNamed', { name })}
+                      onClick={() => props.onShowInFolder(d.id)}
+                    >
                       {t('download.showInFolder')}
                     </button>
                   )}

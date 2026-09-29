@@ -20,7 +20,10 @@ function App(): React.JSX.Element {
   const [switchError, setSwitchError] = useState<IpcErrorCode>()
   const [panelView, setPanelView] = useState<PanelView>('tabs')
   const [collapsed, setCollapsed] = useSidePanelCollapsed()
-  const downloads = useDownloads(state.status === 'ready' ? state.currentId : null)
+  const downloads = useDownloads(
+    state.status === 'ready' ? state.currentId : null,
+    panelView === 'downloads' && !collapsed
+  )
   const tabs = useTabs(state.status === 'ready' ? state.currentId : null)
   // 作成画面を閉じたら、フォーカスを左パネルの今の Workspace に戻す（キーボードで続けて操作できるように）。
   // 戻し先は作った（やめたときは今の）Workspace の id。その Workspace が「今の」になった描画の後（effect）で探す。
@@ -120,7 +123,7 @@ function App(): React.JSX.Element {
           setPanelView(view)
         }}
       />
-      {panelView === 'downloads' ? (
+      {panelView === 'downloads' && !adding ? (
         <DownloadPanel
           downloads={downloads.downloads}
           onPause={downloads.pause}
