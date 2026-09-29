@@ -14,7 +14,14 @@ test.beforeAll(async () => {
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
 })
-test.afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())))
+test.afterAll(
+  () =>
+    new Promise<void>((resolve) => {
+      // Electron が残した keep-alive の接続で、閉じるのを待ち続けないように
+      server.closeAllConnections()
+      server.close(() => resolve())
+    })
+)
 
 test('ページの実体が上限を超えたら、いちばん長く見ていないタブを破棄して薄く出し、選ぶと読み込み直す', async () => {
   // 上限（本来は 30 個）を 2 個にして確かめる。境界の値は単体テスト（viewLimit.test.ts）で見る
@@ -58,6 +65,7 @@ test('ページの実体が上限を超えたら、いちばん長く見てい�
           ({ webContents }, o) =>
             webContents
               .getAllWebContents()
+              .filter((wc) => !wc.isDestroyed())
               .map((wc) => wc.getURL())
               .filter((u) => u.startsWith(o)),
           origin

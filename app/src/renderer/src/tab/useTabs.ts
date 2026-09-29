@@ -34,10 +34,13 @@ export function useTabs(workspaceId: number | null): {
     current.current = workspaceId
   }, [workspaceId])
 
+  // 読み直しの番号。続けて読み直したとき、後から届いた古い返事で上書きしない
+  const generation = useRef(0)
   const reload = useCallback(async () => {
     if (workspaceId === null) return
+    const mine = ++generation.current
     const result = await api.list(workspaceId)
-    if (!result.ok || current.current !== workspaceId) return
+    if (!result.ok || current.current !== workspaceId || mine !== generation.current) return
     setState({ workspaceId, ...result.value })
     // 閉じたタブのページの様子は捨てる
     const ids = new Set(result.value.tabs.map((t) => t.id))

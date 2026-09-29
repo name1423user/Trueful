@@ -50,7 +50,8 @@ export class TabViews {
   private readonly views = new Map<number, WebContentsView>()
   private shown: number | undefined
   private bounds: Rectangle = { x: 0, y: 0, width: 0, height: 0 }
-  // 表示した順の番号（上限を超えたときに、古いものから破棄する）
+  // 最後に見ていた順の番号（表示し始めたときと、ほかのタブに切り替えて外したときに振る）。
+  // 上限を超えたときに、いちばん長く見ていないものから破棄する
   private readonly lastShown = new Map<number, number>()
   private showCount = 0
   // 上限のために破棄したタブ（もう一度表示すると作り直す。画面では薄く出す）
@@ -90,6 +91,8 @@ export class TabViews {
     if (this.shown !== undefined && this.shown !== tab.id) {
       const previous = this.views.get(this.shown)
       if (previous) this.window.contentView.removeChildView(previous)
+      // 直前まで見ていたタブは「いま見終わった」ので、いちばん新しい番号にする
+      this.lastShown.set(this.shown, ++this.showCount)
     }
     this.window.contentView.addChildView(view)
     view.setBounds(this.bounds)
@@ -135,13 +138,14 @@ export class TabViews {
 
   // タブを閉じたとき
   destroy(tabId: number): void {
+    // 破棄済み（ページがない）のタブを閉じたときも、記録は消す
+    this.lastShown.delete(tabId)
+    this.discarded.delete(tabId)
     const view = this.views.get(tabId)
     if (!view) return
     if (!this.window.isDestroyed()) this.window.contentView.removeChildView(view)
     if (!view.webContents.isDestroyed()) view.webContents.close()
     this.views.delete(tabId)
-    this.lastShown.delete(tabId)
-    this.discarded.delete(tabId)
     if (this.shown === tabId) this.shown = undefined
   }
 

@@ -47,7 +47,8 @@ export class TabPages {
   // TabViews から: 上限のためにページを破棄した → そのタブの Workspace のタブ列が変わったと知らせる
   discarded(tabIds: number[]): void {
     const db = this.getDb()
-    if (!db) return
+    // 終了の途中（DB を閉じた後）なら知らせない
+    if (!db?.isOpen) return
     const workspaceIds = new Set(tabIds.map((id) => getTab(db, id)?.workspaceId))
     for (const workspaceId of workspaceIds) {
       if (workspaceId !== undefined) this.notify.tabsChanged(workspaceId)
