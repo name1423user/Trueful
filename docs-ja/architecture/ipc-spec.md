@@ -35,6 +35,8 @@ IPCはinvoke型（request/response）を採用。詳細は [ADR-007](./adr/adr-0
 | `download:pause` / `download:resume` / `download:cancel` | R→M | 動いているダウンロードの一時停止・再開・取り消し（できたら `true`。終わった・再起動で中断したものは `false`。再開はアプリを起動している間だけ） |
 | `download:showInFolder` | R→M | 保存したファイルをフォルダで表示する（記録の id だけを受ける。記録がなければ `false`） |
 | `download:changed` | M→R | ダウンロードの進み具合・状態が変わった（画面は `download:list` を読み直す） |
+| `permission:list` | R→M | 記憶したサイトの権限（Workspace とサイトと権限ごとの許可・拒否。`workspaceId` で絞れる。F16） |
+| `permission:revoke` | R→M | 記憶を取り消す（また未決になり、次に要求されたら確認する）。Workspace・http(s) のサイト・権限の 3 つを渡す。記憶がなければ `false` |
 | `history:search` | R→M | 履歴をタイトルと URL の部分一致で探す（新しい順、`workspaceId` で絞れる、`limit` は 1〜100。F09） |
 | `history:delete` | R→M | 訪問の時刻（Unix ミリ秒）の範囲 `fromMs`〜`toMs`（両端を含む）を消す。両方省略すると全部。返事は消した訪問の数（F09） |
 | `tab:list` | R→M | Workspace のタブ（並び順）と選択中のタブの id（F02。選択中は最後に選んだタブ）。タブが1つもなければ空のタブを開いてから返す。`discardedIds` は、ページの実体の上限（全 Workspace で 30 個）のためにページを破棄したタブ（選ぶと読み込み直す） |

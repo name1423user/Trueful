@@ -10,6 +10,7 @@ import type { PageState } from '../main/tab/services/tabViews'
 import type { Bookmark } from '../main/bookmark/services/bookmarkDB'
 import type { BookmarkImportOutcome } from '../main/ipc/bookmarkChannels'
 import type { Download } from '../main/download/services/downloadDB'
+import type { SitePermission } from '../main/permission/services/permissionDB'
 import type { HistoryEntry } from '../main/history/services/historyDB'
 import type { Workspace, WorkspaceMode } from '../main/workspace/services/workspaceDB'
 
@@ -63,6 +64,19 @@ const api = {
     // 進み具合・状態が変わったら知らせる。戻り値の関数で登録を外す
     onChanged: (listener: () => void): (() => void) =>
       subscribe(channelNames.downloadChanged, listener)
+  },
+  permission: {
+    list: (workspaceId?: number): Promise<IpcResult<SitePermission[]>> =>
+      ipcRenderer.invoke(
+        channelNames.permissionList,
+        workspaceId === undefined ? {} : { workspaceId }
+      ),
+    // 記憶した許可・拒否を取り消す（次に要求されたら、また確認する）
+    revoke: (input: {
+      workspaceId: number
+      origin: string
+      permission: SitePermission['permission']
+    }): Promise<IpcResult<boolean>> => ipcRenderer.invoke(channelNames.permissionRevoke, input)
   },
   history: {
     search: (input: {
