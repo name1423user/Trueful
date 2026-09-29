@@ -101,6 +101,47 @@ describe('ダウンロードの記録（F07）', () => {
     expect(listDownloads(db)).toHaveLength(1)
   })
 
+  it('一部だけ更新できる（渡さない項目は残る）。totalBytes を null に戻せる。undefined を渡しても変わらない', () => {
+    const id = insertDownload(
+      db,
+      { workspaceId: ws, url: 'https://a.example/1', path: '/d/1', totalBytes: 100 },
+      1
+    )
+    updateDownload(db, id, { receivedBytes: 40 })
+    updateDownload(db, id, { state: 'paused', totalBytes: undefined })
+    expect(listDownloads(db)[0]).toMatchObject({
+      receivedBytes: 40,
+      totalBytes: 100,
+      state: 'paused'
+    })
+    updateDownload(db, id, { receivedBytes: 0, totalBytes: null })
+    expect(listDownloads(db)[0]).toMatchObject({ receivedBytes: 0, totalBytes: null })
+  })
+
+  it('負・小数・NaN のバイト数は拒否する。ない id は false', () => {
+    const id = insertDownload(
+      db,
+      { workspaceId: ws, url: 'https://a.example/1', path: '/d/1', totalBytes: 1 },
+      1
+    )
+    for (const bad of [-1, 1.5, Number.NaN]) {
+      expect(() => updateDownload(db, id, { receivedBytes: bad })).toThrow()
+    }
+    expect(updateDownload(db, 999, { receivedBytes: 1 })).toBe(false)
+    expect(updateDownload(db, id, { receivedBytes: 1 })).toBe(true)
+  })
+
+  it('終わったものは、あとから来た知らせで書き換えない（完了を取り消しにしない）', () => {
+    const id = insertDownload(
+      db,
+      { workspaceId: ws, url: 'https://a.example/1', path: '/d/1', totalBytes: 1 },
+      1
+    )
+    expect(finishDownload(db, id, 'completed', 2000)).toBe(true)
+    expect(finishDownload(db, id, 'cancelled', 3000)).toBe(false)
+    expect(listDownloads(db)[0]).toMatchObject({ state: 'completed', endedTimeMs: 2000 })
+  })
+
   it('不正な状態は DB が拒否する', () => {
     const id = insertDownload(
       db,

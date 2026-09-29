@@ -49,35 +49,56 @@ export function insertDownload(
   )
 }
 
-// 進み具合・状態を更新する（渡した項目だけ）
+// 進み具合・一時停止と再開を更新する（渡した項目だけ。undefined は「変えない」、totalBytes の null は「分からない」に戻す）。
+// 終わった状態は finishDownload で書く。ない id は false
 export function updateDownload(
   db: DatabaseSync,
   id: number,
-  patch: { receivedBytes?: number; totalBytes?: number | null; state?: DownloadState }
-): void {
-  db.prepare(
-    `UPDATE download SET
-       received_bytes = COALESCE(?, received_bytes),
-       total_bytes = CASE WHEN ? THEN ? ELSE total_bytes END,
-       state = COALESCE(?, state)
-     WHERE id = ?`
-  ).run(
-    patch.receivedBytes ?? null,
-    'totalBytes' in patch ? 1 : 0,
-    patch.totalBytes ?? null,
-    patch.state ?? null,
-    id
-  )
+  patch: {
+    receivedBytes?: number
+    totalBytes?: number | null
+    state?: 'in_progress' | 'paused'
+  }
+): boolean {
+  for (const bytes of [patch.receivedBytes, patch.totalBytes]) {
+    if (bytes !== undefined && bytes !== null && !(Number.isSafeInteger(bytes) && bytes >= 0)) {
+      throw new Error('バイト数は 0 以上の整数')
+    }
+  }
+  const changes = db
+    .prepare(
+      `UPDATE download SET
+         received_bytes = COALESCE(?, received_bytes),
+         total_bytes = CASE WHEN ? THEN ? ELSE total_bytes END,
+         state = COALESCE(?, state)
+       WHERE id = ?`
+    )
+    .run(
+      patch.receivedBytes ?? null,
+      patch.totalBytes === undefined ? 0 : 1,
+      patch.totalBytes ?? null,
+      patch.state ?? null,
+      id
+    ).changes
+  return Number(changes) > 0
 }
 
-// 終わった（完了・取り消し・中断）。状態と終了時刻を書く
+// 終わった（完了・取り消し・中断）。状態と終了時刻を書く。
+// すでに終わっているものは書き換えない（終わったあとに遅れて届いた知らせで、完了が取り消しに変わらないように）。
+// 書き換えたら true
 export function finishDownload(
   db: DatabaseSync,
   id: number,
   state: 'completed' | 'cancelled' | 'interrupted',
   now: number
-): void {
-  db.prepare('UPDATE download SET state = ?, ended_time_ms = ? WHERE id = ?').run(state, now, id)
+): boolean {
+  const changes = db
+    .prepare(
+      `UPDATE download SET state = ?, ended_time_ms = ?
+       WHERE id = ? AND state IN ('in_progress', 'paused')`
+    )
+    .run(state, now, id).changes
+  return Number(changes) > 0
 }
 
 // 新しい順。Workspace を指定するとその Workspace の分だけ
@@ -89,7 +110,8 @@ export function listDownloads(db: DatabaseSync, workspaceId?: number): Download[
     .map(toDownload)
 }
 
-// 起動時に、終わっていない（in_progress・paused）ものを interrupted にする。
+// 起動時に、終わっていない（in_progress・paused）ものを interrupted にする（終了時刻は、実際に止まった時刻ではなく起動した時刻）。
+// 最初のダウンロードが始まる前に、起動時の1か所で呼ぶこと（新しい行まで中断にしないため）。
 // 再開は起動している間だけ（data-schema.md。再起動をまたぐ情報は持たない）。直した数を返す
 export function interruptUnfinishedDownloads(db: DatabaseSync, now: number): number {
   return Number(
