@@ -13,7 +13,7 @@ import { WorkspaceList } from './workspace/WorkspaceList'
 // （位置と大きさを IPC で Main に報告する。ADR-008）
 function App(): React.JSX.Element {
   const { t } = useTranslation()
-  const { state, create, switchTo } = useWorkspaces()
+  const { state, create, switchTo, notice, dismissNotice } = useWorkspaces()
   const [adding, setAdding] = useState(false)
   const [switchError, setSwitchError] = useState<IpcErrorCode>()
   const [panelView, setPanelView] = useState<PanelView>('tabs')
@@ -93,6 +93,18 @@ function App(): React.JSX.Element {
             {t(`error.${switchError}`)}
           </p>
         )}
+        {/* 自動で休止したことの事後の知らせ（ADR-011）。ページの外（上端）に出し、読み上げる */}
+        {/* 読み上げの領域は常に置き、中身だけ出し入れする。閉じるボタンは領域の外 */}
+        <div className={notice.length > 0 ? 'dormant-notice' : undefined}>
+          <p role="status" aria-live="polite">
+            {notice.length > 0 && t('workspace.dormantNotice', { names: notice.join('」「') })}
+          </p>
+          {notice.length > 0 && (
+            <button type="button" className="dormant-notice-close" onClick={dismissNotice}>
+              {t('workspace.dormantNoticeClose')}
+            </button>
+          )}
+        </div>
       </header>
       <ActivityBar
         current={current}

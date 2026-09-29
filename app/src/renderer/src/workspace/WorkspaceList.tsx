@@ -1,4 +1,6 @@
 import { useTranslation } from 'react-i18next'
+import { displayState } from './dormant'
+import { useNow } from './useNow'
 import type { Workspace } from './useWorkspaces'
 
 // 左パネルの2段目の Workspace の一覧（F01・F15）。行を選ぶと切り替える。
@@ -14,11 +16,13 @@ export function WorkspaceList(props: {
   children?: React.ReactNode
 }): React.JSX.Element {
   const { t } = useTranslation()
+  const now = useNow()
   return (
     <nav className="left-panel" aria-label={t('workspace.listLabel')}>
       <ul className="workspace-list">
         {props.workspaces.map((w) => {
           const current = w.id === props.currentId
+          const state = displayState(w, now)
           return (
             <li key={w.id} className="workspace-item">
               <button
@@ -28,7 +32,12 @@ export function WorkspaceList(props: {
                 onClick={() => props.onSwitch(w.id)}
               >
                 <span className={`mode-dot mode-${w.mode}`} aria-hidden="true" />
-                {w.name}
+                <span className="workspace-name">{w.name}</span>
+                {state !== 'active' && (
+                  <span className={`workspace-state state-${state}`}>
+                    {t(`workspace.state.${state}`)}
+                  </span>
+                )}
               </button>
               {current && props.children}
             </li>

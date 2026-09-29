@@ -17,7 +17,13 @@
     "create": "作成",
     "creating": "作成中…",
     "cancel": "やめる",
-    "current": "今の Workspace: {{name}}"
+    "current": "今の Workspace: {{name}}",
+    "state": {
+      "dormant": "休止中",
+      "archived": "アーカイブ"
+    },
+    "dormantNotice": "同時に開ける Workspace は5個までです。「{{names}}」を休止しました（選ぶと元に戻ります）。",
+    "dormantNoticeClose": "閉じる"
   },
   "error": {
     "invalid-args": "入力を確かめてください（名前は1〜100文字）。",
