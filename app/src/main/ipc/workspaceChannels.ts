@@ -27,3 +27,8 @@ export const workspaceSwitch = defineChannel<Workspace>()(
   channelNames.workspaceSwitch,
   z.object({ id: z.int().positive() }).strict()
 )
+// 削除（確認は画面で済ませてから呼ぶ）。返すのは、削除後の今の Workspace の id
+export const workspaceDelete = defineChannel<{ currentId: number | null }>()(
+  channelNames.workspaceDelete,
+  z.object({ id: z.int().positive() }).strict()
+)

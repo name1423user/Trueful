@@ -24,6 +24,7 @@ IPCはinvoke型（request/response）を採用。詳細は [ADR-007](./adr/adr-0
 | `workspace:list` | R→M | Workspace の一覧（左パネルの並び順）と、今の Workspace の id（F01） |
 | `workspace:create` | R→M | 名前（1〜100文字、前後の空白は除く）と Mode で作り、今の Workspace にする。同じ `requestId` の二度目は、中身（名前・Mode）を見ずに最初の結果を返す |
 | `workspace:switch` | R→M | 切り替える（ない id は `not-found`） |
+| `workspace:delete` | R→M | 削除する（ない id は `not-found`）。確認は画面で済ませてから呼ぶ。返事は削除後の今の Workspace の id（なければ null） |
 | `bookmark:list` | R→M | ブックマークの全部（親ごと・順番どおり。木にするのは画面。F08） |
 | `bookmark:add` | R→M | フォルダか URL（http・https だけ）を、親（省略で一番上）の一番下に足す。親がない・フォルダでなければ `not-found` |
 | `bookmark:update` | R→M | タイトルか URL を直す（ない id は `not-found`） |
@@ -49,7 +50,7 @@ IPCはinvoke型（request/response）を採用。詳細は [ADR-007](./adr/adr-0
 | `view:setBounds` | R→M | ページを表示する場所（Renderer の空の div の位置と大きさ、整数の CSS ピクセル。ADR-008）。UI のズームは 1 のままにする前提（変えるなら Main で倍率を掛ける） |
 | `tab:pageChanged` | M→R | ページの URL・タイトル・戻る/進むの可否・読み込み中が変わった（タブの id と一緒に） |
 | `tab:listChanged` | M→R | Renderer の invoke ではない理由でタブ列が変わった（ページの `window.open`・`target=_blank` を新しいタブで開いた、メニューのショートカット）。Workspace の id。ページが開く新しいタブは http・https だけで、直前のユーザーの入力1回につき1つ（ポップアップブロッカーの代わり）。Cmd/Ctrl+クリック・中クリックは選ばずに開く |
-| `ui:command` | M→R | メニューのショートカットのうち画面で行うもの（`focus-address-bar`: Cmd/Ctrl+L、`focus-search`: Cmd/Ctrl+K、`toggle-side-panel`: Cmd/Ctrl+B で左パネルの2段目を畳む・開く）。ショートカットはメニューの accelerator で受ける。Cmd/Ctrl+T・W・Shift+T は、ページが keydown を止めても効くよう、ページの `before-input-event` でも先に受ける（Chrome と同じ予約キー） |
+| `ui:command` | M→R | メニューのショートカットのうち画面で行うもの（`focus-address-bar`: Cmd/Ctrl+L、`focus-search`: Cmd/Ctrl+K、`toggle-side-panel`: Cmd/Ctrl+B で左パネルの2段目を畳む・開く、`bookmark-page`: Cmd/Ctrl+D で今のページをブックマークに足す）。ショートカットはメニューの accelerator で受ける。Cmd/Ctrl+T・W・Shift+T は、ページが keydown を止めても効くよう、ページの `before-input-event` でも先に受ける（Chrome と同じ予約キー） |
 
 エラーの `code`: `forbidden-sender`（送り元が UI でない）、`invalid-args`（引数が不正）、`not-found`（対象がない）、`unavailable`（DB などの準備ができていない）、`internal`（そのほか）。
 

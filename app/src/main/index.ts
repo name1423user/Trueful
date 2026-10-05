@@ -36,7 +36,12 @@ import {
 } from './ipc/downloadChannels'
 import { historyDelete, historySearch } from './ipc/historyChannels'
 import { permissionList, permissionRevoke } from './ipc/permissionChannels'
-import { workspaceCreate, workspaceList, workspaceSwitch } from './ipc/workspaceChannels'
+import {
+  workspaceCreate,
+  workspaceDelete,
+  workspaceList,
+  workspaceSwitch
+} from './ipc/workspaceChannels'
 import { chromeBookmarkFiles } from './bookmark/services/chromeBookmarks'
 import { importFromFile } from './bookmark/flows/importFromFile'
 import {
@@ -56,10 +61,13 @@ import { TabPages } from './tab/flows/tabPages'
 import { TabViews } from './tab/services/tabViews'
 import {
   createWorkspaceFlow,
+  deleteWorkspaceFlow,
   switchWorkspace,
   WorkspaceNotFoundError
 } from './workspace/flows/workspaceFlows'
+import { purgeExpiredSnapshots } from './workspace/services/workspaceSnapshot'
 import {
+  cleanupDeletedWorkspaceFiles,
   ensureComManifests,
   prepareWorkspaceFiles,
   purgeWorkspaceTrash
@@ -183,6 +191,12 @@ app.whenReady().then(() => {
         console.error('[main] マニフェストをそろえられなかった', e)
       }
       purgeTrash()
+      // 削除前のスナップショットのうち、30 日たったものを消す（data-schema.md）
+      try {
+        purgeExpiredSnapshots(db, Date.now())
+      } catch (e) {
+        console.error('[main] スナップショットの期限切れを消せなかった', e)
+      }
       // 再起動の前に終わらなかったダウンロードは「中断」にする（F07）。最初のダウンロードが始まる前に、ここで1回だけ
       try {
         interruptUnfinishedDownloads(db, Date.now())
@@ -266,8 +280,8 @@ app.whenReady().then(() => {
       target.webContents.send(channelNames.uiCommand, command)
       return
     }
-    // 2段目の開閉は画面で行う（フォーカスは動かさない）
-    if (command === 'toggle-side-panel') {
+    // 2段目の開閉と、今のページのブックマーク追加は画面で行う（フォーカスは動かさない）
+    if (command === 'toggle-side-panel' || command === 'bookmark-page') {
       target.webContents.send(channelNames.uiCommand, command)
       return
     }
@@ -328,6 +342,30 @@ app.whenReady().then(() => {
       if (e instanceof WorkspaceNotFoundError) throw new IpcHandlerError('not-found', e.message)
       throw e
     }
+  })
+  // 削除。DB（スナップショットと行）が先。成功したら、ページを破棄し、ログインとサイトのデータを消す
+  handle(workspaceDelete, async ({ id }) => {
+    const db = await getDatabase()
+    let deleted: ReturnType<typeof deleteWorkspaceFlow>
+    try {
+      deleted = deleteWorkspaceFlow(db, id)
+    } catch (e) {
+      if (e instanceof WorkspaceNotFoundError) throw new IpcHandlerError('not-found', e.message)
+      throw e
+    }
+    for (const tabId of deleted.tabIds) views.destroy(tabId)
+    if (deleted.currentId !== null) pages.showActive(db, deleted.currentId)
+    releaseDormant(db)
+    void cleanupDeletedWorkspaceFiles(workspaceRoots, id, async (workspaceId) => {
+      const ses = session.fromPartition(`persist:workspace-${workspaceId}`)
+      await ses.clearStorageData()
+      await ses.clearCache()
+      ses.flushStorageData() // フォルダを掴んでいる書き込みを済ませてから、移す
+    }).then((errors) => {
+      if (errors.length > 0)
+        console.warn(`[main] 削除した Workspace ${id} のファイルを消せなかった`, errors)
+    })
+    return { currentId: deleted.currentId }
   })
 
   // ダウンロード（F07）
