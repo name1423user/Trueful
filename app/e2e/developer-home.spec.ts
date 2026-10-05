@@ -46,6 +46,11 @@ test('起動: 前回の終了から1時間を超えたら Developer Home、以�
         .poll(() => window.evaluate(() => document.activeElement?.textContent ?? ''))
         .toBe('Developer Home')
       await window.screenshot({ path: `test-results/developer-home-${process.platform}.png` })
+      // 「Workspace を追加」から作成画面へ行き、やめると Home に戻る（ページは読み込んでいない）
+      await home.getByRole('button', { name: 'Workspace を追加' }).click()
+      await window.getByRole('button', { name: 'やめる' }).click()
+      await expect(home).toBeVisible()
+      await expect(window.getByTestId('page-area')).toHaveCount(0)
       await home.getByRole('button', { name: /案件A/ }).click()
       await expect(home).toHaveCount(0)
       await expect(window.getByText('今の Workspace: 案件A')).toBeVisible()

@@ -50,7 +50,7 @@ IPCはinvoke型（request/response）を採用。詳細は [ADR-007](./adr/adr-0
 | `tab:activate` | R→M | タブを選ぶ。`workspaceId` とタブの持ち主が違えば `not-found` |
 | `tab:navigate` | R→M | アドレスバーの入力を開く（F02）。Main が解釈する: 1〜65535 の数字は `http://localhost:<番号>`、「近道のキーワード 語」は近道（settings の shortcuts）、URL らしいものは開き（スキームがなければ https、localhost と IP は http）、それ以外は既定の検索エンジン（Google）で検索。開くのは http・https と `about:blank` だけ |
 | `tab:control` | R→M | 戻る・進む・再読み込み・停止（`action`）。ページがまだないタブでは何もしない |
-| `startup:mode` | R→M | 起動したときに決めた表示（`restore`: 前回の Workspace とタブ、`developer-home`: Workspace の一覧。F11）。前回の正常な終了（`app_state.last_quit_time_ms`）から設定の `developerHomeAfterMinutes` を超えていたら `developer-home`。`showDeveloperHome` が false・終了の記録がないときは `restore`。起動している間は同じ値 |
+| `startup:mode` | R→M | 起動したときに決めた表示（`restore`: 前回の Workspace とタブ、`developer-home`: Workspace の一覧。F11）。前回の正常な終了（`app_state.last_quit_time_ms`）から設定の `developerHomeAfterMinutes` を超えていたら `developer-home`。`showDeveloperHome` が false・終了の記録がない・前回が異常終了（`clean_exit` が 0）のときは `restore`。返すのは起動して最初の1回だけで、その後（macOS でウィンドウを開き直したときなど）は `restore` |
 | `view:setBounds` | R→M | ページを表示する場所（Renderer の空の div の位置と大きさ、整数の CSS ピクセル。ADR-008）。UI のズームは 1 のままにする前提（変えるなら Main で倍率を掛ける） |
 | `tab:pageChanged` | M→R | ページの URL・タイトル・戻る/進むの可否・読み込み中が変わった（タブの id と一緒に）。読み込みに失敗したときは `error`（`kind`: `offline`・`certificate`・`load-failed`、`url`、`description`）が付く。そのタブのページの実体は隠され、Renderer が同じ場所にエラー画面を出す（F16） |
 | `tab:listChanged` | M→R | Renderer の invoke ではない理由でタブ列が変わった（ページの `window.open`・`target=_blank` を新しいタブで開いた、メニューのショートカット）。Workspace の id。ページが開く新しいタブは http・https だけで、直前のユーザーの入力1回につき1つ（ポップアップブロッカーの代わり）。Cmd/Ctrl+クリック・中クリックは選ばずに開く |

@@ -128,7 +128,6 @@ function App(): React.JSX.Element {
   const closeCreate = (focusId: number | null): void => {
     refocus.current = focusId
     setAdding(false)
-    finishStartup()
   }
   // 削除の確認。対象が一覧から消えていたら（別の操作で消えたなど）出さない
   const deleting = showCreate ? undefined : state.workspaces.find((w) => w.id === deletingId)
@@ -242,7 +241,6 @@ function App(): React.JSX.Element {
             setSwitchError(code)
           }}
           onAdd={() => {
-            finishStartup()
             setSwitchError(undefined)
             setDeletingId(null)
             setAdding(true)
@@ -285,6 +283,8 @@ function App(): React.JSX.Element {
             onCreate={async (name, mode, requestId) => {
               const result = await create(name, mode, requestId)
               if (!result.ok) return result.code
+              // 作ったら、その Workspace を開いている（起動の画面は閉じる）
+              finishStartup()
               closeCreate(result.id)
               return undefined
             }}
@@ -300,10 +300,8 @@ function App(): React.JSX.Element {
               if (!code) finishStartup()
               setSwitchError(code)
             }}
-            onAdd={() => {
-              finishStartup()
-              setAdding(true)
-            }}
+            // 作成画面が前に出る。作れば Home は閉じ、やめれば Home に戻る（ページは読み込んでいないため）
+            onAdd={() => setAdding(true)}
           />
         ) : startup === 'pending' ? null : (
           <>

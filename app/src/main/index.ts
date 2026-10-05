@@ -63,8 +63,8 @@ import { originOf } from './permission/services/permissionMap'
 import { startupMode } from './ipc/startupChannels'
 import {
   decideStartupMode,
-  setLastQuitTime,
-  takeLastQuitTime,
+  beginSession,
+  recordCleanExit,
   type StartupMode
 } from './startup/services/startupMode'
 import { DownloadFlows } from './download/flows/downloadFlows'
@@ -247,15 +247,20 @@ app.whenReady().then(() => {
   // 起動のときに1回だけ決める（F11）。前回の正常な終了から「Developer Home までの時間」を超えていたら Developer Home。
   // 決められなかったら（DB の準備に失敗など）、復元にする
   const mode: Promise<StartupMode> = databaseReady
-    .then((db) => decideStartupMode(takeLastQuitTime(db), Date.now(), store.get().settings))
+    .then((db) => decideStartupMode(beginSession(db), Date.now(), store.get().settings))
     .catch(() => 'restore' as const)
   // Developer Home を出すのは、起動して最初の画面だけ。macOS でウィンドウを開き直したときは復元する
   let startupShown = false
   handle(startupMode, async () => {
     const m = await mode
-    if (startupShown) return 'restore'
-    startupShown = true
-    return m
+    if (!startupShown) {
+      startupShown = true
+      return m
+    }
+    // 起動の画面を出す前にウィンドウを開き直した（macOS の activate）。Developer Home は出さずに復元する。
+    // 起動のときにページを読み込んでいなければ、ここで読み込む
+    if (m !== 'restore') showCurrent()
+    return 'restore'
   })
   handle(settingsUpdate, (patch) => store.update(patch))
 
@@ -571,8 +576,9 @@ app.whenReady().then(() => {
   })
 
   app.on('activate', () => {
-    startupShown = true
     if (BrowserWindow.getAllWindows().length > 0) return
+    // ウィンドウを作り直すときは、起動の画面（Developer Home など）は出さない
+    startupShown = true
     createWindow()
     views.attach(mainWindow!)
     showCurrent()
@@ -582,7 +588,7 @@ app.whenReady().then(() => {
 // 正常な終了の時刻（次の起動で、Developer Home を出すか・異常終了だったかの判定に使う。F11・F12）
 function recordQuit(db: DatabaseSync): void {
   try {
-    if (db.isOpen) setLastQuitTime(db, Date.now())
+    if (db.isOpen) recordCleanExit(db, Date.now())
   } catch (e) {
     console.error('[main] 終了の時刻を記録できなかった', e)
   }
