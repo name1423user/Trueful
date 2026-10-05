@@ -24,6 +24,7 @@ IPCはinvoke型（request/response）を採用。詳細は [ADR-007](./adr/adr-0
 | `workspace:list` | R→M | Workspace の一覧（左パネルの並び順）と、今の Workspace の id（F01） |
 | `workspace:create` | R→M | 名前（1〜100文字、前後の空白は除く）と Mode で作り、今の Workspace にする。同じ `requestId` の二度目は、中身（名前・Mode）を見ずに最初の結果を返す |
 | `workspace:switch` | R→M | 切り替える（ない id は `not-found`） |
+| `workspace:delete` | R→M | 削除する（ない id は `not-found`）。確認は画面で済ませてから呼ぶ。返事は削除後の今の Workspace の id（なければ null） |
 | `bookmark:list` | R→M | ブックマークの全部（親ごと・順番どおり。木にするのは画面。F08） |
 | `bookmark:add` | R→M | フォルダか URL（http・https だけ）を、親（省略で一番上）の一番下に足す。親がない・フォルダでなければ `not-found` |
 | `bookmark:update` | R→M | タイトルか URL を直す（ない id は `not-found`） |
