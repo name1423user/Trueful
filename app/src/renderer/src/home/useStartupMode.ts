@@ -8,13 +8,14 @@ export function useStartupView(): [StartupView, () => void] {
   const [view, setView] = useState<StartupView>('pending')
   useEffect(() => {
     let alive = true
-    void window.trueful.startup.mode().then((result) => {
-      // 決められなかったときは、復元と同じに扱う
-      if (alive)
-        setView((v) =>
-          v !== 'pending' ? v : result.ok && result.value === 'developer-home' ? 'home' : 'done'
-        )
-    })
+    // 決められなかったとき（エラー・返事が届かない）は、復元と同じに扱う
+    const decide = (home: boolean): void => {
+      if (alive) setView((v) => (v !== 'pending' ? v : home ? 'home' : 'done'))
+    }
+    window.trueful.startup.mode().then(
+      (result) => decide(result.ok && result.value === 'developer-home'),
+      () => decide(false)
+    )
     return () => {
       alive = false
     }

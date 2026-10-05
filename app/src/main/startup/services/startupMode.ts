@@ -16,6 +16,14 @@ export function decideStartupMode(
     : 'restore'
 }
 
+// 前回の終了の時刻を読み、消す（起動している間は「記録なし」にしておく）。
+// 正常に終了すれば書き直されるので、次の起動で記録がなければ、前回は異常終了だったと分かる（F12）
+export function takeLastQuitTime(db: DatabaseSync): number | null {
+  const ms = getLastQuitTime(db)
+  setLastQuitTime(db, null)
+  return ms
+}
+
 export function getLastQuitTime(db: DatabaseSync): number | null {
   const v = db.prepare('SELECT last_quit_time_ms v FROM app_state WHERE id = 1').get()?.['v']
   return v === null || v === undefined ? null : Number(v)

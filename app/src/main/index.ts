@@ -63,8 +63,8 @@ import { originOf } from './permission/services/permissionMap'
 import { startupMode } from './ipc/startupChannels'
 import {
   decideStartupMode,
-  getLastQuitTime,
   setLastQuitTime,
+  takeLastQuitTime,
   type StartupMode
 } from './startup/services/startupMode'
 import { DownloadFlows } from './download/flows/downloadFlows'
@@ -147,6 +147,10 @@ function createWindow(): void {
 
   mainWindow = window
   window.on('ready-to-show', () => window.show())
+  // Windows で OS をシャットダウン・ログオフすると、will-quit が来ないので、ここで終了の時刻を記録する
+  window.on('session-end', () => {
+    if (database) recordQuit(database)
+  })
   window.on('closed', () => {
     if (mainWindow === window) mainWindow = undefined
     onWindowClosed()
@@ -191,6 +195,8 @@ app.whenReady().then(() => {
   databaseReady
     .then((db) => {
       if (quitting) {
+        // 準備の途中で終了した。前回の記録を残さないよう、今の時刻で書いてから閉じる
+        recordQuit(db)
         db.close()
         return
       }
@@ -241,9 +247,16 @@ app.whenReady().then(() => {
   // 起動のときに1回だけ決める（F11）。前回の正常な終了から「Developer Home までの時間」を超えていたら Developer Home。
   // 決められなかったら（DB の準備に失敗など）、復元にする
   const mode: Promise<StartupMode> = databaseReady
-    .then((db) => decideStartupMode(getLastQuitTime(db), Date.now(), store.get().settings))
+    .then((db) => decideStartupMode(takeLastQuitTime(db), Date.now(), store.get().settings))
     .catch(() => 'restore' as const)
-  handle(startupMode, () => mode)
+  // Developer Home を出すのは、起動して最初の画面だけ。macOS でウィンドウを開き直したときは復元する
+  let startupShown = false
+  handle(startupMode, async () => {
+    const m = await mode
+    if (startupShown) return 'restore'
+    startupShown = true
+    return m
+  })
   handle(settingsUpdate, (patch) => store.update(patch))
 
   // Workspace（F01）。DB の準備が終わってから答える。準備に失敗していたら unavailable で返す
@@ -558,6 +571,7 @@ app.whenReady().then(() => {
   })
 
   app.on('activate', () => {
+    startupShown = true
     if (BrowserWindow.getAllWindows().length > 0) return
     createWindow()
     views.attach(mainWindow!)
@@ -565,15 +579,19 @@ app.whenReady().then(() => {
   })
 })
 
-// 終了は止めない（止めると、あとの app.quit() が効かずに終了できなくなる）
-app.on('will-quit', () => {
-  quitting = true
-  // 正常な終了の時刻（次の起動で、Developer Home を出すかの判定に使う。F11）
+// 正常な終了の時刻（次の起動で、Developer Home を出すか・異常終了だったかの判定に使う。F11・F12）
+function recordQuit(db: DatabaseSync): void {
   try {
-    if (database?.isOpen) setLastQuitTime(database, Date.now())
+    if (db.isOpen) setLastQuitTime(db, Date.now())
   } catch (e) {
     console.error('[main] 終了の時刻を記録できなかった', e)
   }
+}
+
+// 終了は止めない（止めると、あとの app.quit() が効かずに終了できなくなる）
+app.on('will-quit', () => {
+  quitting = true
+  if (database) recordQuit(database)
   downloadFlows?.dispose()
   settingsStore?.close()
   database?.close()

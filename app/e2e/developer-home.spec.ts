@@ -40,6 +40,11 @@ test('起動: 前回の終了から1時間を超えたら Developer Home、以�
       await expect(home.getByRole('button', { name: /案件A/ })).toBeVisible()
       await expect(home.getByRole('button', { name: /案件B/ })).toBeVisible()
       await expect(window.getByTestId('page-area')).toHaveCount(0)
+      // Home の間はタブ列を出さない。フォーカスは見出しにある
+      await expect(window.locator('.tab-row')).toHaveCount(0)
+      await expect
+        .poll(() => window.evaluate(() => document.activeElement?.textContent ?? ''))
+        .toBe('Developer Home')
       await window.screenshot({ path: `test-results/developer-home-${process.platform}.png` })
       await home.getByRole('button', { name: /案件A/ }).click()
       await expect(home).toHaveCount(0)
@@ -76,6 +81,25 @@ test('起動: 前回の終了から1時間を超えたら Developer Home、以�
       await expect(window.getByText('今の Workspace: 案件A')).toBeVisible()
       await expect(window.getByRole('region', { name: 'Developer Home' })).toHaveCount(0)
       await expect(window.getByTestId('page-area')).toHaveCount(1)
+      await app.close()
+    }
+
+    // 5回目: 61 分たっているので Developer Home が出る。ここで強制終了する（終了の時刻は記録されない）
+    shiftLastQuit(first.userDataDir, 61)
+    {
+      const { app } = await launchApp(undefined, { userDataDir: first.userDataDir })
+      const window = await appWindow(app)
+      await expect(window.getByRole('region', { name: 'Developer Home' })).toBeVisible()
+      app.process().kill('SIGKILL')
+      await app.waitForEvent('close').catch(() => undefined)
+    }
+
+    // 6回目: 前回は異常終了で、終了の記録がない（起動したときに消してある）。古い記録で Developer Home にはならない
+    {
+      const { app } = await launchApp(undefined, { userDataDir: first.userDataDir })
+      const window = await appWindow(app)
+      await expect(window.getByText('今の Workspace: 案件A')).toBeVisible()
+      await expect(window.getByRole('region', { name: 'Developer Home' })).toHaveCount(0)
       await app.close()
     }
   } finally {

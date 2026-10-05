@@ -2,7 +2,12 @@ import { DatabaseSync } from 'node:sqlite'
 import { describe, expect, it } from 'vitest'
 import { migrations } from '../../db/migrations'
 import { migrate } from '../../db/services/migrate'
-import { decideStartupMode, getLastQuitTime, setLastQuitTime } from './startupMode'
+import {
+  decideStartupMode,
+  getLastQuitTime,
+  setLastQuitTime,
+  takeLastQuitTime
+} from './startupMode'
 
 const HOUR = 60 * 60 * 1000
 const settings = { showDeveloperHome: true, developerHomeAfterMinutes: 60 }
@@ -48,5 +53,14 @@ describe('前回の終了の時刻（app_state.last_quit_time_ms）', () => {
     expect(getLastQuitTime(db)).toBe(1234)
     setLastQuitTime(db, null)
     expect(getLastQuitTime(db)).toBeNull()
+  })
+
+  it('起動したときに読んで消す（異常終了の後は記録がない）', () => {
+    const db = new DatabaseSync(':memory:')
+    migrate(db, migrations)
+    setLastQuitTime(db, 1234)
+    expect(takeLastQuitTime(db)).toBe(1234)
+    expect(getLastQuitTime(db)).toBeNull()
+    expect(takeLastQuitTime(db)).toBeNull()
   })
 })

@@ -234,10 +234,12 @@ function App(): React.JSX.Element {
           workspaces={state.workspaces}
           currentId={state.currentId}
           onSwitch={async (id) => {
-            finishStartup()
             setAdding(false)
             setDeletingId(null)
-            setSwitchError(await switchTo(id))
+            const code = await switchTo(id)
+            // Developer Home は、開けてから閉じる（失敗したら Home に留めて知らせる）
+            if (!code) finishStartup()
+            setSwitchError(code)
           }}
           onAdd={() => {
             finishStartup()
@@ -251,7 +253,8 @@ function App(): React.JSX.Element {
             setDeletingId(id)
           }}
         >
-          {!showCreate && panelView === 'tabs' && (
+          {/* Developer Home の間はタブ列を出さない（選ぶと、見えないままページを読み込むため） */}
+          {!showCreate && !showHome && panelView === 'tabs' && (
             <TabList
               tabs={tabs.tabs}
               activeId={tabs.activeId}
@@ -290,10 +293,12 @@ function App(): React.JSX.Element {
         ) : showHome ? (
           <DeveloperHome
             workspaces={state.workspaces}
+            error={switchError}
             onOpen={async (id) => {
-              finishStartup()
               refocus.current = id
-              setSwitchError(await switchTo(id))
+              const code = await switchTo(id)
+              if (!code) finishStartup()
+              setSwitchError(code)
             }}
             onAdd={() => {
               finishStartup()
