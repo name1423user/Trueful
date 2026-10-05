@@ -86,6 +86,11 @@ export function setWorkspaceActive(db: DatabaseSync, id: number): void {
   ).run(id)
 }
 
+// 行を消す。タブ・履歴などは外部キー（ON DELETE CASCADE）でいっしょに消え、app_state の今の Workspace は NULL になる
+export function deleteWorkspaceRow(db: DatabaseSync, id: number): boolean {
+  return Number(db.prepare('DELETE FROM workspace WHERE id = ?').run(id).changes) > 0
+}
+
 export function getCurrentWorkspaceId(db: DatabaseSync): number | null {
   const v = db.prepare('SELECT last_workspace_id v FROM app_state WHERE id = 1').get()?.['v']
   return v === null || v === undefined ? null : Number(v)

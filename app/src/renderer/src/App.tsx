@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { BookmarkPanel } from './bookmark/BookmarkPanel'
+import { importMessageKey } from './bookmark/tree'
+import { useBookmarks } from './bookmark/useBookmarks'
 import { DownloadPanel } from './download/DownloadPanel'
 import { useDownloads } from './download/useDownloads'
 import { ActivityBar, type PanelView } from './panel/ActivityBar'
@@ -25,6 +28,8 @@ function App(): React.JSX.Element {
     state.status === 'ready' ? state.currentId : null,
     panelView === 'downloads' && !collapsed
   )
+  const bookmarks = useBookmarks()
+  const [bookmarkMessage, setBookmarkMessage] = useState<string>()
   const tabs = useTabs(state.status === 'ready' ? state.currentId : null)
   // 作成画面を閉じたら、フォーカスを左パネルの今の Workspace に戻す（キーボードで続けて操作できるように）。
   // 戻し先は作った（やめたときは今の）Workspace の id。その Workspace が「今の」になった描画の後（effect）で探す。
@@ -49,6 +54,35 @@ function App(): React.JSX.Element {
     }
   }, [collapsed])
 
+  // 今のページをブックマークに足す（Cmd/Ctrl+D と、パネルのボタン）。http・https のページだけ
+  const activeTab = tabs.tabs.find((tab) => tab.id === tabs.activeId)
+  const addingPage = useRef(false)
+  const addCurrentPage = async (): Promise<void> => {
+    // 作成画面が開いているとき・進行中・http・https でないページは追加しない（ボタンとショートカットで同じ）
+    if (adding || addingPage.current) return
+    const url = activeTab?.url ?? ''
+    if (!activeTab || !/^https?:\/\//i.test(url))
+      return setBookmarkMessage(t('bookmark.addUnsupported'))
+    addingPage.current = true
+    try {
+      const ok = await bookmarks.add(activeTab.title || url, url)
+      setBookmarkMessage(t(ok ? 'bookmark.added' : 'bookmark.addFailed'))
+    } finally {
+      addingPage.current = false
+    }
+  }
+  const addCurrentPageRef = useRef(addCurrentPage)
+  useEffect(() => {
+    addCurrentPageRef.current = addCurrentPage
+  })
+  useEffect(
+    () =>
+      window.trueful.ui.onCommand((command) => {
+        if (command === 'bookmark-page') void addCurrentPageRef.current()
+      }),
+    []
+  )
+
   if (state.status === 'loading') return <div className="app-shell" />
   if (state.status === 'error') {
     return (
@@ -72,7 +106,6 @@ function App(): React.JSX.Element {
     setAdding(false)
   }
 
-  const activeTab = tabs.tabs.find((tab) => tab.id === tabs.activeId)
   const activePage = activeTab && tabs.pages[activeTab.id]
   return (
     <div className={collapsed ? 'app-shell side-collapsed' : 'app-shell'}>
@@ -132,6 +165,29 @@ function App(): React.JSX.Element {
           onResume={downloads.resume}
           onCancel={downloads.cancel}
           onShowInFolder={downloads.showInFolder}
+        />
+      ) : panelView === 'bookmarks' ? (
+        <BookmarkPanel
+          bookmarks={bookmarks.bookmarks}
+          canAddPage={!showCreate && /^https?:\/\//i.test(activeTab?.url ?? '')}
+          message={bookmarkMessage}
+          onOpen={(url) => {
+            // 保存されている URL でも、http・https 以外は開かない
+            if (activeTab && /^https?:\/\//i.test(url)) {
+              void tabs.run((api, ws) => api.navigate(ws, activeTab.id, url))
+            }
+          }}
+          onAddPage={() => void addCurrentPage()}
+          onUpdate={bookmarks.update}
+          onRemove={(id) => void bookmarks.remove(id)}
+          onImport={(source) =>
+            void bookmarks.importFrom(source).then((outcome) => {
+              // 結果は、追加の知らせと同じ1つの場所に出す（ファイルを選ばなかったときは消す）
+              const key = outcome ? importMessageKey(outcome) : 'bookmark.importUnreadable'
+              const counts = outcome?.status === 'imported' ? outcome : { imported: 0, failed: 0 }
+              setBookmarkMessage(key ? t(key, counts) : undefined)
+            })
+          }
         />
       ) : (
         <WorkspaceList

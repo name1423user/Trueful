@@ -44,7 +44,10 @@ const api = {
       requestId: string
     }): Promise<IpcResult<Workspace>> => ipcRenderer.invoke(channelNames.workspaceCreate, input),
     switch: (id: number): Promise<IpcResult<Workspace>> =>
-      ipcRenderer.invoke(channelNames.workspaceSwitch, { id })
+      ipcRenderer.invoke(channelNames.workspaceSwitch, { id }),
+    // 削除する（ログインとサイトのデータも消える。確認は画面で済ませてから呼ぶ）
+    delete: (id: number): Promise<IpcResult<{ currentId: number | null }>> =>
+      ipcRenderer.invoke(channelNames.workspaceDelete, { id })
   },
   download: {
     list: (workspaceId?: number): Promise<IpcResult<Download[]>> =>
@@ -123,7 +126,9 @@ const api = {
   ui: {
     // メニューのショートカットのうち、画面で行うもの（アドレスバー・統合検索へのフォーカス、2段目の開閉）
     onCommand: (
-      listener: (command: 'focus-address-bar' | 'focus-search' | 'toggle-side-panel') => void
+      listener: (
+        command: 'focus-address-bar' | 'focus-search' | 'toggle-side-panel' | 'bookmark-page'
+      ) => void
     ): (() => void) => subscribe(channelNames.uiCommand, listener)
   },
   view: {

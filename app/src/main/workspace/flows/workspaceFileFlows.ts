@@ -7,6 +7,7 @@ import {
   readComManifest,
   trashDirs,
   workspaceDir,
+  WorkspaceFileError,
   writeComManifest,
   type WorkspaceRoots
 } from '../services/workspaceFiles'
@@ -31,6 +32,48 @@ export function prepareWorkspaceFiles(
 export async function purgeWorkspaceTrash(roots: WorkspaceRoots): Promise<unknown[]> {
   const results = await Promise.allSettled(trashDirs(roots).map(purgeTrash))
   return results.flatMap((r) => (r.status === 'rejected' ? [r.reason] : []))
+}
+
+const MOVE_ATTEMPTS = 4
+const MOVE_RETRY_MS = 250
+
+// 削除した Workspace のファイルを片付ける（F01。DB の行を消した後に呼ぶ）。
+// 先にセッションのデータ（Cookie・ストレージ）を消し、フォルダは片付け用の場所へ移してから消す。
+// どれかが失敗しても残りは続け、失敗を返す（消しきれなかった分は、次の起動の片付けで消す）
+export async function cleanupDeletedWorkspaceFiles(
+  roots: WorkspaceRoots,
+  id: number,
+  clearSession: (id: number) => Promise<void>,
+  now: () => number = Date.now
+): Promise<unknown[]> {
+  const errors: unknown[] = []
+  try {
+    await clearSession(id)
+  } catch (e) {
+    errors.push(e)
+  }
+  const [workspacesTrash, partitionsTrash] = trashDirs(roots)
+  for (const [dir, trash] of [
+    [partitionDir(roots, id), partitionsTrash!],
+    [workspaceDir(roots, id), workspacesTrash!]
+  ] as const) {
+    // Windows では、セッションがまだフォルダを掴んでいて移せない（EBUSY・EPERM）ことがある。少し待って数回やり直す
+    for (let attempt = 1; ; attempt++) {
+      try {
+        moveToTrash(dir, trash, now())
+        break
+      } catch (e) {
+        const code = (e as WorkspaceFileError).code
+        if (attempt >= MOVE_ATTEMPTS || (code !== 'EBUSY' && code !== 'EPERM')) {
+          errors.push(e)
+          break
+        }
+        await new Promise((resolve) => setTimeout(resolve, MOVE_RETRY_MS))
+      }
+    }
+  }
+  errors.push(...(await purgeWorkspaceTrash(roots)))
+  return errors
 }
 
 // 起動時に、DB にある Workspace の COM 側のマニフェストをそろえる。

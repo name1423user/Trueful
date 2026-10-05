@@ -43,7 +43,8 @@
     "toggle-side-panel": "左パネルを畳む・開く",
     "close-window": "ウィンドウを閉じる",
     "focus-search": "統合検索へ移動",
-    "page-devtools": "開発者ツール"
+    "page-devtools": "開発者ツール",
+    "bookmark-page": "このページをブックマークに追加"
   },
   "download": {
     "listLabel": "ダウンロード",
@@ -99,6 +100,28 @@
   "panel": {
     "railLabel": "パネルの切り替え",
     "tabs": "タブ",
-    "downloads": "ダウンロード"
+    "downloads": "ダウンロード",
+    "bookmarks": "ブックマーク"
+  },
+  "bookmark": {
+    "listLabel": "ブックマーク",
+    "empty": "ブックマークはまだありません。",
+    "addPage": "このページを追加",
+    "added": "ブックマークに追加しました。",
+    "addUnsupported": "このページは追加できません（http・https のページだけです）。",
+    "addFailed": "追加できませんでした。もう一度お試しください。",
+    "saveFailed": "保存できませんでした。URL は http・https だけです。",
+    "importChrome": "Chrome から取り込む",
+    "importHtml": "HTML から取り込む",
+    "imported": "{{imported}} 件を取り込みました。",
+    "importedWithFailures": "{{imported}} 件を取り込みました（{{failed}} 件は取り込めませんでした）。",
+    "importNotFound": "Chrome のブックマークが見つかりません。HTML から取り込んでください。",
+    "importUnreadable": "取り込めませんでした。ブックマークのファイルか確かめてください。",
+    "edit": "{{name}} を編集",
+    "remove": "{{name}} を削除",
+    "titleLabel": "タイトル",
+    "urlLabel": "URL",
+    "save": "保存",
+    "cancel": "やめる"
   }
 }
