@@ -5,6 +5,7 @@ import { importMessageKey } from './bookmark/tree'
 import { useBookmarks } from './bookmark/useBookmarks'
 import { DownloadPanel } from './download/DownloadPanel'
 import { useDownloads } from './download/useDownloads'
+import { CrashRestorePrompt } from './home/CrashRestorePrompt'
 import { DeveloperHome } from './home/DeveloperHome'
 import { useStartupView } from './home/useStartupMode'
 import { ActivityBar, type PanelView } from './panel/ActivityBar'
@@ -30,7 +31,7 @@ function App(): React.JSX.Element {
   // 削除の確認を出している Workspace の id
   const [deletingId, setDeletingId] = useState<number | null>(null)
   // 起動したときの表示（F11）。Developer Home は、Workspace を選ぶ・作るまで出す
-  const [startup, finishStartup] = useStartupView()
+  const { view: startup, finish: finishStartup, showHome: showStartupHome } = useStartupView()
   const [switchError, setSwitchError] = useState<IpcErrorCode>()
   const [panelView, setPanelView] = useState<PanelView>('tabs')
   const [collapsed, setCollapsed] = useSidePanelCollapsed()
@@ -136,6 +137,7 @@ function App(): React.JSX.Element {
     setDeletingId(null)
   }
   const showHome = startup === 'home' && !showCreate && deleting === undefined
+  const showCrash = startup === 'crash' && !showCreate && deleting === undefined
   // 作成画面・削除の確認・Developer Home を出している間と、起動の表示が決まるまでは、ページを隠す
   const pageHidden = showCreate || deleting !== undefined || startup !== 'done'
 
@@ -251,8 +253,8 @@ function App(): React.JSX.Element {
             setDeletingId(id)
           }}
         >
-          {/* Developer Home の間はタブ列を出さない（選ぶと、見えないままページを読み込むため） */}
-          {!showCreate && !showHome && panelView === 'tabs' && (
+          {/* Developer Home・異常終了の確認の間はタブ列を出さない（選ぶと、見えないままページを読み込むため） */}
+          {!showCreate && !showHome && !showCrash && panelView === 'tabs' && (
             <TabList
               tabs={tabs.tabs}
               activeId={tabs.activeId}
@@ -289,6 +291,24 @@ function App(): React.JSX.Element {
               return undefined
             }}
             onCancel={state.workspaces.length > 0 ? () => closeCreate(state.currentId) : undefined}
+          />
+        ) : showCrash ? (
+          <CrashRestorePrompt
+            onRestore={async () => {
+              // 今の Workspace がなければ（ふつうは起きない）、Developer Home から選んでもらう
+              if (state.currentId === null) {
+                showStartupHome()
+                return undefined
+              }
+              // 今の Workspace へ切り替えると、Main がその選択中のタブを読み込む
+              const code = await switchTo(state.currentId)
+              if (!code) {
+                refocus.current = state.currentId
+                finishStartup()
+              }
+              return code
+            }}
+            onSkip={showStartupHome}
           />
         ) : showHome ? (
           <DeveloperHome

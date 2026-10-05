@@ -101,6 +101,15 @@ import { isExternalUrl } from './window/services/externalUrl'
 // E2E などで、保存場所を普段の userData から切り替える。配布版では使わない
 const userDataDir = process.env['TRUEFUL_USER_DATA_DIR']
 if (!app.isPackaged && userDataDir) app.setPath('userData', userDataDir)
+// 起動は1つだけ（同じ保存場所で2つ動くと、同じ DB に書き、異常終了の判定 clean_exit も壊れる。F12）。
+// 2つ目は何もせずに終わり（DB にも触れない）、1つ目のウィンドウを前に出す
+if (!app.requestSingleInstanceLock()) app.exit(0)
+app.on('second-instance', () => {
+  const window = mainWindow
+  if (!window || window.isDestroyed()) return
+  if (window.isMinimized()) window.restore()
+  window.focus()
+})
 // E2E で、ページの実体の上限（F02 の 30 個）を小さくして確かめる。配布版では使わない
 const maxPageViews = Number(process.env['TRUEFUL_MAX_PAGE_VIEWS'])
 const pageViewLimit =
@@ -247,7 +256,14 @@ app.whenReady().then(() => {
   // 起動のときに1回だけ決める（F11）。前回の正常な終了から「Developer Home までの時間」を超えていたら Developer Home。
   // 決められなかったら（DB の準備に失敗など）、復元にする
   const mode: Promise<StartupMode> = databaseReady
-    .then((db) => decideStartupMode(beginSession(db), Date.now(), store.get().settings))
+    .then((db) =>
+      decideStartupMode(
+        beginSession(db),
+        getCurrentWorkspaceId(db) !== null,
+        Date.now(),
+        store.get().settings
+      )
+    )
     .catch(() => 'restore' as const)
   // Developer Home を出すのは、起動して最初の画面だけ。macOS でウィンドウを開き直したときは復元する
   let startupShown = false
@@ -360,7 +376,7 @@ app.whenReady().then(() => {
         if (current !== null && !quitting && db.isOpen) pages.showActive(db, current)
       })
       .catch((e) => console.error('[main] ページを表示できなかった', e))
-  // Developer Home を出すときは、ページを読み込まない（Workspace を選んだら、切り替えで表示する）
+  // Developer Home・異常終了の確認を出すときは、ページを読み込まない（選んだら、切り替えで表示する）
   void mode.then((m) => {
     if (m === 'restore') showCurrent()
   })

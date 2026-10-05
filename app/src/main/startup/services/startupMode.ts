@@ -1,20 +1,23 @@
 import type { DatabaseSync } from 'node:sqlite'
 
-// 起動したときに、前回の Workspace とタブを復元するか、Developer Home を出すか（F11）
-export type StartupMode = 'restore' | 'developer-home'
+// 起動したときに、前回の Workspace とタブを復元するか、Developer Home を出すか（F11）、
+// 異常終了の後なので復元するかを聞くか（crash。F12）
+export type StartupMode = 'restore' | 'developer-home' | 'crash'
 
 // 前回の終了の記録（data-schema.md の app_state）。cleanExit が false なら、前回は異常終了だった
 export type LastSession = { lastQuitMs: number | null; cleanExit: boolean }
 
-// 前回の正常な終了から「Developer Home までの時間」以内なら復元、超えたら Developer Home。
-// 「表示しない」設定なら、いつも復元する。異常終了の後（その確認は F12）・終了の記録がない（初めて）・
-// 時計が戻っていたときも復元する
+// 前回が異常終了で Workspace があるなら、復元するかを聞く（Workspace がなければ作成画面になるので聞かない）。
+// それ以外は、前回の正常な終了から「Developer Home までの時間」以内なら復元、超えたら Developer Home。
+// 「表示しない」設定なら、いつも復元する。終了の記録がない（初めて）・時計が戻っていたときも復元する
 export function decideStartupMode(
   last: LastSession,
+  hasWorkspaces: boolean,
   nowMs: number,
   settings: { showDeveloperHome: boolean; developerHomeAfterMinutes: number }
 ): StartupMode {
-  if (!settings.showDeveloperHome || !last.cleanExit || last.lastQuitMs === null) return 'restore'
+  if (!last.cleanExit) return hasWorkspaces ? 'crash' : 'restore'
+  if (!settings.showDeveloperHome || last.lastQuitMs === null) return 'restore'
   return nowMs - last.lastQuitMs > settings.developerHomeAfterMinutes * 60 * 1000
     ? 'developer-home'
     : 'restore'
