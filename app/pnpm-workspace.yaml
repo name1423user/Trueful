@@ -8,4 +8,4 @@ allowBuilds:
 
 # http-cache-semantics <=4.2.0 の脆弱性（GHSA-ch52-4w7c-c8xp）。electron-builder → @electron/get → got → cacheable-request が古い版を引く
 overrides:
-  http-cache-semantics: ">=4.3.0"
+  http-cache-semantics: "^4.3.0"
