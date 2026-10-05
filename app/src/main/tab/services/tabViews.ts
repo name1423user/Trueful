@@ -32,6 +32,20 @@ type Handlers = {
   onLoadError: () => void
   // ページがダウンロードを始めた（F07。パーティションごとに1回、セッションに付ける）
   onDownload: (workspaceId: number, item: DownloadItem) => void
+  // ページの権限の要求（カメラ・通知など。F16）。許可するなら true。確認と記憶は Main の進行役で行う
+  onPermissionRequest: (
+    workspaceId: number,
+    url: string,
+    permission: string,
+    details: { mediaTypes?: string[]; isMainFrame?: boolean; topLevelUrl?: string }
+  ) => Promise<boolean>
+  // 権限の同期の確認（記憶した許可だけが true）
+  onPermissionCheck: (
+    workspaceId: number,
+    url: string,
+    permission: string,
+    details: { mediaTypes?: string[] }
+  ) => boolean
   // ページにフォーカスがあるときに押された、ページに奪わせないショートカット（Chrome と同じ予約キー）
   onReservedShortcut: (command: ReservedShortcut) => void
   // 上限（F02）を超えたので、これらのタブのページを破棄した（URL とタイトルは DB に残っている）
@@ -227,11 +241,27 @@ export class TabViews {
       }
     })
     const wc = view.webContents
-    // ページのカメラ・通知などの権限は、F16（サイトの権限）ができるまで、すべて拒否する（パーティションごとに1回）
+    // ページのカメラ・通知などの権限（F16。パーティションごとに1回）
     const partition = `persist:workspace-${workspaceId}`
     if (!this.guarded.has(partition)) {
-      wc.session.setPermissionRequestHandler((_wc, _permission, callback) => callback(false))
-      wc.session.setPermissionCheckHandler(() => false)
+      // 権限は、Workspace とサイトごとに記憶した答えで決める（決めていなければ確認を出す。確認できないときは拒否）
+      wc.session.setPermissionRequestHandler((requester, permission, callback, details) => {
+        const mediaTypes = (details as { mediaTypes?: string[] }).mediaTypes
+        // メインフレームの要求は、今のページの URL とも照らす（古い URL の要求を通さない）
+        void this.handlers
+          .onPermissionRequest(workspaceId, details.requestingUrl, permission, {
+            mediaTypes,
+            isMainFrame: details.isMainFrame,
+            topLevelUrl: details.isMainFrame ? requester.getURL() : undefined
+          })
+          .then(callback, () => callback(false))
+      })
+      wc.session.setPermissionCheckHandler((_wc, permission, requestingOrigin, details) => {
+        const mediaType = (details as { mediaType?: string }).mediaType
+        return this.handlers.onPermissionCheck(workspaceId, requestingOrigin, permission, {
+          mediaTypes: mediaType === 'video' || mediaType === 'audio' ? [mediaType] : undefined
+        })
+      })
       // Service Worker などの要求にも効くように、セッションにも設定する（作り済みのページには効かない）
       wc.session.setUserAgent(pageUserAgent(wc.session.getUserAgent()))
       wc.session.on('will-download', (_event, item) => this.handlers.onDownload(workspaceId, item))

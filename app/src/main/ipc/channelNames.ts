@@ -20,6 +20,8 @@ export const channelNames = {
   downloadResume: 'download:resume',
   downloadCancel: 'download:cancel',
   downloadShowInFolder: 'download:showInFolder',
+  permissionList: 'permission:list',
+  permissionRevoke: 'permission:revoke',
   tabList: 'tab:list',
   tabCreate: 'tab:create',
   tabClose: 'tab:close',

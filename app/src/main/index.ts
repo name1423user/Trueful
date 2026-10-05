@@ -35,6 +35,7 @@ import {
   downloadShowInFolder
 } from './ipc/downloadChannels'
 import { historyDelete, historySearch } from './ipc/historyChannels'
+import { permissionList, permissionRevoke } from './ipc/permissionChannels'
 import {
   workspaceCreate,
   workspaceDelete,
@@ -50,6 +51,8 @@ import {
   moveBookmark,
   updateBookmark
 } from './bookmark/services/bookmarkDB'
+import { listPermissions, revokePermission } from './permission/services/permissionDB'
+import { PermissionFlows } from './permission/flows/permissionFlows'
 import { DownloadFlows } from './download/flows/downloadFlows'
 import { interruptUnfinishedDownloads, listDownloads } from './download/services/downloadDB'
 import { deleteHistory, purgeExpiredHistory, searchHistory } from './history/services/historyDB'
@@ -241,6 +244,11 @@ app.whenReady().then(() => {
     showItemInFolder: (path) => shell.showItemInFolder(path)
   })
   downloadFlows = downloads
+  // サイトの権限（F16）。確認の画面（T3-7b）ができるまで、決めていないものは、拒否して記憶しない
+  const permissions = new PermissionFlows({
+    getDb: () => database,
+    ask: async () => 'dismissed'
+  })
   const tabs = new TabFlows()
   const views = new TabViews(
     window,
@@ -249,6 +257,10 @@ app.whenReady().then(() => {
       onOpenRequest: (tabId, url, background) => pages.openRequested(tabId, url, background),
       onLoadError: () => mainWindow?.webContents.focus(),
       onDownload: (workspaceId, item) => downloads.handle(workspaceId, item),
+      onPermissionRequest: (workspaceId, url, permission, details) =>
+        permissions.request(workspaceId, url, permission, details),
+      onPermissionCheck: (workspaceId, url, permission, details) =>
+        permissions.check(workspaceId, url, permission, details),
       onReservedShortcut: (command) => runMenuCommand(command),
       onDiscarded: (tabIds) => pages.discarded(tabIds)
     },
@@ -363,6 +375,14 @@ app.whenReady().then(() => {
   handle(downloadResume, ({ id }) => downloads.resume(id))
   handle(downloadCancel, ({ id }) => downloads.cancel(id))
   handle(downloadShowInFolder, ({ id }) => downloads.showInFolder(id))
+
+  // サイトの権限（F16）
+  handle(permissionList, async ({ workspaceId }) =>
+    listPermissions(await getDatabase(), workspaceId)
+  )
+  handle(permissionRevoke, async ({ workspaceId, origin, permission }) =>
+    revokePermission(await getDatabase(), workspaceId, origin, permission)
+  )
 
   // 閲覧履歴（F09）
   handle(historySearch, async (input) => searchHistory(await getDatabase(), input))
