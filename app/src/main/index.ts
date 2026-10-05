@@ -35,7 +35,12 @@ import {
   downloadShowInFolder
 } from './ipc/downloadChannels'
 import { historyDelete, historySearch } from './ipc/historyChannels'
-import { permissionList, permissionRevoke } from './ipc/permissionChannels'
+import {
+  permissionAnswer,
+  permissionList,
+  permissionPrompts,
+  permissionRevoke
+} from './ipc/permissionChannels'
 import {
   workspaceCreate,
   workspaceDelete,
@@ -53,6 +58,7 @@ import {
 } from './bookmark/services/bookmarkDB'
 import { listPermissions, revokePermission } from './permission/services/permissionDB'
 import { PermissionFlows } from './permission/flows/permissionFlows'
+import { PermissionPrompts } from './permission/flows/permissionPrompts'
 import { DownloadFlows } from './download/flows/downloadFlows'
 import { interruptUnfinishedDownloads, listDownloads } from './download/services/downloadDB'
 import { deleteHistory, purgeExpiredHistory, searchHistory } from './history/services/historyDB'
@@ -244,10 +250,14 @@ app.whenReady().then(() => {
     showItemInFolder: (path) => shell.showItemInFolder(path)
   })
   downloadFlows = downloads
-  // サイトの権限（F16）。確認の画面（T3-7b）ができるまで、決めていないものは、拒否して記憶しない
+  // サイトの権限（F16）。決めていないものは、画面に確認を出して（T3-7b）、答えを記憶する
+  const prompts = new PermissionPrompts(() =>
+    mainWindow?.webContents.send(channelNames.permissionPromptsChanged)
+  )
   const permissions = new PermissionFlows({
     getDb: () => database,
-    ask: async () => 'dismissed'
+    ask: (workspaceId, origin, permission, signal) =>
+      prompts.ask(workspaceId, origin, permission, signal)
   })
   const tabs = new TabFlows()
   const views = new TabViews(
@@ -314,7 +324,11 @@ app.whenReady().then(() => {
       })
       .catch((e) => console.error('[main] ページを表示できなかった', e))
   showCurrent()
-  onWindowClosed = () => views.destroyAll()
+  onWindowClosed = () => {
+    views.destroyAll()
+    // 確認を出す画面がなくなったので、待っている確認は答えなしにする
+    prompts.dismissAll()
+  }
 
   const createWorkspace = createWorkspaceFlow(prepareWorkspaceFiles(workspaceRoots))
   handle(workspaceList, async () => {
@@ -354,6 +368,8 @@ app.whenReady().then(() => {
       if (e instanceof WorkspaceNotFoundError) throw new IpcHandlerError('not-found', e.message)
       throw e
     }
+    // 消した Workspace の確認は、答えなし（拒否して記憶しない）にする
+    permissions.dismissWorkspace(id)
     for (const tabId of deleted.tabIds) views.destroy(tabId)
     if (deleted.currentId !== null) pages.showActive(db, deleted.currentId)
     releaseDormant(db)
@@ -383,6 +399,8 @@ app.whenReady().then(() => {
   handle(permissionRevoke, async ({ workspaceId, origin, permission }) =>
     revokePermission(await getDatabase(), workspaceId, origin, permission)
   )
+  handle(permissionPrompts, () => prompts.list())
+  handle(permissionAnswer, ({ id, answer }) => prompts.answer(id, answer))
 
   // 閲覧履歴（F09）
   handle(historySearch, async (input) => searchHistory(await getDatabase(), input))

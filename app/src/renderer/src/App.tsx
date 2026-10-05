@@ -6,6 +6,8 @@ import { useBookmarks } from './bookmark/useBookmarks'
 import { DownloadPanel } from './download/DownloadPanel'
 import { useDownloads } from './download/useDownloads'
 import { ActivityBar, type PanelView } from './panel/ActivityBar'
+import { PermissionBar } from './permission/PermissionBar'
+import { usePermissionPrompt } from './permission/usePermissionPrompts'
 import { AddressBar } from './tab/AddressBar'
 import { ErrorScreen } from './tab/ErrorScreen'
 import { PageArea } from './tab/PageArea'
@@ -31,6 +33,7 @@ function App(): React.JSX.Element {
   const bookmarks = useBookmarks()
   const [bookmarkMessage, setBookmarkMessage] = useState<string>()
   const tabs = useTabs(state.status === 'ready' ? state.currentId : null)
+  const permission = usePermissionPrompt(state.status === 'ready' ? state.currentId : null)
   // 作成画面を閉じたら、フォーカスを左パネルの今の Workspace に戻す（キーボードで続けて操作できるように）。
   // 戻し先は作った（やめたときは今の）Workspace の id。その Workspace が「今の」になった描画の後（effect）で探す。
   // 作成画面を閉じる描画が、新しい一覧の描画より先に来ることがあり（負荷が高いとき）、
@@ -226,18 +229,23 @@ function App(): React.JSX.Element {
             onCancel={state.workspaces.length > 0 ? () => closeCreate(state.currentId) : undefined}
           />
         ) : (
-          <PageArea>
-            {activePage?.error && (
-              <ErrorScreen
-                error={activePage.error}
-                canGoBack={activePage.canGoBack}
-                onReload={() =>
-                  void tabs.run((api, ws) => api.control(ws, activeTab!.id, 'reload'))
-                }
-                onBack={() => void tabs.run((api, ws) => api.control(ws, activeTab!.id, 'back'))}
-              />
+          <>
+            {permission.prompt && (
+              <PermissionBar prompt={permission.prompt} onAnswer={permission.answer} />
             )}
-          </PageArea>
+            <PageArea>
+              {activePage?.error && (
+                <ErrorScreen
+                  error={activePage.error}
+                  canGoBack={activePage.canGoBack}
+                  onReload={() =>
+                    void tabs.run((api, ws) => api.control(ws, activeTab!.id, 'reload'))
+                  }
+                  onBack={() => void tabs.run((api, ws) => api.control(ws, activeTab!.id, 'back'))}
+                />
+              )}
+            </PageArea>
+          </>
         )}
       </main>
     </div>
