@@ -27,6 +27,11 @@ function subscribe<A extends unknown[]>(
 // Renderer に公開する API。用途別の関数だけを出し、ipcRenderer はそのまま渡さない（CLAUDE.md、SPEC 7章）。
 // チャネルの定義と引数の検証は app/src/main/ipc/ にある。ここでは名前（channelNames）と型だけを使う
 const api = {
+  startup: {
+    // 起動したときに決めた表示（restore: 前回の Workspace とタブ、developer-home: Workspace の一覧。F11）
+    mode: (): Promise<IpcResult<'restore' | 'developer-home'>> =>
+      ipcRenderer.invoke(channelNames.startupMode)
+  },
   settings: {
     get: (): Promise<IpcResult<SettingsSnapshot>> => ipcRenderer.invoke(channelNames.settingsGet),
     update: (patch: Partial<Settings>): Promise<IpcResult<Settings>> =>

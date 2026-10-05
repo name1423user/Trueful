@@ -53,6 +53,13 @@ import {
 } from './bookmark/services/bookmarkDB'
 import { listPermissions, revokePermission } from './permission/services/permissionDB'
 import { PermissionFlows } from './permission/flows/permissionFlows'
+import { startupMode } from './ipc/startupChannels'
+import {
+  decideStartupMode,
+  getLastQuitTime,
+  setLastQuitTime,
+  type StartupMode
+} from './startup/services/startupMode'
 import { DownloadFlows } from './download/flows/downloadFlows'
 import { interruptUnfinishedDownloads, listDownloads } from './download/services/downloadDB'
 import { deleteHistory, purgeExpiredHistory, searchHistory } from './history/services/historyDB'
@@ -224,6 +231,12 @@ app.whenReady().then(() => {
     isFromAppMainFrame(event, mainWindow?.webContents, (url) => isAppUrl(url, getAppUrl()))
   )
   handle(settingsGet, () => store.get())
+  // 起動のときに1回だけ決める（F11）。前回の正常な終了から「Developer Home までの時間」を超えていたら Developer Home。
+  // 決められなかったら（DB の準備に失敗など）、復元にする
+  const mode: Promise<StartupMode> = databaseReady
+    .then((db) => decideStartupMode(getLastQuitTime(db), Date.now(), store.get().settings))
+    .catch(() => 'restore' as const)
+  handle(startupMode, () => mode)
   handle(settingsUpdate, (patch) => store.update(patch))
 
   // Workspace（F01）。DB の準備が終わってから答える。準備に失敗していたら unavailable で返す
@@ -313,7 +326,10 @@ app.whenReady().then(() => {
         if (current !== null && !quitting && db.isOpen) pages.showActive(db, current)
       })
       .catch((e) => console.error('[main] ページを表示できなかった', e))
-  showCurrent()
+  // Developer Home を出すときは、ページを読み込まない（Workspace を選んだら、切り替えで表示する）
+  void mode.then((m) => {
+    if (m === 'restore') showCurrent()
+  })
   onWindowClosed = () => views.destroyAll()
 
   const createWorkspace = createWorkspaceFlow(prepareWorkspaceFiles(workspaceRoots))
@@ -528,6 +544,12 @@ app.whenReady().then(() => {
 // 終了は止めない（止めると、あとの app.quit() が効かずに終了できなくなる）
 app.on('will-quit', () => {
   quitting = true
+  // 正常な終了の時刻（次の起動で、Developer Home を出すかの判定に使う。F11）
+  try {
+    if (database?.isOpen) setLastQuitTime(database, Date.now())
+  } catch (e) {
+    console.error('[main] 終了の時刻を記録できなかった', e)
+  }
   downloadFlows?.dispose()
   settingsStore?.close()
   database?.close()

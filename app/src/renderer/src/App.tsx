@@ -5,6 +5,8 @@ import { importMessageKey } from './bookmark/tree'
 import { useBookmarks } from './bookmark/useBookmarks'
 import { DownloadPanel } from './download/DownloadPanel'
 import { useDownloads } from './download/useDownloads'
+import { DeveloperHome } from './home/DeveloperHome'
+import { useStartupView } from './home/useStartupMode'
 import { ActivityBar, type PanelView } from './panel/ActivityBar'
 import { AddressBar } from './tab/AddressBar'
 import { ErrorScreen } from './tab/ErrorScreen'
@@ -24,6 +26,8 @@ function App(): React.JSX.Element {
   const [adding, setAdding] = useState(false)
   // 削除の確認を出している Workspace の id
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  // 起動したときの表示（F11）。Developer Home は、Workspace を選ぶ・作るまで出す
+  const [startup, finishStartup] = useStartupView()
   const [switchError, setSwitchError] = useState<IpcErrorCode>()
   const [panelView, setPanelView] = useState<PanelView>('tabs')
   const [collapsed, setCollapsed] = useSidePanelCollapsed()
@@ -117,6 +121,7 @@ function App(): React.JSX.Element {
   const closeCreate = (focusId: number | null): void => {
     refocus.current = focusId
     setAdding(false)
+    finishStartup()
   }
   // 削除の確認。対象が一覧から消えていたら（別の操作で消えたなど）出さない
   const deleting = showCreate ? undefined : state.workspaces.find((w) => w.id === deletingId)
@@ -124,8 +129,9 @@ function App(): React.JSX.Element {
     refocus.current = focusId
     setDeletingId(null)
   }
-  // 作成画面か削除の確認を出している間は、ページを隠す
-  const pageHidden = showCreate || deleting !== undefined
+  const showHome = startup === 'home' && !showCreate && deleting === undefined
+  // 作成画面・削除の確認・Developer Home を出している間と、起動の表示が決まるまでは、ページを隠す
+  const pageHidden = showCreate || deleting !== undefined || startup !== 'done'
 
   const activePage = activeTab && tabs.pages[activeTab.id]
   return (
@@ -215,11 +221,13 @@ function App(): React.JSX.Element {
           workspaces={state.workspaces}
           currentId={state.currentId}
           onSwitch={async (id) => {
+            finishStartup()
             setAdding(false)
             setDeletingId(null)
             setSwitchError(await switchTo(id))
           }}
           onAdd={() => {
+            finishStartup()
             setSwitchError(undefined)
             setDeletingId(null)
             setAdding(true)
@@ -266,7 +274,20 @@ function App(): React.JSX.Element {
             }}
             onCancel={state.workspaces.length > 0 ? () => closeCreate(state.currentId) : undefined}
           />
-        ) : (
+        ) : showHome ? (
+          <DeveloperHome
+            workspaces={state.workspaces}
+            onOpen={async (id) => {
+              finishStartup()
+              refocus.current = id
+              setSwitchError(await switchTo(id))
+            }}
+            onAdd={() => {
+              finishStartup()
+              setAdding(true)
+            }}
+          />
+        ) : startup === 'pending' ? null : (
           <PageArea>
             {activePage?.error && (
               <ErrorScreen
