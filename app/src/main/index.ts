@@ -60,6 +60,8 @@ import { listPermissions, revokePermission } from './permission/services/permiss
 import { PermissionFlows } from './permission/flows/permissionFlows'
 import { PermissionPrompts } from './permission/flows/permissionPrompts'
 import { originOf } from './permission/services/permissionMap'
+import { omniboxSuggest } from './ipc/omniboxChannels'
+import { suggest } from './omnibox/flows/omniboxSuggest'
 import { startupMode } from './ipc/startupChannels'
 import {
   decideStartupMode,
@@ -441,6 +443,11 @@ app.whenReady().then(() => {
   )
   handle(permissionPrompts, () => prompts.list())
   handle(permissionAnswer, ({ id, answer }) => prompts.answer(id, answer))
+
+  // 統合検索欄（F10）。近道は設定から
+  handle(omniboxSuggest, async ({ query, workspaceId }) =>
+    suggest(await getDatabase(), { query, workspaceId, shortcuts: store.get().settings.shortcuts })
+  )
 
   // 閲覧履歴（F09）
   handle(historySearch, async (input) => searchHistory(await getDatabase(), input))

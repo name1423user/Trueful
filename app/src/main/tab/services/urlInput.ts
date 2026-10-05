@@ -62,29 +62,38 @@ function asHost(text: string): string | undefined {
   return url.href
 }
 
-export function resolveInput(input: string, shortcuts: Shortcut[] = []): string {
+// 打った文字列を、開く URL と、それが検索か（URL として読めなかったか）に分ける（F10 の候補で使う）
+export function classifyInput(
+  input: string,
+  shortcuts: Shortcut[] = []
+): { url: string; isSearch: boolean } {
   const text = input.trim()
-  if (text === '' || text.toLowerCase() === 'about:blank') return 'about:blank'
+  if (text === '' || text.toLowerCase() === 'about:blank')
+    return { url: 'about:blank', isSearch: false }
   // 「?語」は必ず検索（Chrome と同じ）
-  if (text.startsWith('?')) return search(text.slice(1).trim())
+  if (text.startsWith('?')) return { url: search(text.slice(1).trim()), isSearch: true }
   // 1〜65535 の数字だけ → localhost のそのポート（F10）
   if (/^\d{1,5}$/.test(text) && Number(text) >= 1 && Number(text) <= 65535) {
-    return `http://localhost:${Number(text)}/`
+    return { url: `http://localhost:${Number(text)}/`, isSearch: false }
   }
   // 「近道のキーワード 語」 → その近道の URL（区切りは全角スペースやタブでもよい）
   const words = /^(\S+)\s+(.+)$/su.exec(text)
   const shortcut = words && shortcuts.find((s) => s.keyword === words[1]!.toLowerCase())
   if (shortcut) {
     const url = shortcut.urlTemplate.replaceAll('%s', encodeURIComponent(words![2]!.trim()))
-    if (isAllowedPageUrl(url)) return url
+    if (isAllowedPageUrl(url)) return { url, isSearch: false }
   }
   // スキームつき（http: と https: だけ開く。http:/a のような書き損じも URL として読む）
   if (/^https?:/i.test(text) && !/\s/.test(text) && isAllowedPageUrl(text)) {
-    return new URL(text).href
+    return { url: new URL(text).href, isSearch: false }
   }
   if (!/^[a-z][a-z0-9+.-]*:(?!\d)/i.test(text) && !/\s/.test(text)) {
     const url = asHost(text)
-    if (url) return url
+    if (url) return { url, isSearch: false }
   }
-  return search(text)
+  return { url: search(text), isSearch: true }
+}
+
+export function resolveInput(input: string, shortcuts: Shortcut[] = []): string {
+  return classifyInput(input, shortcuts).url
 }

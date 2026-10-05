@@ -10,6 +10,7 @@ import type { PageState } from '../main/tab/services/tabViews'
 import type { Bookmark } from '../main/bookmark/services/bookmarkDB'
 import type { BookmarkImportOutcome } from '../main/ipc/bookmarkChannels'
 import type { Download } from '../main/download/services/downloadDB'
+import type { OmniboxCandidate } from '../main/omnibox/flows/omniboxSuggest'
 import type { PermissionPrompt } from '../main/permission/flows/permissionPrompts'
 import type { SitePermission } from '../main/permission/services/permissionDB'
 import type { HistoryEntry } from '../main/history/services/historyDB'
@@ -94,6 +95,11 @@ const api = {
       ipcRenderer.invoke(channelNames.permissionAnswer, { id, answer }),
     onPromptsChanged: (listener: () => void): (() => void) =>
       subscribe(channelNames.permissionPromptsChanged, listener)
+  },
+  omnibox: {
+    // 統合検索欄の候補（F10）。打った文字列と今の Workspace の id から
+    suggest: (query: string, workspaceId: number | null): Promise<IpcResult<OmniboxCandidate[]>> =>
+      ipcRenderer.invoke(channelNames.omniboxSuggest, { query, workspaceId })
   },
   history: {
     search: (input: {
