@@ -10,6 +10,7 @@ import type { PageState } from '../main/tab/services/tabViews'
 import type { Bookmark } from '../main/bookmark/services/bookmarkDB'
 import type { BookmarkImportOutcome } from '../main/ipc/bookmarkChannels'
 import type { Download } from '../main/download/services/downloadDB'
+import type { DatabaseRecovery } from '../main/db/flows/recoverDatabase'
 import type { PermissionPrompt } from '../main/permission/flows/permissionPrompts'
 import type { SitePermission } from '../main/permission/services/permissionDB'
 import type { HistoryEntry } from '../main/history/services/historyDB'
@@ -32,7 +33,10 @@ const api = {
     // 起動したときに決めた表示（restore: 前回の Workspace とタブ、developer-home: Workspace の一覧。F11、
     // crash: 異常終了の後なので、復元するかを聞く。F12）
     mode: (): Promise<IpcResult<'restore' | 'developer-home' | 'crash'>> =>
-      ipcRenderer.invoke(channelNames.startupMode)
+      ipcRenderer.invoke(channelNames.startupMode),
+    // 起動のときに知らせること（壊れた DB をバックアップから戻した・新しく作った。F12）
+    notices: (): Promise<IpcResult<DatabaseRecovery[]>> =>
+      ipcRenderer.invoke(channelNames.startupNotices)
   },
   settings: {
     get: (): Promise<IpcResult<SettingsSnapshot>> => ipcRenderer.invoke(channelNames.settingsGet),

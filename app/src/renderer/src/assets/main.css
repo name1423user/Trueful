@@ -60,7 +60,8 @@ body {
   /* 1段目（48px）・2段目（240px）・中央（F15） */
   grid-template-columns: 48px 240px minmax(0, 1fr);
   /* minmax(0, 1fr): 左パネルの中身が増えても行が伸びない（ページの場所がずれないように） */
-  grid-template-rows: 44px minmax(0, 1fr);
+  /* 上端は 44px。知らせが長いときは伸び、ページはその分だけ下がる */
+  grid-template-rows: minmax(44px, auto) minmax(0, 1fr);
   grid-template-areas:
     'rail top top'
     'rail left content';
@@ -249,11 +250,13 @@ body {
   border-style: dashed;
 }
 
-.dormant-notice p {
+.dormant-notice p,
+.startup-notice p {
   margin: 0;
 }
 
-.dormant-notice {
+.dormant-notice,
+.startup-notice {
   display: flex;
   align-items: center;
   gap: 8px;

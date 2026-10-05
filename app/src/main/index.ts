@@ -3,7 +3,7 @@ import { existsSync, readdirSync } from 'node:fs'
 import type { DatabaseSync } from 'node:sqlite'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
-import { initDatabase } from './db/flows/initDatabase'
+import { openOrRecoverDatabase, type DatabaseRecovery } from './db/flows/recoverDatabase'
 import { channelNames } from './ipc/channelNames'
 import { createIpc, isFromAppMainFrame } from './ipc/handle'
 import { IpcHandlerError } from './ipc/channels'
@@ -60,7 +60,7 @@ import { listPermissions, revokePermission } from './permission/services/permiss
 import { PermissionFlows } from './permission/flows/permissionFlows'
 import { PermissionPrompts } from './permission/flows/permissionPrompts'
 import { originOf } from './permission/services/permissionMap'
-import { startupMode } from './ipc/startupChannels'
+import { startupMode, startupNotices } from './ipc/startupChannels'
 import {
   decideStartupMode,
   beginSession,
@@ -211,7 +211,13 @@ app.whenReady().then(() => {
     void purgeWorkspaceTrash(workspaceRoots).then((errors) => {
       if (errors.length > 0) console.warn('[main] 片付け用のフォルダを消せなかった', errors)
     })
-  const databaseReady = initDatabase(userData)
+  // 壊れていたら、壊れたファイルを残してバックアップから戻す（F12）。戻したことは画面で知らせる
+  let databaseRecovery: DatabaseRecovery | undefined
+  const databaseReady = openOrRecoverDatabase(userData).then(({ db, recovery }) => {
+    databaseRecovery = recovery
+    if (recovery) console.warn('[main] 壊れた DB を戻した', recovery)
+    return db
+  })
   databaseReady
     .then((db) => {
       if (quitting) {
@@ -278,6 +284,11 @@ app.whenReady().then(() => {
     .catch(() => 'restore' as const)
   // Developer Home を出すのは、起動して最初の画面だけ。macOS でウィンドウを開き直したときは復元する
   let startupShown = false
+  // 起動のときに知らせること（壊れた DB を戻した、など）。DB の準備を待ってから返す
+  handle(startupNotices, async () => {
+    await databaseReady.catch(() => undefined)
+    return databaseRecovery ? [databaseRecovery] : []
+  })
   handle(startupMode, async () => {
     const m = await mode
     if (!startupShown) {
