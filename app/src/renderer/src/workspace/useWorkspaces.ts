@@ -59,6 +59,7 @@ export function useWorkspaces(): {
     const mine = ++latest.current
     const result = await api.list()
     if (mine === latest.current) apply(result)
+    return result
   }, [apply])
 
   // 最初の読み込み。画面が消えたら、返事を捨てる
@@ -98,14 +99,17 @@ export function useWorkspaces(): {
   )
 
   // 削除（F01）。成功したら一覧を読み直す（今の Workspace を消したら、Main が残りの1つへ移している）。
-  // 見つからなかったときも、一覧が古いので読み直す
+  // 見つからなかったときは、もう消えているので成功と同じに扱い、読み直した一覧の今の Workspace を返す
   const remove = useCallback(
     async (id: number) => {
       const result = await api.delete(id)
-      if (result.ok || result.error.code === 'not-found') await reload()
-      return result.ok
-        ? { ok: true as const, currentId: result.value.currentId }
-        : { ok: false as const, code: result.error.code }
+      if (result.ok) {
+        await reload()
+        return { ok: true as const, currentId: result.value.currentId }
+      }
+      if (result.error.code !== 'not-found') return { ok: false as const, code: result.error.code }
+      const list = await reload()
+      return { ok: true as const, currentId: list.ok ? list.value.currentId : null }
     },
     [reload]
   )
