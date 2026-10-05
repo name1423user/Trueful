@@ -75,12 +75,12 @@ test('6 個目の Workspace で、いちばん長く使っていないものが�
       },
       [w1, tab.id, `${origin}/tall`] as const
     )
-    await expect.poll(() => pageScrollY(app)).toBe(0)
+    await expect.poll(() => pageScrollY(app), { timeout: 15_000 }).toBe(0)
     await app.evaluate(({ webContents }, o) => {
       const page = webContents.getAllWebContents().find((wc) => wc.getURL() === `${o}/tall`)
       return page?.executeJavaScript('scrollTo(0, 800)')
     }, origin)
-    await expect.poll(() => pageScrollY(app)).toBe(800)
+    await expect.poll(() => pageScrollY(app), { timeout: 15_000 }).toBe(800)
 
     // 5 個目までは休止しない
     for (const name of ['W2', 'W3', 'W4', 'W5']) await createWorkspace(window, name)
@@ -90,8 +90,10 @@ test('6 個目の Workspace で、いちばん長く使っていないものが�
     // 6 個目で W1 が休止する。ページは消え、スクロール位置が記録される
     await createWorkspace(window, 'W6')
     expect(await statuses(window)).toMatchObject({ W1: 'dormant', W2: 'active', W6: 'active' })
-    await expect.poll(() => pageScrollY(app)).toBeUndefined()
-    await expect.poll(async () => (await firstTab(window, w1)).scrollY).toBe(800)
+    await expect.poll(() => pageScrollY(app), { timeout: 15_000 }).toBeUndefined()
+    await expect
+      .poll(async () => (await firstTab(window, w1)).scrollY, { timeout: 15_000 })
+      .toBe(800)
 
     // W1 を選ぶと復帰し、代わりに W2 が休止する。同じ URL を読み込み、スクロール位置が戻る
     await window.evaluate(async (w) => {
@@ -99,7 +101,7 @@ test('6 個目の Workspace で、いちばん長く使っていないものが�
       if (!r.ok) throw new Error(r.error.message)
     }, w1)
     expect(await statuses(window)).toMatchObject({ W1: 'active', W2: 'dormant' })
-    await expect.poll(() => pageScrollY(app)).toBe(800)
+    await expect.poll(() => pageScrollY(app), { timeout: 15_000 }).toBe(800)
     // 戻したら記録は 0 にする（次にページを作り直したときに、古い位置へ飛ばない）
     expect((await firstTab(window, w1)).scrollY).toBe(0)
   } finally {

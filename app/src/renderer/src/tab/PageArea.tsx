@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 
 // ページ（WebContentsView）を置く場所。Renderer はページを描かず、この空の div の位置と大きさを
 // Main に報告するだけ（ADR-008）。消えるとき（作成画面を出すときなど）は大きさ 0 を報告して隠す
-export function PageArea(): React.JSX.Element {
+export function PageArea(props: { children?: React.ReactNode }): React.JSX.Element {
   const area = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -28,5 +28,10 @@ export function PageArea(): React.JSX.Element {
     }
   }, [])
 
-  return <div ref={area} className="page-area" data-testid="page-area" />
+  // children は、ページを隠しているとき（読み込みの失敗）に、同じ場所に出す画面
+  return (
+    <div ref={area} className="page-area" data-testid="page-area">
+      {props.children}
+    </div>
+  )
 }
