@@ -79,21 +79,42 @@ test('権限の確認: アドレスバーの下の帯で、許可・ブロック
     await address.fill(`${other}/geo2`)
     await address.press('Enter')
     await expect(window.locator('.tab-row').first()).toHaveText('page /geo2', { timeout: 15_000 })
-    await runInPage(app, other, `window.geo = ${geo}; 0`)
+    // 2つ続けて求められたら、1つずつ出す。入れ替わった直後の帯は、少しの間押せない（連打で次に答えない）
+    await runInPage(
+      app,
+      other,
+      `window.geo = ${geo}; window.notify = Notification.requestPermission(); 0`
+    )
     await expect(bar).toContainText(`${other} が「位置情報」`)
     await bar.getByRole('button', { name: '今は決めない' }).click()
+    await expect(bar).toContainText('「通知」')
+    await expect(bar.getByRole('button', { name: '許可' })).toBeDisabled()
+    await bar.getByRole('button', { name: '今は決めない' }).click()
     expect(await runInPage(app, other, `window.geo`)).toBe(1)
+    expect(await runInPage(app, other, `window.notify`)).toBe('denied')
+
+    // 確認はタブに結びつく。別のタブを選ぶと帯は消え、戻ると出る。タブを閉じると、確認も終わる
+    await runInPage(app, other, `window.geo = ${geo}; 0`)
+    await expect(bar).toContainText('「位置情報」')
+    await window.getByRole('button', { name: '新しいタブ' }).click()
+    await expect(window.locator('.tab-row')).toHaveCount(2)
+    await expect(bar).toHaveCount(0)
+    await window.locator('.tab-row').first().click()
+    await expect(bar).toContainText('「位置情報」')
+    await window.getByRole('button', { name: 'page /geo2 を閉じる' }).click()
+    await expect(bar).toHaveCount(0)
 
     const result = await window.evaluate(async () => {
       const api = (window as unknown as Api).trueful.permission
       const list = await api.list()
       const answered = await api.answer(999, 'allow')
+      const waiting = await api.prompts()
       const bad = await api.revoke({
         workspaceId: 1,
         origin: 'file:///x',
         permission: 'camera'
       })
-      return { list, answered, bad }
+      return { list, answered, waiting, bad }
     })
     expect(
       result.list.ok && result.list.value.map((p) => [p.origin, p.permission, p.decision])
@@ -105,6 +126,7 @@ test('権限の確認: アドレスバーの下の帯で、許可・ブロック
     )
     expect(result.list.ok && result.list.value).toHaveLength(2)
     expect(result.answered).toMatchObject({ ok: true, value: false })
+    expect(result.waiting).toMatchObject({ ok: true, value: [] })
     expect(result.bad).toMatchObject({ ok: false, error: { code: 'invalid-args' } })
   } finally {
     await app.close()

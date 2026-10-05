@@ -6,6 +6,7 @@ import { useBookmarks } from './bookmark/useBookmarks'
 import { DownloadPanel } from './download/DownloadPanel'
 import { useDownloads } from './download/useDownloads'
 import { ActivityBar, type PanelView } from './panel/ActivityBar'
+import { permissionMessage } from './permission/message'
 import { PermissionBar } from './permission/PermissionBar'
 import { usePermissionPrompt } from './permission/usePermissionPrompts'
 import { AddressBar } from './tab/AddressBar'
@@ -33,7 +34,10 @@ function App(): React.JSX.Element {
   const bookmarks = useBookmarks()
   const [bookmarkMessage, setBookmarkMessage] = useState<string>()
   const tabs = useTabs(state.status === 'ready' ? state.currentId : null)
-  const permission = usePermissionPrompt(state.status === 'ready' ? state.currentId : null)
+  const permission = usePermissionPrompt(
+    state.status === 'ready' ? state.currentId : null,
+    tabs.activeId ?? null
+  )
   // 作成画面を閉じたら、フォーカスを左パネルの今の Workspace に戻す（キーボードで続けて操作できるように）。
   // 戻し先は作った（やめたときは今の）Workspace の id。その Workspace が「今の」になった描画の後（effect）で探す。
   // 作成画面を閉じる描画が、新しい一覧の描画より先に来ることがあり（負荷が高いとき）、
@@ -149,6 +153,12 @@ function App(): React.JSX.Element {
             </button>
           )}
         </div>
+        {/* 権限の確認が出たことの読み上げ（領域は常に置き、中身だけ入れ替える） */}
+        <p role="status" aria-live="polite" className="visually-hidden">
+          {permission.prompt &&
+            !showCreate &&
+            permissionMessage(t, permission.prompt.origin, permission.prompt.permission)}
+        </p>
       </header>
       <ActivityBar
         current={current}
@@ -231,7 +241,11 @@ function App(): React.JSX.Element {
         ) : (
           <>
             {permission.prompt && (
-              <PermissionBar prompt={permission.prompt} onAnswer={permission.answer} />
+              <PermissionBar
+                key={permission.prompt.id}
+                prompt={permission.prompt}
+                onAnswer={permission.answer}
+              />
             )}
             <PageArea>
               {activePage?.error && (

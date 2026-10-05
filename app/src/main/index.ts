@@ -59,6 +59,7 @@ import {
 import { listPermissions, revokePermission } from './permission/services/permissionDB'
 import { PermissionFlows } from './permission/flows/permissionFlows'
 import { PermissionPrompts } from './permission/flows/permissionPrompts'
+import { originOf } from './permission/services/permissionMap'
 import { DownloadFlows } from './download/flows/downloadFlows'
 import { interruptUnfinishedDownloads, listDownloads } from './download/services/downloadDB'
 import { deleteHistory, purgeExpiredHistory, searchHistory } from './history/services/historyDB'
@@ -256,14 +257,18 @@ app.whenReady().then(() => {
   )
   const permissions = new PermissionFlows({
     getDb: () => database,
-    ask: (workspaceId, origin, permission, signal) =>
-      prompts.ask(workspaceId, origin, permission, signal)
+    ask: (workspaceId, origin, permission, signal, tabId) =>
+      prompts.ask(workspaceId, origin, permission, signal, tabId)
   })
   const tabs = new TabFlows()
   const views = new TabViews(
     window,
     {
-      onPageChanged: (tabId, page, committed) => pages.pageChanged(tabId, page, committed),
+      onPageChanged: (tabId, page, committed) => {
+        // 別のサイトへ移ったら、前のサイトの権限の確認を終える
+        if (committed) prompts.tabNavigated(tabId, originOf(page.url))
+        pages.pageChanged(tabId, page, committed)
+      },
       onOpenRequest: (tabId, url, background) => pages.openRequested(tabId, url, background),
       onLoadError: () => mainWindow?.webContents.focus(),
       onDownload: (workspaceId, item) => downloads.handle(workspaceId, item),
@@ -272,7 +277,8 @@ app.whenReady().then(() => {
       onPermissionCheck: (workspaceId, url, permission, details) =>
         permissions.check(workspaceId, url, permission, details),
       onReservedShortcut: (command) => runMenuCommand(command),
-      onDiscarded: (tabIds) => pages.discarded(tabIds)
+      onDiscarded: (tabIds) => pages.discarded(tabIds),
+      onPageGone: (tabId) => prompts.dismissTab(tabId)
     },
     pageViewLimit
   )

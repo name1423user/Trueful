@@ -11,11 +11,11 @@ beforeEach(() => {
 describe('PermissionPrompts', () => {
   it('確認を並べ、画面に知らせる。答えると、その答えで終わり、一覧から消える', async () => {
     const signal = new AbortController().signal
-    const a = prompts.ask(1, 'https://a.example', 'geolocation', signal)
+    const a = prompts.ask(1, 'https://a.example', 'geolocation', signal, 10)
     const b = prompts.ask(2, 'https://b.example', 'camera', signal)
     expect(prompts.list()).toEqual([
-      { id: 1, workspaceId: 1, origin: 'https://a.example', permission: 'geolocation' },
-      { id: 2, workspaceId: 2, origin: 'https://b.example', permission: 'camera' }
+      { id: 1, workspaceId: 1, tabId: 10, origin: 'https://a.example', permission: 'geolocation' },
+      { id: 2, workspaceId: 2, tabId: null, origin: 'https://b.example', permission: 'camera' }
     ])
     expect(notified).toBe(2)
 
@@ -62,6 +62,27 @@ describe('PermissionPrompts', () => {
     prompts.dismissAll()
     expect(await a).toBe('dismissed')
     expect(await b).toBe('dismissed')
+    expect(prompts.list()).toEqual([])
+  })
+
+  it('タブのページがなくなったら、そのタブの確認を答えなしで終える', async () => {
+    const signal = new AbortController().signal
+    const a = prompts.ask(1, 'https://a.example', 'geolocation', signal, 10)
+    const b = prompts.ask(1, 'https://a.example', 'camera', signal, 11)
+    prompts.dismissTab(10)
+    expect(await a).toBe('dismissed')
+    expect(prompts.list().map((p) => p.tabId)).toEqual([11])
+    prompts.answer(2, 'deny')
+    expect(await b).toBe('deny')
+  })
+
+  it('タブが別のサイトへ移ったら、前のサイトの確認を終える（同じサイトの中の移動では残す）', async () => {
+    const signal = new AbortController().signal
+    const a = prompts.ask(1, 'https://a.example', 'geolocation', signal, 10)
+    prompts.tabNavigated(10, 'https://a.example')
+    expect(prompts.list()).toHaveLength(1)
+    prompts.tabNavigated(10, 'https://b.example')
+    expect(await a).toBe('dismissed')
     expect(prompts.list()).toEqual([])
   })
 })
