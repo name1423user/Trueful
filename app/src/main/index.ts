@@ -35,7 +35,12 @@ import {
   downloadShowInFolder
 } from './ipc/downloadChannels'
 import { historyDelete, historySearch } from './ipc/historyChannels'
-import { permissionList, permissionRevoke } from './ipc/permissionChannels'
+import {
+  permissionAnswer,
+  permissionList,
+  permissionPrompts,
+  permissionRevoke
+} from './ipc/permissionChannels'
 import {
   workspaceCreate,
   workspaceDelete,
@@ -53,6 +58,8 @@ import {
 } from './bookmark/services/bookmarkDB'
 import { listPermissions, revokePermission } from './permission/services/permissionDB'
 import { PermissionFlows } from './permission/flows/permissionFlows'
+import { PermissionPrompts } from './permission/flows/permissionPrompts'
+import { originOf } from './permission/services/permissionMap'
 import { DownloadFlows } from './download/flows/downloadFlows'
 import { interruptUnfinishedDownloads, listDownloads } from './download/services/downloadDB'
 import { deleteHistory, purgeExpiredHistory, searchHistory } from './history/services/historyDB'
@@ -244,16 +251,24 @@ app.whenReady().then(() => {
     showItemInFolder: (path) => shell.showItemInFolder(path)
   })
   downloadFlows = downloads
-  // サイトの権限（F16）。確認の画面（T3-7b）ができるまで、決めていないものは、拒否して記憶しない
+  // サイトの権限（F16）。決めていないものは、画面に確認を出して（T3-7b）、答えを記憶する
+  const prompts = new PermissionPrompts(() =>
+    mainWindow?.webContents.send(channelNames.permissionPromptsChanged)
+  )
   const permissions = new PermissionFlows({
     getDb: () => database,
-    ask: async () => 'dismissed'
+    ask: (workspaceId, origin, permission, signal, tabId) =>
+      prompts.ask(workspaceId, origin, permission, signal, tabId)
   })
   const tabs = new TabFlows()
   const views = new TabViews(
     window,
     {
-      onPageChanged: (tabId, page, committed) => pages.pageChanged(tabId, page, committed),
+      onPageChanged: (tabId, page, committed) => {
+        // 別のサイトへ移ったら、前のサイトの権限の確認を終える
+        if (committed) prompts.tabNavigated(tabId, originOf(page.url))
+        pages.pageChanged(tabId, page, committed)
+      },
       onOpenRequest: (tabId, url, background) => pages.openRequested(tabId, url, background),
       onLoadError: () => mainWindow?.webContents.focus(),
       onDownload: (workspaceId, item) => downloads.handle(workspaceId, item),
@@ -262,7 +277,8 @@ app.whenReady().then(() => {
       onPermissionCheck: (workspaceId, url, permission, details) =>
         permissions.check(workspaceId, url, permission, details),
       onReservedShortcut: (command) => runMenuCommand(command),
-      onDiscarded: (tabIds) => pages.discarded(tabIds)
+      onDiscarded: (tabIds) => pages.discarded(tabIds),
+      onPageGone: (tabId) => prompts.dismissTab(tabId)
     },
     pageViewLimit
   )
@@ -314,7 +330,11 @@ app.whenReady().then(() => {
       })
       .catch((e) => console.error('[main] ページを表示できなかった', e))
   showCurrent()
-  onWindowClosed = () => views.destroyAll()
+  onWindowClosed = () => {
+    views.destroyAll()
+    // 確認を出す画面がなくなったので、待っている確認は答えなしにする
+    prompts.dismissAll()
+  }
 
   const createWorkspace = createWorkspaceFlow(prepareWorkspaceFiles(workspaceRoots))
   handle(workspaceList, async () => {
@@ -354,6 +374,8 @@ app.whenReady().then(() => {
       if (e instanceof WorkspaceNotFoundError) throw new IpcHandlerError('not-found', e.message)
       throw e
     }
+    // 消した Workspace の確認は、答えなし（拒否して記憶しない）にする
+    permissions.dismissWorkspace(id)
     for (const tabId of deleted.tabIds) views.destroy(tabId)
     if (deleted.currentId !== null) pages.showActive(db, deleted.currentId)
     releaseDormant(db)
@@ -383,6 +405,8 @@ app.whenReady().then(() => {
   handle(permissionRevoke, async ({ workspaceId, origin, permission }) =>
     revokePermission(await getDatabase(), workspaceId, origin, permission)
   )
+  handle(permissionPrompts, () => prompts.list())
+  handle(permissionAnswer, ({ id, answer }) => prompts.answer(id, answer))
 
   // 閲覧履歴（F09）
   handle(historySearch, async (input) => searchHistory(await getDatabase(), input))

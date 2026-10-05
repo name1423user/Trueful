@@ -22,6 +22,8 @@ export const channelNames = {
   downloadShowInFolder: 'download:showInFolder',
   permissionList: 'permission:list',
   permissionRevoke: 'permission:revoke',
+  permissionPrompts: 'permission:prompts',
+  permissionAnswer: 'permission:answer',
   tabList: 'tab:list',
   tabCreate: 'tab:create',
   tabClose: 'tab:close',
@@ -35,6 +37,7 @@ export const channelNames = {
   tabPageChanged: 'tab:pageChanged',
   tabListChanged: 'tab:listChanged',
   downloadChanged: 'download:changed',
+  permissionPromptsChanged: 'permission:promptsChanged',
   // メニューのショートカットのうち、画面で行うもの（アドレスバーへのフォーカスなど）
   uiCommand: 'ui:command'
 } as const

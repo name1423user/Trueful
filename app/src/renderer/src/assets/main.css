@@ -679,3 +679,57 @@ body {
   outline: 2px solid var(--text);
   outline-offset: 1px;
 }
+
+/* 権限の確認の帯（F16、T3-7b）。ページの領域の上端に出し、その分ページを下げる */
+.content:not(.center) {
+  display: flex;
+  flex-direction: column;
+}
+
+.content:not(.center) > .page-area {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+
+.permission-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.permission-bar p {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.permission-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.permission-actions button {
+  padding: 4px 16px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.permission-actions button:hover {
+  background: var(--selected);
+}
+
+.permission-actions button:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
