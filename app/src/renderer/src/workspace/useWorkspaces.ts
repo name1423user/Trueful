@@ -21,7 +21,7 @@ function toState(result: Awaited<ReturnType<Api['list']>>): WorkspacesState {
     : { status: 'error', code: result.error.code }
 }
 
-// Workspace の一覧と、作成・切替（Main の workspace:* を呼ぶ）
+// Workspace の一覧と、作成・切替・削除（Main の workspace:* を呼ぶ）
 export function useWorkspaces(): {
   state: WorkspacesState
   create: (
@@ -30,6 +30,9 @@ export function useWorkspaces(): {
     requestId: string
   ) => Promise<{ ok: true; id: number } | { ok: false; code: IpcErrorCode }>
   switchTo: (id: number) => Promise<IpcErrorCode | undefined>
+  remove: (
+    id: number
+  ) => Promise<{ ok: true; currentId: number | null } | { ok: false; code: IpcErrorCode }>
   // 自動で休止した Workspace の名前（事後の知らせ。ADR-011）
   notice: string[]
   dismissNotice: () => void
@@ -94,7 +97,20 @@ export function useWorkspaces(): {
     [reload]
   )
 
+  // 削除（F01）。成功したら一覧を読み直す（今の Workspace を消したら、Main が残りの1つへ移している）。
+  // 見つからなかったときも、一覧が古いので読み直す
+  const remove = useCallback(
+    async (id: number) => {
+      const result = await api.delete(id)
+      if (result.ok || result.error.code === 'not-found') await reload()
+      return result.ok
+        ? { ok: true as const, currentId: result.value.currentId }
+        : { ok: false as const, code: result.error.code }
+    },
+    [reload]
+  )
+
   const dismissNotice = useCallback(() => setNotice([]), [])
 
-  return { state, create, switchTo, notice, dismissNotice }
+  return { state, create, switchTo, remove, notice, dismissNotice }
 }

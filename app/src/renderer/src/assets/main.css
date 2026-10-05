@@ -8,6 +8,8 @@
   --text-muted: #52525b;
   /* 選択中はグレー系。Blue は Production の Mode 色だけに使う（SPEC 8章） */
   --selected: #e4e4e7;
+  /* 削除など、元に戻せない操作（Blue は使わない） */
+  --danger: #b91c1c;
   --mode-production: #2563eb;
   --mode-development: #16a34a;
   --mode-testing: #d97706;
@@ -30,6 +32,7 @@
     /* 選択中の背景（--selected）の上でも 4.5:1 以上 */
     --text-muted: #b0b0b8;
     --selected: #3f3f46;
+    --danger: #f87171;
     --mode-production: #60a5fa;
     --mode-development: #4ade80;
     --mode-testing: #fbbf24;
@@ -197,6 +200,32 @@ body {
   font-weight: bold;
 }
 
+.workspace-line {
+  display: flex;
+  align-items: center;
+}
+
+.workspace-line .workspace-row {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 行の右の「×」。名前は aria-label と title で示す */
+.workspace-delete-button {
+  flex: none;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.workspace-delete-button:hover {
+  background: var(--selected);
+}
+
 .workspace-name {
   flex: 1;
   min-width: 0;
@@ -274,14 +303,16 @@ body {
   background: var(--mode-custom);
 }
 
-/* Workspace を作る画面 */
-.workspace-create {
+/* Workspace を作る画面と、削除の確認 */
+.workspace-create,
+.workspace-delete {
   display: grid;
   gap: 16px;
   width: min(400px, 100% - 32px);
 }
 
-.workspace-create h1 {
+.workspace-create h1,
+.workspace-delete h1 {
   margin: 0;
   font-size: 20px;
 }
@@ -303,7 +334,21 @@ body {
   gap: 8px;
 }
 
-.workspace-create .actions {
+.workspace-delete p {
+  margin: 0;
+}
+
+.workspace-delete .danger {
+  border: 1px solid var(--danger);
+  border-radius: 4px;
+  background: none;
+  color: var(--danger);
+  font: inherit;
+  font-weight: bold;
+}
+
+.workspace-create .actions,
+.workspace-delete .actions {
   display: flex;
   gap: 8px;
 }

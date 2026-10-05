@@ -13,14 +13,17 @@ import { TabList } from './tab/TabList'
 import { useTabs } from './tab/useTabs'
 import { useWorkspaces, type IpcErrorCode } from './workspace/useWorkspaces'
 import { WorkspaceCreateForm } from './workspace/WorkspaceCreateForm'
+import { WorkspaceDeleteConfirm } from './workspace/WorkspaceDeleteConfirm'
 import { WorkspaceList } from './workspace/WorkspaceList'
 
 // 上端・左パネル（1段目・2段目、F15）・中央。中央の <main> にページの WebContentsView を重ねる
 // （位置と大きさを IPC で Main に報告する。ADR-008）
 function App(): React.JSX.Element {
   const { t } = useTranslation()
-  const { state, create, switchTo, notice, dismissNotice } = useWorkspaces()
+  const { state, create, switchTo, remove, notice, dismissNotice } = useWorkspaces()
   const [adding, setAdding] = useState(false)
+  // 削除の確認を出している Workspace の id
+  const [deletingId, setDeletingId] = useState<number | null>(null)
   const [switchError, setSwitchError] = useState<IpcErrorCode>()
   const [panelView, setPanelView] = useState<PanelView>('tabs')
   const [collapsed, setCollapsed] = useSidePanelCollapsed()
@@ -105,6 +108,14 @@ function App(): React.JSX.Element {
     refocus.current = focusId
     setAdding(false)
   }
+  // 削除の確認。対象が一覧から消えていたら（別の操作で消えたなど）出さない
+  const deleting = showCreate ? undefined : state.workspaces.find((w) => w.id === deletingId)
+  const closeDelete = (focusId: number | null): void => {
+    refocus.current = focusId
+    setDeletingId(null)
+  }
+  // 作成画面か削除の確認を出している間は、ページを隠す
+  const pageHidden = showCreate || deleting !== undefined
 
   const activePage = activeTab && tabs.pages[activeTab.id]
   return (
@@ -117,7 +128,7 @@ function App(): React.JSX.Element {
             {t('workspace.current', { name: current.name })}
           </p>
         )}
-        {!showCreate && (
+        {!pageHidden && (
           <AddressBar
             key={activeTab?.id}
             tab={activeTab}
@@ -129,7 +140,7 @@ function App(): React.JSX.Element {
           />
         )}
         {/* ページ（WebContentsView）は UI の上に重なるので、エラーはページの外（上端）に出す */}
-        {switchError && !showCreate && (
+        {switchError && !pageHidden && (
           <p role="alert" className="switch-error">
             {t(`error.${switchError}`)}
           </p>
@@ -195,11 +206,18 @@ function App(): React.JSX.Element {
           currentId={state.currentId}
           onSwitch={async (id) => {
             setAdding(false)
+            setDeletingId(null)
             setSwitchError(await switchTo(id))
           }}
           onAdd={() => {
             setSwitchError(undefined)
+            setDeletingId(null)
             setAdding(true)
+          }}
+          onDelete={(id) => {
+            setSwitchError(undefined)
+            setAdding(false)
+            setDeletingId(id)
           }}
         >
           {!showCreate && panelView === 'tabs' && (
@@ -214,8 +232,22 @@ function App(): React.JSX.Element {
           )}
         </WorkspaceList>
       )}
-      <main className={showCreate ? 'content center' : 'content'}>
-        {showCreate ? (
+      <main className={pageHidden ? 'content center' : 'content'}>
+        {deleting ? (
+          <WorkspaceDeleteConfirm
+            key={deleting.id}
+            name={deleting.name}
+            onDelete={async () => {
+              const result = await remove(deleting.id)
+              // 見つからなかったときは、もう消えているので閉じる（一覧は読み直してある）
+              if (!result.ok && result.code !== 'not-found') return result.code
+              // 閉じたら、フォーカスを今の Workspace の行へ（最後の1つを消したら、作成画面の名前の欄）
+              closeDelete(result.ok ? result.currentId : state.currentId)
+              return undefined
+            }}
+            onCancel={() => closeDelete(state.currentId)}
+          />
+        ) : showCreate ? (
           <WorkspaceCreateForm
             onCreate={async (name, mode, requestId) => {
               const result = await create(name, mode, requestId)
