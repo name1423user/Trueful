@@ -136,7 +136,8 @@ function App(): React.JSX.Element {
     refocus.current = focusId
     setDeletingId(null)
   }
-  const showHome = startup === 'home' && !showCreate && deleting === undefined
+  const showHome =
+    (startup === 'home' || startup === 'home-after-crash') && !showCreate && deleting === undefined
   const showCrash = startup === 'crash' && !showCreate && deleting === undefined
   // 作成画面・削除の確認・Developer Home を出している間と、起動の表示が決まるまでは、ページを隠す
   const pageHidden = showCreate || deleting !== undefined || startup !== 'done'
@@ -314,6 +315,7 @@ function App(): React.JSX.Element {
           <DeveloperHome
             workspaces={state.workspaces}
             error={switchError}
+            afterCrash={startup === 'home-after-crash'}
             onOpen={async (id) => {
               refocus.current = id
               const code = await switchTo(id)

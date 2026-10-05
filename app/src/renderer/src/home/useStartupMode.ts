@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 // 起動したときに Main が決めた表示。pending は、まだ返事がない（ページを出さずに待つ）。
 // home は Developer Home（F11）、crash は異常終了の後の「復元しますか」（F12）を出している。
 // Workspace を開く・作ると done にする
-export type StartupView = 'pending' | 'crash' | 'home' | 'done'
+export type StartupView = 'pending' | 'crash' | 'home' | 'home-after-crash' | 'done'
 
 export function useStartupView(): {
   view: StartupView
@@ -35,5 +35,5 @@ export function useStartupView(): {
       alive = false
     }
   }, [])
-  return { view, finish: () => setView('done'), showHome: () => setView('home') }
+  return { view, finish: () => setView('done'), showHome: () => setView('home-after-crash') }
 }

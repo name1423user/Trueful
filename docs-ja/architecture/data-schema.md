@@ -284,6 +284,7 @@ workspace_snapshot（外部キーなし。削除された Workspace の控え）
 - 前の版に戻すマイグレーション（down）は作らない。戻したいときは、下のバックアップから戻す。
 
 ### 起動時の手順とバックアップ（SPEC 6章、ADR-012）
+0. 同じ保存場所で、もう Trueful が動いていたら、何もせずに終わる（`requestSingleInstanceLock`。DB には触れない）。
 1. DB を開き、`PRAGMA quick_check` で壊れていないか確かめる。
 2. 壊れていたら、`trueful.db`・`trueful.db-wal`・`trueful.db-shm` を `trueful.db.broken-<時刻>`（と同じ接尾辞）に移し、`trueful.db.bak` から戻して、ユーザーに知らせる（F12 で実装）。WAL のファイルを残すと、戻した DB に古い変更が書き戻されるため、3つを一緒に移す。
 3. 壊れていなければ、`sqlite.backup()` で DB 全体を一時ファイルに写し、`trueful.db.bak` に名前を変える（1世代、アトミック書き込み）。壊れた DB でバックアップを上書きしないため、必ず手順1の後に行う。

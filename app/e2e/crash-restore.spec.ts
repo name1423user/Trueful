@@ -29,7 +29,7 @@ test('異常終了の後の起動: 「復元しますか」と聞く。復元し
       await window.screenshot({ path: `test-results/crash-restore-${process.platform}.png` })
       await prompt.getByRole('button', { name: '復元しない' }).click()
       const home = window.getByRole('region', { name: 'Developer Home' })
-      await expect(home).toBeVisible()
+      await expect(home).toContainText('前回の Workspace とタブは復元していません')
       await home.getByRole('button', { name: /案件A/ }).click()
       await expect(window.getByText('今の Workspace: 案件A')).toBeVisible()
       await expect(window.getByTestId('page-area')).toHaveCount(1)

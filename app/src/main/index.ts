@@ -103,10 +103,19 @@ const userDataDir = process.env['TRUEFUL_USER_DATA_DIR']
 if (!app.isPackaged && userDataDir) app.setPath('userData', userDataDir)
 // 起動は1つだけ（同じ保存場所で2つ動くと、同じ DB に書き、異常終了の判定 clean_exit も壊れる。F12）。
 // 2つ目は何もせずに終わり（DB にも触れない）、1つ目のウィンドウを前に出す
-if (!app.requestSingleInstanceLock()) app.exit(0)
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
+if (!gotSingleInstanceLock) {
+  console.warn(
+    '[main] 同じ保存場所で、もう Trueful が動いているので終わる',
+    app.getPath('userData')
+  )
+  app.exit(0)
+}
+// ウィンドウがなければ（macOS でウィンドウを全部閉じた）作り直す。whenReady の中で決める
+let reopenWindow = (): void => {}
 app.on('second-instance', () => {
   const window = mainWindow
-  if (!window || window.isDestroyed()) return
+  if (!window || window.isDestroyed()) return reopenWindow()
   if (window.isMinimized()) window.restore()
   window.focus()
 })
@@ -184,6 +193,8 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  // app.exit が効く前に ready まで進んでも、2つ目は何もしない（DB・clean_exit に触れない）
+  if (!gotSingleInstanceLock) return
   // UI のセッション（既定のセッション）は、カメラ・通知などの権限をすべて拒否する。
   // Web ページ用のセッションの権限は、M2 以降で別に決める。
   // UI の renderer では Clipboard API や全画面も使えなくなるので、クリップボードは IPC 経由で Main の clipboard を使う
@@ -591,13 +602,16 @@ app.whenReady().then(() => {
     return null
   })
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length > 0) return
-    // ウィンドウを作り直すときは、起動の画面（Developer Home など）は出さない
+  // ウィンドウを作り直すときは、起動の画面（Developer Home など）は出さない
+  reopenWindow = () => {
     startupShown = true
     createWindow()
     views.attach(mainWindow!)
     showCurrent()
+  }
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length > 0) return
+    reopenWindow()
   })
 })
 
