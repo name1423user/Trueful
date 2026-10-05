@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
-import { appWindow, launchApp } from './launchApp'
+import { appWindow, crashApp, launchApp } from './launchApp'
 
 // 前回の正常な終了の時刻を、何分か前にずらす（「1時間を超えた」起動を作る）。null なら記録がないかを返す
 function shiftLastQuit(userDataDir: string, minutesAgo: number): number | null {
@@ -90,8 +90,7 @@ test('起動: 前回の終了から1時間を超えたら Developer Home、以�
       const { app } = await launchApp(undefined, { userDataDir: first.userDataDir })
       const window = await appWindow(app)
       await expect(window.getByRole('region', { name: 'Developer Home' })).toBeVisible()
-      app.process().kill('SIGKILL')
-      await app.waitForEvent('close').catch(() => undefined)
+      await crashApp(app)
     }
 
     // 6回目: 前回は異常終了で、終了の記録がない（起動したときに消してある）。古い記録で Developer Home にはならない
