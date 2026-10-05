@@ -247,6 +247,7 @@ app.whenReady().then(() => {
     {
       onPageChanged: (tabId, page, committed) => pages.pageChanged(tabId, page, committed),
       onOpenRequest: (tabId, url, background) => pages.openRequested(tabId, url, background),
+      onLoadError: () => mainWindow?.webContents.focus(),
       onDownload: (workspaceId, item) => downloads.handle(workspaceId, item),
       onReservedShortcut: (command) => runMenuCommand(command),
       onDiscarded: (tabIds) => pages.discarded(tabIds)

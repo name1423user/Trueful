@@ -7,6 +7,7 @@ import { DownloadPanel } from './download/DownloadPanel'
 import { useDownloads } from './download/useDownloads'
 import { ActivityBar, type PanelView } from './panel/ActivityBar'
 import { AddressBar } from './tab/AddressBar'
+import { ErrorScreen } from './tab/ErrorScreen'
 import { PageArea } from './tab/PageArea'
 import { TabList } from './tab/TabList'
 import { useTabs } from './tab/useTabs'
@@ -105,6 +106,7 @@ function App(): React.JSX.Element {
     setAdding(false)
   }
 
+  const activePage = activeTab && tabs.pages[activeTab.id]
   return (
     <div className={collapsed ? 'app-shell side-collapsed' : 'app-shell'}>
       <header className="top-bar">
@@ -224,7 +226,18 @@ function App(): React.JSX.Element {
             onCancel={state.workspaces.length > 0 ? () => closeCreate(state.currentId) : undefined}
           />
         ) : (
-          <PageArea />
+          <PageArea>
+            {activePage?.error && (
+              <ErrorScreen
+                error={activePage.error}
+                canGoBack={activePage.canGoBack}
+                onReload={() =>
+                  void tabs.run((api, ws) => api.control(ws, activeTab!.id, 'reload'))
+                }
+                onBack={() => void tabs.run((api, ws) => api.control(ws, activeTab!.id, 'back'))}
+              />
+            )}
+          </PageArea>
         )}
       </main>
     </div>
