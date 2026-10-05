@@ -11,6 +11,7 @@ export type MenuCommand =
   | 'focus-address-bar'
   | 'focus-search'
   | 'toggle-side-panel'
+  | 'bookmark-page'
 
 type Labels = Record<MenuCommand | 'tab-menu' | 'view-menu' | 'close-window', string>
 
@@ -38,6 +39,8 @@ export function appMenuTemplate(
       item('tab-new', 'CmdOrCtrl+T'),
       item('tab-close', 'CmdOrCtrl+W'),
       item('tab-reopen', 'CmdOrCtrl+Shift+T'),
+      // 今のページをブックマークに足す（F08）
+      item('bookmark-page', 'CmdOrCtrl+D'),
       { type: 'separator' },
       item('focus-address-bar', 'CmdOrCtrl+L'),
       // 統合検索欄（F10）。隠した項目のキーは Windows・Linux で効かないので、見える項目にする
