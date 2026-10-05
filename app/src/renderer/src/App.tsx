@@ -5,6 +5,8 @@ import { importMessageKey } from './bookmark/tree'
 import { useBookmarks } from './bookmark/useBookmarks'
 import { DownloadPanel } from './download/DownloadPanel'
 import { useDownloads } from './download/useDownloads'
+import { DeveloperHome } from './home/DeveloperHome'
+import { useStartupView } from './home/useStartupMode'
 import { ActivityBar, type PanelView } from './panel/ActivityBar'
 import { permissionMessage } from './permission/message'
 import { PermissionBar } from './permission/PermissionBar'
@@ -27,6 +29,8 @@ function App(): React.JSX.Element {
   const [adding, setAdding] = useState(false)
   // 削除の確認を出している Workspace の id
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  // 起動したときの表示（F11）。Developer Home は、Workspace を選ぶ・作るまで出す
+  const [startup, finishStartup] = useStartupView()
   const [switchError, setSwitchError] = useState<IpcErrorCode>()
   const [panelView, setPanelView] = useState<PanelView>('tabs')
   const [collapsed, setCollapsed] = useSidePanelCollapsed()
@@ -131,8 +135,9 @@ function App(): React.JSX.Element {
     refocus.current = focusId
     setDeletingId(null)
   }
-  // 作成画面か削除の確認を出している間は、ページを隠す
-  const pageHidden = showCreate || deleting !== undefined
+  const showHome = startup === 'home' && !showCreate && deleting === undefined
+  // 作成画面・削除の確認・Developer Home を出している間と、起動の表示が決まるまでは、ページを隠す
+  const pageHidden = showCreate || deleting !== undefined || startup !== 'done'
 
   const activePage = activeTab && tabs.pages[activeTab.id]
   return (
@@ -230,7 +235,10 @@ function App(): React.JSX.Element {
           onSwitch={async (id) => {
             setAdding(false)
             setDeletingId(null)
-            setSwitchError(await switchTo(id))
+            const code = await switchTo(id)
+            // Developer Home は、開けてから閉じる（失敗したら Home に留めて知らせる）
+            if (!code) finishStartup()
+            setSwitchError(code)
           }}
           onAdd={() => {
             setSwitchError(undefined)
@@ -243,7 +251,8 @@ function App(): React.JSX.Element {
             setDeletingId(id)
           }}
         >
-          {!showCreate && panelView === 'tabs' && (
+          {/* Developer Home の間はタブ列を出さない（選ぶと、見えないままページを読み込むため） */}
+          {!showCreate && !showHome && panelView === 'tabs' && (
             <TabList
               tabs={tabs.tabs}
               activeId={tabs.activeId}
@@ -274,12 +283,27 @@ function App(): React.JSX.Element {
             onCreate={async (name, mode, requestId) => {
               const result = await create(name, mode, requestId)
               if (!result.ok) return result.code
+              // 作ったら、その Workspace を開いている（起動の画面は閉じる）
+              finishStartup()
               closeCreate(result.id)
               return undefined
             }}
             onCancel={state.workspaces.length > 0 ? () => closeCreate(state.currentId) : undefined}
           />
-        ) : (
+        ) : showHome ? (
+          <DeveloperHome
+            workspaces={state.workspaces}
+            error={switchError}
+            onOpen={async (id) => {
+              refocus.current = id
+              const code = await switchTo(id)
+              if (!code) finishStartup()
+              setSwitchError(code)
+            }}
+            // 作成画面が前に出る。作れば Home は閉じ、やめれば Home に戻る（ページは読み込んでいないため）
+            onAdd={() => setAdding(true)}
+          />
+        ) : startup === 'pending' ? null : (
           <>
             {permission.prompt && (
               <PermissionBar

@@ -680,6 +680,79 @@ body {
   outline-offset: 1px;
 }
 
+/* Developer Home（F11）。Workspace のカード（8px グリッド） */
+.developer-home {
+  display: grid;
+  gap: 16px;
+  width: min(720px, 100% - 32px);
+}
+
+.developer-home h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.developer-home p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.home-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home-card {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.home-card:hover {
+  background: var(--selected);
+}
+
+.home-card:focus-visible,
+.home-add:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+
+.home-card-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: bold;
+  overflow-wrap: anywhere;
+}
+
+.home-card-meta {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.home-add {
+  justify-self: start;
+  padding: 8px;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
 /* 権限の確認の帯（F16、T3-7b）。ページの領域の上端に出し、その分ページを下げる */
 .content:not(.center) {
   display: flex;

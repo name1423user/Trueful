@@ -145,5 +145,9 @@
       "midi": "MIDI 機器",
       "idle-detection": "操作していないことの検知"
     }
+  },
+  "home": {
+    "title": "Developer Home",
+    "lead": "前回の終了から時間がたちました。開く Workspace を選んでください。"
   }
 }

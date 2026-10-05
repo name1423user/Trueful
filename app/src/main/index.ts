@@ -60,6 +60,13 @@ import { listPermissions, revokePermission } from './permission/services/permiss
 import { PermissionFlows } from './permission/flows/permissionFlows'
 import { PermissionPrompts } from './permission/flows/permissionPrompts'
 import { originOf } from './permission/services/permissionMap'
+import { startupMode } from './ipc/startupChannels'
+import {
+  decideStartupMode,
+  beginSession,
+  recordCleanExit,
+  type StartupMode
+} from './startup/services/startupMode'
 import { DownloadFlows } from './download/flows/downloadFlows'
 import { interruptUnfinishedDownloads, listDownloads } from './download/services/downloadDB'
 import { deleteHistory, purgeExpiredHistory, searchHistory } from './history/services/historyDB'
@@ -140,6 +147,10 @@ function createWindow(): void {
 
   mainWindow = window
   window.on('ready-to-show', () => window.show())
+  // Windows で OS をシャットダウン・ログオフすると、will-quit が来ないので、ここで終了の時刻を記録する
+  window.on('session-end', () => {
+    if (database) recordQuit(database)
+  })
   window.on('closed', () => {
     if (mainWindow === window) mainWindow = undefined
     onWindowClosed()
@@ -184,6 +195,8 @@ app.whenReady().then(() => {
   databaseReady
     .then((db) => {
       if (quitting) {
+        // 準備の途中で終了した。前回の記録を残さないよう、今の時刻で書いてから閉じる
+        recordQuit(db)
         db.close()
         return
       }
@@ -231,6 +244,24 @@ app.whenReady().then(() => {
     isFromAppMainFrame(event, mainWindow?.webContents, (url) => isAppUrl(url, getAppUrl()))
   )
   handle(settingsGet, () => store.get())
+  // 起動のときに1回だけ決める（F11）。前回の正常な終了から「Developer Home までの時間」を超えていたら Developer Home。
+  // 決められなかったら（DB の準備に失敗など）、復元にする
+  const mode: Promise<StartupMode> = databaseReady
+    .then((db) => decideStartupMode(beginSession(db), Date.now(), store.get().settings))
+    .catch(() => 'restore' as const)
+  // Developer Home を出すのは、起動して最初の画面だけ。macOS でウィンドウを開き直したときは復元する
+  let startupShown = false
+  handle(startupMode, async () => {
+    const m = await mode
+    if (!startupShown) {
+      startupShown = true
+      return m
+    }
+    // 起動の画面を出す前にウィンドウを開き直した（macOS の activate）。Developer Home は出さずに復元する。
+    // 起動のときにページを読み込んでいなければ、ここで読み込む
+    if (m !== 'restore') showCurrent()
+    return 'restore'
+  })
   handle(settingsUpdate, (patch) => store.update(patch))
 
   // Workspace（F01）。DB の準備が終わってから答える。準備に失敗していたら unavailable で返す
@@ -329,7 +360,10 @@ app.whenReady().then(() => {
         if (current !== null && !quitting && db.isOpen) pages.showActive(db, current)
       })
       .catch((e) => console.error('[main] ページを表示できなかった', e))
-  showCurrent()
+  // Developer Home を出すときは、ページを読み込まない（Workspace を選んだら、切り替えで表示する）
+  void mode.then((m) => {
+    if (m === 'restore') showCurrent()
+  })
   onWindowClosed = () => {
     views.destroyAll()
     // 確認を出す画面がなくなったので、待っている確認は答えなしにする
@@ -543,15 +577,27 @@ app.whenReady().then(() => {
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length > 0) return
+    // ウィンドウを作り直すときは、起動の画面（Developer Home など）は出さない
+    startupShown = true
     createWindow()
     views.attach(mainWindow!)
     showCurrent()
   })
 })
 
+// 正常な終了の時刻（次の起動で、Developer Home を出すか・異常終了だったかの判定に使う。F11・F12）
+function recordQuit(db: DatabaseSync): void {
+  try {
+    if (db.isOpen) recordCleanExit(db, Date.now())
+  } catch (e) {
+    console.error('[main] 終了の時刻を記録できなかった', e)
+  }
+}
+
 // 終了は止めない（止めると、あとの app.quit() が効かずに終了できなくなる）
 app.on('will-quit', () => {
   quitting = true
+  if (database) recordQuit(database)
   downloadFlows?.dispose()
   settingsStore?.close()
   database?.close()

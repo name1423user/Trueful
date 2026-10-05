@@ -1,4 +1,5 @@
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test'
+import { spawnSync } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -44,4 +45,17 @@ export async function appWindow(app: ElectronApplication, timeoutMs = 30_000): P
     await new Promise((resolve) => setTimeout(resolve, 100))
   }
   throw new Error('UI のウィンドウ（window.trueful）が見つからない')
+}
+
+// 異常終了を再現する（終了の処理を通さずに止める）。子プロセス（GPU・ページの描画）も止める。
+// Windows では本体だけを止めると子プロセスが残り、保存場所のファイルを掴んだままになる（後片付けが EPERM になる）
+export async function crashApp(app: ElectronApplication): Promise<void> {
+  const pid = app.process().pid
+  const closed = app.waitForEvent('close').catch(() => undefined)
+  if (process.platform === 'win32' && pid !== undefined) {
+    spawnSync('taskkill', ['/pid', String(pid), '/T', '/F'])
+  } else {
+    app.process().kill('SIGKILL')
+  }
+  await closed
 }
