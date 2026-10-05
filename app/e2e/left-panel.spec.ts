@@ -30,7 +30,12 @@ test('左パネル: 1段目に今の Workspace の頭文字と Mode 色、2段�
     await expect(rows.nth(1).locator('.workspace-row')).toHaveAttribute('aria-current', 'true')
 
     // キーボードだけで: 案件A の行へ Tab で移り、Enter で切り替える
+    // （行の右に削除の「×」があるので、Shift+Tab は「×」、行の順に止まる）
     await rows.nth(1).locator('.workspace-row').focus()
+    await window.keyboard.press('Shift+Tab')
+    await expect
+      .poll(() => window.evaluate(() => document.activeElement?.getAttribute('aria-label')))
+      .toBe('案件A を削除')
     await window.keyboard.press('Shift+Tab')
     await expect
       .poll(() => window.evaluate(() => document.activeElement?.textContent ?? ''))
