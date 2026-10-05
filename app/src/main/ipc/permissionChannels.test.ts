@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { permissionList, permissionRevoke } from './permissionChannels'
+import {
+  permissionAnswer,
+  permissionList,
+  permissionPrompts,
+  permissionRevoke
+} from './permissionChannels'
 
 describe('permission:* の引数', () => {
   it('list: Workspace の id は省略できる。正の整数だけ、余分な項目は拒否', () => {
@@ -24,6 +29,26 @@ describe('permission:* の引数', () => {
       { workspaceId: 1, origin: 'https://a.example' }
     ]) {
       expect(permissionRevoke.args.safeParse(bad).success).toBe(false)
+    }
+  })
+
+  it('prompts: 引数なし', () => {
+    expect(permissionPrompts.args.safeParse(undefined).success).toBe(true)
+    expect(permissionPrompts.args.safeParse({}).success).toBe(false)
+  })
+
+  it('answer: 確認の id と、許可・拒否・答えなしの 3 つだけ', () => {
+    for (const answer of ['allow', 'deny', 'dismissed']) {
+      expect(permissionAnswer.args.safeParse({ id: 1, answer }).success).toBe(true)
+    }
+    for (const bad of [
+      { id: 0, answer: 'allow' },
+      { id: 1.5, answer: 'allow' },
+      { id: 1, answer: 'ask' },
+      { id: 1 },
+      { id: 1, answer: 'allow', remember: false }
+    ]) {
+      expect(permissionAnswer.args.safeParse(bad).success).toBe(false)
     }
   })
 })

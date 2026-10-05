@@ -38,6 +38,9 @@ IPCはinvoke型（request/response）を採用。詳細は [ADR-007](./adr/adr-0
 | `download:changed` | M→R | ダウンロードの進み具合・状態が変わった（画面は `download:list` を読み直す） |
 | `permission:list` | R→M | 記憶したサイトの権限（Workspace とサイトと権限ごとの許可・拒否。`workspaceId` で絞れる。F16） |
 | `permission:revoke` | R→M | 記憶を取り消す（また未決になり、次に要求されたら確認する）。Workspace・http(s) のサイト・権限の 3 つを渡す。記憶がなければ `false` |
+| `permission:prompts` | R→M | 答えを待っている権限の確認（古い順。`id`・`workspaceId`・`origin`・`permission`。T3-7b） |
+| `permission:answer` | R→M | 確認に答える（`id` と `allow`・`deny`・`dismissed`）。`allow`・`deny` は記憶し、`dismissed`（今は決めない）は拒否するが記憶しない。ない id・答え終わった id は `false` |
+| `permission:promptsChanged` | M→R | 確認が増えた・減った（画面は `permission:prompts` を読み直す）。Workspace を消したとき・ウィンドウを閉じたときは、待っている確認を `dismissed` で終える |
 | `history:search` | R→M | 履歴をタイトルと URL の部分一致で探す（新しい順、`workspaceId` で絞れる、`limit` は 1〜100。F09） |
 | `history:delete` | R→M | 訪問の時刻（Unix ミリ秒）の範囲 `fromMs`〜`toMs`（両端を含む）を消す。両方省略すると全部。返事は消した訪問の数（F09） |
 | `tab:list` | R→M | Workspace のタブ（並び順）と選択中のタブの id（F02。選択中は最後に選んだタブ）。タブが1つもなければ空のタブを開いてから返す。`discardedIds` は、ページの実体の上限（全 Workspace で 30 個）のためにページを破棄したタブ（選ぶと読み込み直す） |

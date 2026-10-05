@@ -6,7 +6,12 @@ import { originOf, requiredPermissions, type Permission } from '../services/perm
 // 確認の答え。dismissed は、答えが出なかった（画面が閉じた・確認の画面がまだない）。拒否して、記憶しない
 export type PermissionAnswer = Decision | 'dismissed'
 
-type Details = { mediaTypes?: string[]; isMainFrame?: boolean; topLevelUrl?: string }
+type Details = {
+  mediaTypes?: string[]
+  isMainFrame?: boolean
+  topLevelUrl?: string
+  tabId?: number
+}
 
 // サイトの権限の進行役（F16）。ページの権限の要求を、記憶した答えで決める。
 // 決めていなければ確認を出す（ask。画面は T3-7b）。確認の対象でない権限・http・https でないページ・
@@ -25,7 +30,8 @@ export class PermissionFlows {
         workspaceId: number,
         origin: string,
         permission: Permission,
-        signal: AbortSignal
+        signal: AbortSignal,
+        tabId?: number
       ) => Promise<PermissionAnswer>
       now?: () => number
     }
@@ -50,7 +56,7 @@ export class PermissionFlows {
       const decision = getDecision(db, workspaceId, origin, permission)
       if (decision === 'deny') return false
       if (decision === 'allow') continue
-      const answer = await this.confirm(workspaceId, origin, permission)
+      const answer = await this.confirm(workspaceId, origin, permission, details?.tabId)
       // 確認の間に、DB が閉じた・Workspace がなくなったときは、拒否して記憶しない
       if (answer === 'dismissed' || !db.isOpen || !getWorkspace(db, workspaceId)) return false
       setDecision(db, workspaceId, origin, permission, answer, this.now())
@@ -87,14 +93,16 @@ export class PermissionFlows {
   private confirm(
     workspaceId: number,
     origin: string,
-    permission: Permission
+    permission: Permission,
+    tabId?: number
   ): Promise<PermissionAnswer> {
-    const key = `${workspaceId} ${origin} ${permission}`
+    // タブごとに確認する（タブを閉じたら、そのタブの確認だけを終えられるように）
+    const key = `${workspaceId} ${tabId ?? '-'} ${origin} ${permission}`
     const existing = this.pending.get(key)
     if (existing) return existing.answer
     const controller = new AbortController()
     const answer = this.deps
-      .ask(workspaceId, origin, permission, controller.signal)
+      .ask(workspaceId, origin, permission, controller.signal, tabId)
       .catch((): PermissionAnswer => 'dismissed')
       .finally(() => this.pending.delete(key))
     this.pending.set(key, { workspaceId, controller, answer })

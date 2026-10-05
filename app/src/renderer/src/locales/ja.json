@@ -129,6 +129,23 @@
     "save": "保存",
     "cancel": "やめる"
   },
+  "permission": {
+    "barLabel": "サイトの権限の確認",
+    "ask": "{{origin}} が「{{permission}}」を使おうとしています。",
+    "allow": "許可",
+    "deny": "ブロック",
+    "later": "今は決めない",
+    "name": {
+      "camera": "カメラ",
+      "microphone": "マイク",
+      "notifications": "通知",
+      "geolocation": "位置情報",
+      "clipboard-read": "クリップボードの読み取り",
+      "display-capture": "画面の共有",
+      "midi": "MIDI 機器",
+      "idle-detection": "操作していないことの検知"
+    }
+  },
   "home": {
     "title": "Developer Home",
     "lead": "前回の終了から時間がたちました。開く Workspace を選んでください。"

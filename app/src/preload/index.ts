@@ -10,6 +10,7 @@ import type { PageState } from '../main/tab/services/tabViews'
 import type { Bookmark } from '../main/bookmark/services/bookmarkDB'
 import type { BookmarkImportOutcome } from '../main/ipc/bookmarkChannels'
 import type { Download } from '../main/download/services/downloadDB'
+import type { PermissionPrompt } from '../main/permission/flows/permissionPrompts'
 import type { SitePermission } from '../main/permission/services/permissionDB'
 import type { HistoryEntry } from '../main/history/services/historyDB'
 import type { Workspace, WorkspaceMode } from '../main/workspace/services/workspaceDB'
@@ -84,7 +85,15 @@ const api = {
       workspaceId: number
       origin: string
       permission: SitePermission['permission']
-    }): Promise<IpcResult<boolean>> => ipcRenderer.invoke(channelNames.permissionRevoke, input)
+    }): Promise<IpcResult<boolean>> => ipcRenderer.invoke(channelNames.permissionRevoke, input),
+    // 答えを待っている確認（古い順）。増えた・減ったら onPromptsChanged で知らせる
+    prompts: (): Promise<IpcResult<PermissionPrompt[]>> =>
+      ipcRenderer.invoke(channelNames.permissionPrompts),
+    // dismissed は「今は決めない」（拒否するが、記憶しない）
+    answer: (id: number, answer: 'allow' | 'deny' | 'dismissed'): Promise<IpcResult<boolean>> =>
+      ipcRenderer.invoke(channelNames.permissionAnswer, { id, answer }),
+    onPromptsChanged: (listener: () => void): (() => void) =>
+      subscribe(channelNames.permissionPromptsChanged, listener)
   },
   history: {
     search: (input: {

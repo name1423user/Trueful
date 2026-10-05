@@ -37,7 +37,13 @@ type Handlers = {
     workspaceId: number,
     url: string,
     permission: string,
-    details: { mediaTypes?: string[]; isMainFrame?: boolean; topLevelUrl?: string }
+    details: {
+      mediaTypes?: string[]
+      isMainFrame?: boolean
+      topLevelUrl?: string
+      // 要求したページのタブ（確認をそのタブに結びつける。見つからなければ undefined）
+      tabId?: number
+    }
   ) => Promise<boolean>
   // 権限の同期の確認（記憶した許可だけが true）
   onPermissionCheck: (
@@ -50,6 +56,8 @@ type Handlers = {
   onReservedShortcut: (command: ReservedShortcut) => void
   // 上限（F02）を超えたので、これらのタブのページを破棄した（URL とタイトルは DB に残っている）
   onDiscarded: (tabIds: number[]) => void
+  // タブのページを破棄した（閉じた・上限・休止・ウィンドウを閉じた）。そのページの権限の確認を終えるため
+  onPageGone: (tabId: number) => void
 }
 
 export type ReservedShortcut = 'tab-new' | 'tab-close' | 'tab-reopen'
@@ -228,6 +236,12 @@ export class TabViews {
     if (!view.webContents.isDestroyed()) view.webContents.close()
     this.views.delete(tabId)
     if (this.shown === tabId) this.shown = undefined
+    this.handlers.onPageGone(tabId)
+  }
+
+  private tabIdOf(wc: WebContents): number | undefined {
+    for (const [tabId, view] of this.views) if (view.webContents === wc) return tabId
+    return undefined
   }
 
   private create(tabId: number, workspaceId: number): WebContentsView {
@@ -252,7 +266,8 @@ export class TabViews {
           .onPermissionRequest(workspaceId, details.requestingUrl, permission, {
             mediaTypes,
             isMainFrame: details.isMainFrame,
-            topLevelUrl: details.isMainFrame ? requester.getURL() : undefined
+            topLevelUrl: details.isMainFrame ? requester.getURL() : undefined,
+            tabId: this.tabIdOf(requester)
           })
           .then(callback, () => callback(false))
       })
