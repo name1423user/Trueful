@@ -21,7 +21,7 @@ function toState(result: Awaited<ReturnType<Api['list']>>): WorkspacesState {
     : { status: 'error', code: result.error.code }
 }
 
-// Workspace の一覧と、作成・切替（Main の workspace:* を呼ぶ）
+// Workspace の一覧と、作成・切替・削除（Main の workspace:* を呼ぶ）
 export function useWorkspaces(): {
   state: WorkspacesState
   create: (
@@ -30,6 +30,9 @@ export function useWorkspaces(): {
     requestId: string
   ) => Promise<{ ok: true; id: number } | { ok: false; code: IpcErrorCode }>
   switchTo: (id: number) => Promise<IpcErrorCode | undefined>
+  remove: (
+    id: number
+  ) => Promise<{ ok: true; currentId: number | null } | { ok: false; code: IpcErrorCode }>
   // 自動で休止した Workspace の名前（事後の知らせ。ADR-011）
   notice: string[]
   dismissNotice: () => void
@@ -56,6 +59,7 @@ export function useWorkspaces(): {
     const mine = ++latest.current
     const result = await api.list()
     if (mine === latest.current) apply(result)
+    return result
   }, [apply])
 
   // 最初の読み込み。画面が消えたら、返事を捨てる
@@ -94,7 +98,23 @@ export function useWorkspaces(): {
     [reload]
   )
 
+  // 削除（F01）。成功したら一覧を読み直す（今の Workspace を消したら、Main が残りの1つへ移している）。
+  // 見つからなかったときは、もう消えているので成功と同じに扱い、読み直した一覧の今の Workspace を返す
+  const remove = useCallback(
+    async (id: number) => {
+      const result = await api.delete(id)
+      if (result.ok) {
+        await reload()
+        return { ok: true as const, currentId: result.value.currentId }
+      }
+      if (result.error.code !== 'not-found') return { ok: false as const, code: result.error.code }
+      const list = await reload()
+      return { ok: true as const, currentId: list.ok ? list.value.currentId : null }
+    },
+    [reload]
+  )
+
   const dismissNotice = useCallback(() => setNotice([]), [])
 
-  return { state, create, switchTo, notice, dismissNotice }
+  return { state, create, switchTo, remove, notice, dismissNotice }
 }

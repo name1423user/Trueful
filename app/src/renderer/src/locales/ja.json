@@ -17,6 +17,11 @@
     "create": "作成",
     "creating": "作成中…",
     "cancel": "やめる",
+    "deleteButton": "{{name}} を削除",
+    "deleteTitle": "「{{name}}」を削除しますか？",
+    "deleteLead": "この Workspace のタブと、ログイン（Cookie）とサイトのデータも消えます。元に戻せません。",
+    "deleteConfirm": "削除する",
+    "deleting": "削除中…",
     "current": "今の Workspace: {{name}}",
     "state": {
       "dormant": "休止中",

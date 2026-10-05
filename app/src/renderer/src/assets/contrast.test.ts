@@ -40,6 +40,9 @@ const pairs: [text: string, background: string][] = [
   ['text-muted', 'bg'],
   ['text-muted', 'surface'],
   ['text-muted', 'selected'],
+  // 削除など、元に戻せない操作のボタンの文字（枠だけで、背景は塗らない）
+  ['danger', 'bg'],
+  ['danger', 'surface'],
   ['on-mode-production', 'mode-production'],
   ['on-mode-development', 'mode-development'],
   ['on-mode-testing', 'mode-testing'],

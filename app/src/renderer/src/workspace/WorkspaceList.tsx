@@ -12,6 +12,8 @@ export function WorkspaceList(props: {
   currentId: number | null
   onSwitch: (id: number) => void
   onAdd: () => void
+  // 削除の確認を出す（行の右の「×」）
+  onDelete: (id: number) => void
   // 今の Workspace の行の下に並べるもの（タブ列）
   children?: React.ReactNode
 }): React.JSX.Element {
@@ -25,20 +27,31 @@ export function WorkspaceList(props: {
           const state = displayState(w, now)
           return (
             <li key={w.id} className="workspace-item">
-              <button
-                type="button"
-                className="workspace-row"
-                aria-current={current ? 'true' : undefined}
-                onClick={() => props.onSwitch(w.id)}
-              >
-                <span className={`mode-dot mode-${w.mode}`} aria-hidden="true" />
-                <span className="workspace-name">{w.name}</span>
-                {state !== 'active' && (
-                  <span className={`workspace-state state-${state}`}>
-                    {t(`workspace.state.${state}`)}
-                  </span>
-                )}
-              </button>
+              <div className="workspace-line">
+                <button
+                  type="button"
+                  className="workspace-row"
+                  aria-current={current ? 'true' : undefined}
+                  onClick={() => props.onSwitch(w.id)}
+                >
+                  <span className={`mode-dot mode-${w.mode}`} aria-hidden="true" />
+                  <span className="workspace-name">{w.name}</span>
+                  {state !== 'active' && (
+                    <span className={`workspace-state state-${state}`}>
+                      {t(`workspace.state.${state}`)}
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  className="workspace-delete-button"
+                  aria-label={t('workspace.deleteButton', { name: w.name })}
+                  title={t('workspace.deleteButton', { name: w.name })}
+                  onClick={() => props.onDelete(w.id)}
+                >
+                  <span aria-hidden="true">×</span>
+                </button>
+              </div>
               {current && props.children}
             </li>
           )
