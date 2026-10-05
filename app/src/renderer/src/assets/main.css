@@ -81,6 +81,7 @@ body {
 .top-bar {
   grid-area: top;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 16px;
   padding: 0 8px;
@@ -817,4 +818,10 @@ body {
 /* 画面を出したときにプログラムでフォーカスする見出し（読み上げの起点）。押す部品ではないので枠は出さない */
 h1[tabindex='-1']:focus {
   outline: none;
+}
+
+/* 起動のときの知らせは、上端の2段目に全幅で出す（アドレスバーを押し縮めない） */
+.startup-notice {
+  flex-basis: 100%;
+  margin-bottom: 8px;
 }

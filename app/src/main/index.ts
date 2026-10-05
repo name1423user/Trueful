@@ -287,7 +287,10 @@ app.whenReady().then(() => {
   // 起動のときに知らせること（壊れた DB を戻した、など）。DB の準備を待ってから返す
   handle(startupNotices, async () => {
     await databaseReady.catch(() => undefined)
-    return databaseRecovery ? [databaseRecovery] : []
+    // 知らせるのは1回だけ（ウィンドウを開き直したとき・再読み込みのときに、また出さない）
+    const notices = databaseRecovery ? [databaseRecovery] : []
+    databaseRecovery = undefined
+    return notices
   })
   handle(startupMode, async () => {
     const m = await mode

@@ -21,14 +21,23 @@ export function StartupNotice(): React.JSX.Element {
       alive = false
     }
   }, [])
+  // 新しく作った（以前の Workspace が一覧から消えた）ときは、強く知らせる（ADR-012 の「復旧不可」）
+  const severe = notices.some((n) => n.kind === 'recreated')
+  const message = notices.map((n) => t(`startupNotice.${n.kind}`, { file: n.brokenFile })).join(' ')
   return (
     <div className={notices.length > 0 ? 'startup-notice' : undefined}>
       <p role="status" aria-live="polite">
-        {notices.map((n) => t(`startupNotice.${n.kind}`, { file: n.brokenFile })).join(' ')}
+        {!severe && message}
       </p>
+      {severe && <p role="alert">{message}</p>}
       {notices.length > 0 && (
-        <button type="button" className="dormant-notice-close" onClick={() => setNotices([])}>
-          {t('workspace.dormantNoticeClose')}
+        <button
+          type="button"
+          className="dormant-notice-close"
+          aria-label={t('startupNotice.closeLabel')}
+          onClick={() => setNotices([])}
+        >
+          {t('startupNotice.close')}
         </button>
       )}
     </div>

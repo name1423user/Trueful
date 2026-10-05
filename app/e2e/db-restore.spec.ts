@@ -31,7 +31,7 @@ test('DB が壊れていたら、バックアップから戻して知らせる�
       const notice = window.getByRole('status').filter({ hasText: 'バックアップから戻しました' })
       await expect(notice).toContainText('trueful.db.broken-')
       await window.screenshot({ path: `test-results/db-restore-${process.platform}.png` })
-      await window.getByRole('button', { name: '閉じる', exact: true }).click()
+      await window.getByRole('button', { name: 'データを戻したことの知らせを閉じる' }).click()
       await expect(notice).toHaveCount(0)
       await app.close()
     }
