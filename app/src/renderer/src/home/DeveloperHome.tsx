@@ -12,6 +12,8 @@ export function DeveloperHome(props: {
   onAdd: () => void
   // 開けなかったとき（Workspace が見つからないなど）。Home に留めて知らせる
   error?: IpcErrorCode
+  // 異常終了の確認で「復元しない」を選んで来た（案内文を変える）
+  afterCrash?: boolean
 }): React.JSX.Element {
   const { t } = useTranslation()
   const now = useNow()
@@ -23,7 +25,7 @@ export function DeveloperHome(props: {
       <h1 id="developer-home-title" ref={heading} tabIndex={-1}>
         {t('home.title')}
       </h1>
-      <p>{t('home.lead')}</p>
+      <p>{t(props.afterCrash ? 'home.leadAfterCrash' : 'home.lead')}</p>
       {props.error && <p role="alert">{t(`error.${props.error}`)}</p>}
       <ul className="home-cards">
         {props.workspaces.map((w) => {

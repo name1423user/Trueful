@@ -148,6 +148,15 @@
   },
   "home": {
     "title": "Developer Home",
-    "lead": "前回の終了から時間がたちました。開く Workspace を選んでください。"
+    "lead": "前回の終了から時間がたちました。開く Workspace を選んでください。",
+    "leadAfterCrash": "前回の Workspace とタブは復元していません。開く Workspace を選んでください。"
+  },
+  "crash": {
+    "title": "前回は正しく終了しませんでした",
+    "lead": "前回の Workspace とタブを復元しますか？",
+    "restore": "復元する",
+    "restoring": "復元中…",
+    "skip": "復元しない",
+    "failed": "復元できませんでした。{{reason}}"
   }
 }

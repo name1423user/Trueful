@@ -101,6 +101,24 @@ import { isExternalUrl } from './window/services/externalUrl'
 // E2E などで、保存場所を普段の userData から切り替える。配布版では使わない
 const userDataDir = process.env['TRUEFUL_USER_DATA_DIR']
 if (!app.isPackaged && userDataDir) app.setPath('userData', userDataDir)
+// 起動は1つだけ（同じ保存場所で2つ動くと、同じ DB に書き、異常終了の判定 clean_exit も壊れる。F12）。
+// 2つ目は何もせずに終わり（DB にも触れない）、1つ目のウィンドウを前に出す
+const gotSingleInstanceLock = app.requestSingleInstanceLock()
+if (!gotSingleInstanceLock) {
+  console.warn(
+    '[main] 同じ保存場所で、もう Trueful が動いているので終わる',
+    app.getPath('userData')
+  )
+  app.exit(0)
+}
+// ウィンドウがなければ（macOS でウィンドウを全部閉じた）作り直す。whenReady の中で決める
+let reopenWindow = (): void => {}
+app.on('second-instance', () => {
+  const window = mainWindow
+  if (!window || window.isDestroyed()) return reopenWindow()
+  if (window.isMinimized()) window.restore()
+  window.focus()
+})
 // E2E で、ページの実体の上限（F02 の 30 個）を小さくして確かめる。配布版では使わない
 const maxPageViews = Number(process.env['TRUEFUL_MAX_PAGE_VIEWS'])
 const pageViewLimit =
@@ -175,6 +193,8 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  // app.exit が効く前に ready まで進んでも、2つ目は何もしない（DB・clean_exit に触れない）
+  if (!gotSingleInstanceLock) return
   // UI のセッション（既定のセッション）は、カメラ・通知などの権限をすべて拒否する。
   // Web ページ用のセッションの権限は、M2 以降で別に決める。
   // UI の renderer では Clipboard API や全画面も使えなくなるので、クリップボードは IPC 経由で Main の clipboard を使う
@@ -247,7 +267,14 @@ app.whenReady().then(() => {
   // 起動のときに1回だけ決める（F11）。前回の正常な終了から「Developer Home までの時間」を超えていたら Developer Home。
   // 決められなかったら（DB の準備に失敗など）、復元にする
   const mode: Promise<StartupMode> = databaseReady
-    .then((db) => decideStartupMode(beginSession(db), Date.now(), store.get().settings))
+    .then((db) =>
+      decideStartupMode(
+        beginSession(db),
+        getCurrentWorkspaceId(db) !== null,
+        Date.now(),
+        store.get().settings
+      )
+    )
     .catch(() => 'restore' as const)
   // Developer Home を出すのは、起動して最初の画面だけ。macOS でウィンドウを開き直したときは復元する
   let startupShown = false
@@ -360,7 +387,7 @@ app.whenReady().then(() => {
         if (current !== null && !quitting && db.isOpen) pages.showActive(db, current)
       })
       .catch((e) => console.error('[main] ページを表示できなかった', e))
-  // Developer Home を出すときは、ページを読み込まない（Workspace を選んだら、切り替えで表示する）
+  // Developer Home・異常終了の確認を出すときは、ページを読み込まない（選んだら、切り替えで表示する）
   void mode.then((m) => {
     if (m === 'restore') showCurrent()
   })
@@ -575,13 +602,16 @@ app.whenReady().then(() => {
     return null
   })
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length > 0) return
-    // ウィンドウを作り直すときは、起動の画面（Developer Home など）は出さない
+  // ウィンドウを作り直すときは、起動の画面（Developer Home など）は出さない
+  reopenWindow = () => {
     startupShown = true
     createWindow()
     views.attach(mainWindow!)
     showCurrent()
+  }
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length > 0) return
+    reopenWindow()
   })
 })
 

@@ -303,16 +303,18 @@ body {
   background: var(--mode-custom);
 }
 
-/* Workspace を作る画面と、削除の確認 */
+/* Workspace を作る画面と、削除の確認と、異常終了の後の確認 */
 .workspace-create,
-.workspace-delete {
+.workspace-delete,
+.crash-restore {
   display: grid;
   gap: 16px;
   width: min(400px, 100% - 32px);
 }
 
 .workspace-create h1,
-.workspace-delete h1 {
+.workspace-delete h1,
+.crash-restore h1 {
   margin: 0;
   font-size: 20px;
 }
@@ -334,7 +336,8 @@ body {
   gap: 8px;
 }
 
-.workspace-delete p {
+.workspace-delete p,
+.crash-restore p {
   margin: 0;
 }
 
@@ -348,7 +351,8 @@ body {
 }
 
 .workspace-create .actions,
-.workspace-delete .actions {
+.workspace-delete .actions,
+.crash-restore .actions {
   display: flex;
   gap: 8px;
 }
@@ -805,4 +809,9 @@ body {
 .permission-actions button:focus-visible {
   outline: 2px solid var(--text);
   outline-offset: 1px;
+}
+
+/* 画面を出したときにプログラムでフォーカスする見出し（読み上げの起点）。押す部品ではないので枠は出さない */
+h1[tabindex='-1']:focus {
+  outline: none;
 }

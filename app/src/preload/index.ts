@@ -29,8 +29,9 @@ function subscribe<A extends unknown[]>(
 // チャネルの定義と引数の検証は app/src/main/ipc/ にある。ここでは名前（channelNames）と型だけを使う
 const api = {
   startup: {
-    // 起動したときに決めた表示（restore: 前回の Workspace とタブ、developer-home: Workspace の一覧。F11）
-    mode: (): Promise<IpcResult<'restore' | 'developer-home'>> =>
+    // 起動したときに決めた表示（restore: 前回の Workspace とタブ、developer-home: Workspace の一覧。F11、
+    // crash: 異常終了の後なので、復元するかを聞く。F12）
+    mode: (): Promise<IpcResult<'restore' | 'developer-home' | 'crash'>> =>
       ipcRenderer.invoke(channelNames.startupMode)
   },
   settings: {
