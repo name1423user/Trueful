@@ -177,7 +177,7 @@ function App(): React.JSX.Element {
         {/* 権限の確認が出たことの読み上げ（領域は常に置き、中身だけ入れ替える） */}
         <p role="status" aria-live="polite" className="visually-hidden">
           {permission.prompt &&
-            !showCreate &&
+            !pageHidden &&
             permissionMessage(t, permission.prompt.origin, permission.prompt.permission)}
         </p>
       </header>
