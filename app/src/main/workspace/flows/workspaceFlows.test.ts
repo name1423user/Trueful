@@ -2,11 +2,19 @@ import { DatabaseSync } from 'node:sqlite'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { migrations } from '../../db/migrations'
 import { migrate } from '../../db/services/migrate'
-import { listTabs, NEW_TAB_URL } from '../../tab/services/tabDB'
-import { getCurrentWorkspaceId, listWorkspaces } from '../services/workspaceDB'
+import { TabNotFoundError } from '../../tab/flows/tabFlows'
+import { getTab, insertTab, listTabs, NEW_TAB_URL } from '../../tab/services/tabDB'
+import {
+  getCurrentWorkspaceId,
+  getWorkspace,
+  listWorkspaces,
+  setWorkspaceDormant
+} from '../services/workspaceDB'
 import {
   createWorkspaceFlow,
   deleteWorkspaceFlow,
+  moveTabFlow,
+  SameWorkspaceError,
   switchWorkspace,
   WorkspaceNotFoundError
 } from './workspaceFlows'
@@ -199,5 +207,151 @@ describe('Workspace の削除（F01）', () => {
     await make(['A'])
     expect(() => deleteWorkspaceFlow(db, 999)).toThrow()
     expect(snapshots()).toEqual([])
+  })
+})
+
+describe('タブを別の Workspace へ移す（F17）', () => {
+  // A と B を作り、A に URL つきのタブを2つ置く（A のタブ: 空・x・y。今の Workspace は B）
+  async function setup(): Promise<{ a: number; b: number; x: number; y: number }> {
+    const create = createWorkspaceFlow()
+    const a = (await create(db, { name: 'A', mode: 'custom', requestId: 'r1' }, 1000)).id
+    const b = (await create(db, { name: 'B', mode: 'production', requestId: 'r2' }, 2000)).id
+    const x = insertTab(db, { workspaceId: a, url: 'https://x.example/', title: 'X' }, 1100).id
+    const y = insertTab(db, { workspaceId: a, url: 'https://y.example/', title: 'Y' }, 1200).id
+    return { a, b, x, y }
+  }
+
+  it('移動先に同じ URL とタイトルのタブが開き（選ばれる）、元の Workspace からは消える', async () => {
+    const { a, b, x } = await setup()
+    const moved = moveTabFlow(db, { tabId: x, fromWorkspaceId: a, toWorkspaceId: b }, 5000)
+    expect(moved).toMatchObject({ workspaceId: b, url: 'https://x.example/', title: 'X' })
+    const inB = listTabs(db, b)
+    expect(inB.at(-1)).toMatchObject({ url: 'https://x.example/', lastActiveTimeMs: 5000 })
+    expect(getTab(db, x)).toBeUndefined()
+    // 元の並びは 0, 1, … にそろう
+    expect(listTabs(db, a).map((t) => [t.url, t.position])).toEqual([
+      [NEW_TAB_URL, 0],
+      ['https://y.example/', 1]
+    ])
+  })
+
+  it('今の Workspace は変えない（移したあとも、見ている Workspace のまま）', async () => {
+    const { a, b, x } = await setup()
+    moveTabFlow(db, { tabId: x, fromWorkspaceId: a, toWorkspaceId: b })
+    expect(getCurrentWorkspaceId(db)).toBe(b)
+  })
+
+  it('最後の1つのタブを移すと、元の Workspace には空のタブが1つ開く', async () => {
+    const create = createWorkspaceFlow()
+    const a = (await create(db, { name: 'A', mode: 'custom', requestId: 'r1' }, 1000)).id
+    const b = (await create(db, { name: 'B', mode: 'custom', requestId: 'r2' }, 2000)).id
+    const only = listTabs(db, a)[0]!
+    db.prepare('UPDATE tab SET url = ? WHERE id = ?').run('https://only.example/', only.id)
+    moveTabFlow(db, { tabId: only.id, fromWorkspaceId: a, toWorkspaceId: b })
+    expect(listTabs(db, a)).toMatchObject([{ url: NEW_TAB_URL, position: 0 }])
+  })
+
+  it('移動先が休止していたら復帰させる（休止の時刻は消え、最後に使った時刻を更新する）', async () => {
+    const { a, b } = await setup()
+    setWorkspaceDormant(db, a, 3000)
+    expect(getWorkspace(db, a)!.status).toBe('dormant')
+    // A（休止）へ、B のタブを移す
+    const t = insertTab(db, { workspaceId: b, url: 'https://t.example/' }, 3500).id
+    moveTabFlow(db, { tabId: t, fromWorkspaceId: b, toWorkspaceId: a }, 4000)
+    expect(getWorkspace(db, a)).toMatchObject({
+      status: 'active',
+      dormantedTimeMs: null,
+      lastUsedTimeMs: 4000
+    })
+  })
+
+  it('復帰で上限（5 個）を超えたら、ほかの Workspace を休止にする。ただし見ている今の Workspace は休止にしない', async () => {
+    const create = createWorkspaceFlow()
+    const ids: number[] = []
+    for (let i = 0; i < 6; i++) {
+      // 6 個目を作ると、いちばん古い 1 個目が休止する
+      ids.push(
+        (await create(db, { name: `W${i}`, mode: 'custom', requestId: `r${i}` }, 1000 * (i + 1))).id
+      )
+    }
+    const [first, second, third] = ids as [number, number, number]
+    expect(getWorkspace(db, first)!.status).toBe('dormant')
+    // 2 個目を今の Workspace にする（最後に使った時刻は 1500。active の中でいちばん古い）
+    switchWorkspace(db, second, 1500)
+    const moving = insertTab(db, { workspaceId: second, url: 'https://m.example/' }, 1600).id
+    moveTabFlow(db, { tabId: moving, fromWorkspaceId: second, toWorkspaceId: first }, 7000)
+    expect(getWorkspace(db, first)!.status).toBe('active') // 復帰
+    expect(getWorkspace(db, second)!.status).toBe('active') // 今の Workspace は守る
+    expect(getWorkspace(db, third)!.status).toBe('dormant') // 次に古いものが休止
+    expect(getCurrentWorkspaceId(db)).toBe(second)
+  })
+
+  it('元の Workspace では、選ばれていたタブを移すと、前に使っていたタブが選ばれる。移動先では、移したタブが末尾に入り、ほかの並びは変わらない', async () => {
+    const { a, b, x, y } = await setup() // y が A で最後に選ばれたタブ
+    const inB = insertTab(db, { workspaceId: b, url: 'https://b.example/' }, 1300).id
+    moveTabFlow(db, { tabId: y, fromWorkspaceId: a, toWorkspaceId: b }, 5000)
+    // A: 空のタブ・x のうち、最後に選んだのは x
+    const active = db
+      .prepare(
+        'SELECT id FROM tab WHERE workspace_id = ? ORDER BY last_active_time_ms DESC LIMIT 1'
+      )
+      .get(a) as { id: number }
+    expect(active.id).toBe(x)
+    expect(listTabs(db, b).map((t) => [t.url, t.position])).toEqual([
+      [NEW_TAB_URL, 0],
+      ['https://b.example/', 1],
+      ['https://y.example/', 2]
+    ])
+    expect(inB).toBeDefined()
+  })
+
+  it('移動先が休止していなければ、最後に使った時刻は変えない', async () => {
+    const { a, b, x } = await setup()
+    const before = getWorkspace(db, b)!.lastUsedTimeMs
+    moveTabFlow(db, { tabId: x, fromWorkspaceId: a, toWorkspaceId: b }, 9000)
+    expect(getWorkspace(db, b)!.lastUsedTimeMs).toBe(before)
+  })
+
+  it('タブが元の Workspace のものでなければ TabNotFoundError、移動先がなければ WorkspaceNotFoundError、同じ Workspace なら SameWorkspaceError。どれも何も変えない', async () => {
+    const { a, b, x } = await setup()
+    const snapshot = (): unknown => [listTabs(db, a), listTabs(db, b)]
+    const before = snapshot()
+    expect(() => moveTabFlow(db, { tabId: x, fromWorkspaceId: b, toWorkspaceId: a })).toThrow(
+      TabNotFoundError
+    )
+    expect(() => moveTabFlow(db, { tabId: 999, fromWorkspaceId: a, toWorkspaceId: b })).toThrow(
+      TabNotFoundError
+    )
+    expect(() => moveTabFlow(db, { tabId: x, fromWorkspaceId: a, toWorkspaceId: 999 })).toThrow(
+      WorkspaceNotFoundError
+    )
+    expect(() => moveTabFlow(db, { tabId: x, fromWorkspaceId: a, toWorkspaceId: a })).toThrow(
+      SameWorkspaceError
+    )
+    expect(snapshot()).toEqual(before)
+  })
+
+  it('復帰させたあとに失敗しても、休止のまま戻る（復帰も取り消す）', async () => {
+    const { a, b, x } = await setup()
+    setWorkspaceDormant(db, b, 3000)
+    db.exec(
+      "CREATE TRIGGER fail_delete BEFORE DELETE ON tab BEGIN SELECT RAISE(ABORT, 'boom'); END"
+    )
+    expect(() => moveTabFlow(db, { tabId: x, fromWorkspaceId: a, toWorkspaceId: b }, 4000)).toThrow(
+      'boom'
+    )
+    expect(getWorkspace(db, b)).toMatchObject({ status: 'dormant', dormantedTimeMs: 3000 })
+  })
+
+  it('途中で失敗したら何も残さない（移動先に足した後に、元のタブを消せなかったとき）', async () => {
+    const { a, b, x } = await setup()
+    db.exec(
+      "CREATE TRIGGER fail_delete BEFORE DELETE ON tab BEGIN SELECT RAISE(ABORT, 'boom'); END"
+    )
+    const before = [listTabs(db, a), listTabs(db, b)]
+    expect(() => moveTabFlow(db, { tabId: x, fromWorkspaceId: a, toWorkspaceId: b })).toThrow(
+      'boom'
+    )
+    expect([listTabs(db, a), listTabs(db, b)]).toEqual(before)
   })
 })

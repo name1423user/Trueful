@@ -109,6 +109,13 @@ export class TabPages {
     return state
   }
 
+  // タブを別の Workspace へ移したあと、元のタブのページを破棄して、記録の控えを忘れる
+  // （タブの id は使い回されうる。控えが残ると、同じ id の別のタブの最初の訪問を記録し損ねる）
+  forget(id: number): void {
+    this.views.destroy(id)
+    this.lastRecorded.delete(id)
+  }
+
   // 戻る・進む・再読み込み・停止（ページがまだないタブでは何もしない）
   control(db: DatabaseSync, workspaceId: number, id: number, action: PageAction): void {
     this.owned(db, workspaceId, id)

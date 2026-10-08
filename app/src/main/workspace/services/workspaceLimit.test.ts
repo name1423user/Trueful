@@ -27,6 +27,10 @@ describe('フルアクティブな Workspace の上限（F01・ADR-011）', () =
     expect(workspacesToDormant(active(6), 5, 1)).toEqual([2])
   })
 
+  it('除外は複数も渡せる（古い順に飛ばして、次に古いものを選ぶ）', () => {
+    expect(workspacesToDormant(active(6), 5, [1, 2])).toEqual([3])
+  })
+
   it('並び順に頼らず、最後に使った時刻で選ぶ。同じ時刻なら id の小さい方', () => {
     const list = [
       { id: 9, lastUsedTimeMs: 50 },

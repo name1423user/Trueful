@@ -150,6 +150,9 @@ const api = {
       ipcRenderer.invoke(channelNames.tabReopenClosed, { workspaceId }),
     activate: (workspaceId: number, id: number): Promise<IpcResult<Tab>> =>
       ipcRenderer.invoke(channelNames.tabActivate, { workspaceId, id }),
+    // タブを別の Workspace へ移す（F17）。返事は移動先にできたタブ
+    move: (workspaceId: number, id: number, toWorkspaceId: number): Promise<IpcResult<Tab>> =>
+      ipcRenderer.invoke(channelNames.tabMove, { workspaceId, id, toWorkspaceId }),
     navigate: (workspaceId: number, id: number, input: string): Promise<IpcResult<Tab>> =>
       ipcRenderer.invoke(channelNames.tabNavigate, { workspaceId, id, input }),
     control: (
