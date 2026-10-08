@@ -24,6 +24,15 @@ export const tabClose = defineChannel<TabState>()(
   channelNames.tabClose,
   z.object({ workspaceId: id, id }).strict()
 )
+// タブを別の Workspace へ移す（F17）。workspaceId が元、toWorkspaceId が移動先（同じなら invalid-args）。
+// 返事は、移動先にできたタブ。タブが元の Workspace のものでなければ not-found
+export const tabMove = defineChannel<Tab>()(
+  channelNames.tabMove,
+  z
+    .object({ workspaceId: id, id, toWorkspaceId: id })
+    .strict()
+    .refine((a) => a.workspaceId !== a.toWorkspaceId, { message: '移動先が同じ Workspace' })
+)
 // 閉じたタブを戻す（Cmd/Ctrl+Shift+T）。戻すものがなければ null
 export const tabReopenClosed = defineChannel<Tab | null>()(
   channelNames.tabReopenClosed,

@@ -14,6 +14,7 @@ import {
   tabControl,
   tabCreate,
   tabList,
+  tabMove,
   tabNavigate,
   tabReopenClosed,
   viewSetBounds
@@ -78,6 +79,7 @@ import { TabViews } from './tab/services/tabViews'
 import {
   createWorkspaceFlow,
   deleteWorkspaceFlow,
+  moveTabFlow,
   switchWorkspace,
   WorkspaceNotFoundError
 } from './workspace/flows/workspaceFlows'
@@ -609,6 +611,27 @@ app.whenReady().then(() => {
       workspaceId,
       notFoundAs(() => tabs.activate(db, workspaceId, id))
     )
+  })
+  // 別の Workspace へ移す（F17）。DB が先。成功したら、元のページを破棄し、今の Workspace の選択中のタブを表示し直し、
+  // 移動先の復帰で休止したページを破棄する。移動先のページは、その Workspace を開くときに読み込む
+  handle(tabMove, async ({ workspaceId, id, toWorkspaceId }) => {
+    const db = await getDatabase()
+    try {
+      const moved = moveTabFlow(db, { tabId: id, fromWorkspaceId: workspaceId, toWorkspaceId })
+      views.destroy(id)
+      const current = getCurrentWorkspaceId(db)
+      if (current !== null) pages.showActive(db, current)
+      releaseDormant(db)
+      // 今の Workspace のタブ列が変わった（元か移動先）。画面に読み直させる
+      for (const changed of [workspaceId, toWorkspaceId]) {
+        mainWindow?.webContents.send(channelNames.tabListChanged, changed)
+      }
+      return moved
+    } catch (e) {
+      if (e instanceof TabNotFoundError || e instanceof WorkspaceNotFoundError)
+        throw new IpcHandlerError('not-found', e.message)
+      throw e
+    }
   })
   handle(tabNavigate, async ({ workspaceId, id, input }) => {
     const db = await getWorkspaceDatabase(workspaceId)

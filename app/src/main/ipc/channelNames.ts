@@ -33,6 +33,7 @@ export const channelNames = {
   tabActivate: 'tab:activate',
   tabNavigate: 'tab:navigate',
   tabControl: 'tab:control',
+  tabMove: 'tab:move',
   viewSetBounds: 'view:setBounds',
   startupMode: 'startup:mode',
   startupNotices: 'startup:notices',

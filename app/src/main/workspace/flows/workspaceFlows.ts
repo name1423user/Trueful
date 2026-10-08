@@ -1,6 +1,16 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { inTransaction } from '../../db/services/transaction'
-import { insertTab, listTabs, NEW_TAB_URL } from '../../tab/services/tabDB'
+import { TabNotFoundError } from '../../tab/flows/tabFlows'
+import {
+  compactPositions,
+  deleteTab,
+  getTab,
+  insertTab,
+  latestActiveTime,
+  listTabs,
+  NEW_TAB_URL,
+  type Tab
+} from '../../tab/services/tabDB'
 import {
   deleteWorkspaceRow,
   getCurrentWorkspaceId,
@@ -82,6 +92,51 @@ function activateWorkspace(db: DatabaseSync, id: number, now: number): Workspace
   setCurrentWorkspaceId(db, id)
   limitActiveWorkspaces(db, id, now)
   return getWorkspace(db, id)!
+}
+
+export class SameWorkspaceError extends Error {
+  constructor(readonly id: number) {
+    super(`移動先が同じ Workspace ${id}`)
+    this.name = 'SameWorkspaceError'
+  }
+}
+
+// タブを別の Workspace へ移す（F17）。移動先に同じ URL・タイトルのタブを開いて（そこで選ばれる）、元のタブは消す
+// （閉じたタブの控えには積まない。移したのであって、閉じたのではない）。ページの実体は引き継がない
+// （移動先は Cookie が別なので、読み込み直す）。移動先が休止していたら復帰させる（上限を超えたらほかを休止にする。
+// 呼び出し側で休止したページを破棄する）。今の Workspace は変えない。元の Workspace が空になったら、空のタブを1つ開く。
+// 全部1つのトランザクション（途中で失敗したら何も残さない）。返すのは、移動先のタブ
+export function moveTabFlow(
+  db: DatabaseSync,
+  input: { tabId: number; fromWorkspaceId: number; toWorkspaceId: number },
+  now = Date.now()
+): Tab {
+  const { tabId, fromWorkspaceId, toWorkspaceId } = input
+  return inTransaction(db, () => {
+    const tab = getTab(db, tabId)
+    if (!tab || tab.workspaceId !== fromWorkspaceId) throw new TabNotFoundError(tabId)
+    if (fromWorkspaceId === toWorkspaceId) throw new SameWorkspaceError(toWorkspaceId)
+    const destination = getWorkspace(db, toWorkspaceId)
+    if (!destination) throw new WorkspaceNotFoundError(toWorkspaceId)
+    if (destination.status === 'dormant') {
+      touchWorkspace(db, toWorkspaceId, now)
+      setWorkspaceActive(db, toWorkspaceId)
+      limitActiveWorkspaces(db, toWorkspaceId, now)
+    }
+    // 選択の時刻は、同じミリ秒の操作や時計の巻き戻りでも新しくなるようにする（TabFlows と同じ）
+    const stamp = Math.max(now, (latestActiveTime(db, toWorkspaceId) ?? -1) + 1)
+    const moved = insertTab(
+      db,
+      { workspaceId: toWorkspaceId, url: tab.url, title: tab.title },
+      stamp
+    )
+    deleteTab(db, tabId)
+    compactPositions(db, fromWorkspaceId)
+    if (listTabs(db, fromWorkspaceId).length === 0) {
+      insertTab(db, { workspaceId: fromWorkspaceId, url: NEW_TAB_URL }, now)
+    }
+    return moved
+  })
 }
 
 // Workspace を削除する（F01）。スナップショットを書いてから行を消す（タブ・履歴などは外部キーで消える）。

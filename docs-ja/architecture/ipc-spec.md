@@ -50,6 +50,7 @@ IPCはinvoke型（request/response）を採用。詳細は [ADR-007](./adr/adr-0
 | `tab:close` | R→M | タブを閉じる（Cmd/Ctrl+W）。選択中を閉じたら、その前に選んでいたタブを選ぶ（使った順）。最後の1つを閉じたら空のタブを開く。閉じた後のタブ列を返す。`workspaceId` とタブの持ち主が違えば `not-found` |
 | `tab:reopenClosed` | R→M | 最後に閉じたタブを、閉じたときと同じ「左から何番目」に戻して選ぶ（足りなければ右端。Cmd/Ctrl+Shift+T）。控えは Workspace ごとにメモリだけ、25 個まで。空のタブは積まない。なければ `null` |
 | `tab:activate` | R→M | タブを選ぶ。`workspaceId` とタブの持ち主が違えば `not-found` |
+| `tab:move` | R→M | タブを別の Workspace へ移す（F17）。`workspaceId` が元、`id` がタブ、`toWorkspaceId` が移動先（元と同じなら invalid-args、タブが元のものでない・Workspace がなければ not-found）。移動先に同じ URL・タイトルのタブが開いて（そこで選ばれる）、元のタブは消える（閉じたタブの控えには積まない）。ページの実体は引き継がない（移動先は Cookie が別なので、その Workspace を開くとき読み込む）。移動先が休止していたら復帰させる。今の Workspace は変えない。返事は移動先のタブ |
 | `tab:navigate` | R→M | アドレスバーの入力を開く（F02）。Main が解釈する: 1〜65535 の数字は `http://localhost:<番号>`、「近道のキーワード 語」は近道（settings の shortcuts）、URL らしいものは開き（スキームがなければ https、localhost と IP は http）、それ以外は既定の検索エンジン（Google）で検索。開くのは http・https と `about:blank` だけ |
 | `tab:control` | R→M | 戻る・進む・再読み込み・停止（`action`）。ページがまだないタブでは何もしない |
 | `startup:mode` | R→M | 起動したときに決めた表示（`restore`: 前回の Workspace とタブ、`developer-home`: Workspace の一覧。F11、`crash`: 異常終了の後なので「復元しますか」と聞く。F12）。前回が異常終了（`app_state.clean_exit` が 0）で Workspace があれば、設定にかかわらず `crash`。それ以外は、前回の正常な終了（`last_quit_time_ms`）から設定の `developerHomeAfterMinutes` を超えていたら `developer-home`。`showDeveloperHome` が false・終了の記録がない（初めての起動）・時計が戻っていたときは `restore`。返すのは起動して最初の1回だけで、その後（macOS でウィンドウを開き直したときなど）は `restore` |
