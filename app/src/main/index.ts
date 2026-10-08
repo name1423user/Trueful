@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, session, shell } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, session, shell } from 'electron'
 import { existsSync, readdirSync } from 'node:fs'
 import type { DatabaseSync } from 'node:sqlite'
 import { join } from 'path'
@@ -60,7 +60,7 @@ import { listPermissions, revokePermission } from './permission/services/permiss
 import { PermissionFlows } from './permission/flows/permissionFlows'
 import { PermissionPrompts } from './permission/flows/permissionPrompts'
 import { originOf } from './permission/services/permissionMap'
-import { omniboxSuggest } from './ipc/omniboxChannels'
+import { omniboxCopy, omniboxSuggest } from './ipc/omniboxChannels'
 import { suggest } from './omnibox/flows/omniboxSuggest'
 import { startupMode, startupNotices } from './ipc/startupChannels'
 import {
@@ -486,6 +486,11 @@ app.whenReady().then(() => {
   handle(omniboxSuggest, async ({ query, workspaceId }) =>
     suggest(await getDatabase(), { query, workspaceId, shortcuts: store.get().settings.shortcuts })
   )
+
+  handle(omniboxCopy, ({ text }) => {
+    clipboard.writeText(text)
+    return null
+  })
 
   // 閲覧履歴（F09）
   handle(historySearch, async (input) => searchHistory(await getDatabase(), input))

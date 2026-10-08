@@ -8,6 +8,7 @@ export const channelNames = {
   workspaceDelete: 'workspace:delete',
   historySearch: 'history:search',
   omniboxSuggest: 'omnibox:suggest',
+  omniboxCopy: 'omnibox:copy',
   historyDelete: 'history:delete',
   bookmarkList: 'bookmark:list',
   bookmarkAdd: 'bookmark:add',

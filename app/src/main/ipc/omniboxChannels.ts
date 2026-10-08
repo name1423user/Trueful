@@ -13,3 +13,10 @@ export const omniboxSuggest = defineChannel<OmniboxCandidate[]>()(
     })
     .strict()
 )
+
+// 「その場の答え」のコピー。Renderer は Clipboard API を使えない（権限の判定が拒否する）ので、Main の clipboard に書く。
+// 答えは MAX_INPUT（2000）文字までの入力から作られるが、Base64 などで伸びるので余裕を見る
+export const omniboxCopy = defineChannel<null>()(
+  channelNames.omniboxCopy,
+  z.object({ text: z.string().min(1).max(16_384) }).strict()
+)

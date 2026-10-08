@@ -90,6 +90,32 @@
     "reload": "再読み込み",
     "back": "戻る"
   },
+  "omnibox": {
+    "listLabel": "候補",
+    "copyHint": "選ぶとコピー",
+    "copied": "コピーしました: {{value}}",
+    "copyFailed": "コピーできませんでした。",
+    "kind": {
+      "url": "開く",
+      "search": "検索",
+      "tab": "タブ",
+      "history": "履歴",
+      "bookmark": "ブックマーク",
+      "workspace": "Workspace"
+    },
+    "answer": {
+      "unix-to-date": "日時",
+      "date-to-unix": "Unix 時刻",
+      "unix-now": "今の Unix 時刻",
+      "calc": "計算",
+      "color": "色",
+      "base64-encode": "Base64 にする",
+      "base64-decode": "Base64 を戻す",
+      "url-encode": "URL エンコード",
+      "url-decode": "URL デコード",
+      "uuid": "UUID"
+    }
+  },
   "tab": {
     "listLabel": "タブ",
     "newTab": "新しいタブ",

@@ -19,6 +19,8 @@ export function useTabs(workspaceId: number | null): {
   pages: Pages
   // 操作が成功したら true（失敗したら、画面は入力などを残す）
   run: (op: (api: Api, workspaceId: number) => Promise<{ ok: boolean }>) => Promise<boolean>
+  // タブ列を読み直す（Workspace を切り替えた直後に、切り替え先のタブを操作したあとなど。呼んだ時点の Workspace で読む）
+  refresh: () => Promise<void>
 } {
   // タブ列は、どの Workspace のものかと一緒に持つ。今の Workspace のものでなければ空として扱う
   const [state, setState] = useState<TabState & { workspaceId: number | null }>({
@@ -82,12 +84,19 @@ export function useTabs(workspaceId: number | null): {
     [workspaceId, reload]
   )
 
+  const reloadRef = useRef(reload)
+  useEffect(() => {
+    reloadRef.current = reload
+  })
+  const refresh = useCallback(() => reloadRef.current(), [])
+
   const mine = state.workspaceId === workspaceId
   return {
     tabs: mine ? state.tabs : [],
     activeId: mine ? state.activeId : null,
     discardedIds: mine ? state.discardedIds : [],
     pages,
-    run
+    run,
+    refresh
   }
 }

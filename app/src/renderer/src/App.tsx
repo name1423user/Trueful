@@ -14,6 +14,7 @@ import { permissionMessage } from './permission/message'
 import { PermissionBar } from './permission/PermissionBar'
 import { usePermissionPrompt } from './permission/usePermissionPrompts'
 import { AddressBar } from './tab/AddressBar'
+import type { Candidate } from './omnibox/useSuggestions'
 import { ErrorScreen } from './tab/ErrorScreen'
 import { PageArea } from './tab/PageArea'
 import { TabList } from './tab/TabList'
@@ -82,6 +83,28 @@ function App(): React.JSX.Element {
 
   // 今のページをブックマークに足す（Cmd/Ctrl+D と、パネルのボタン）。http・https のページだけ
   const activeTab = tabs.tabs.find((tab) => tab.id === tabs.activeId)
+  // 統合検索欄の候補の一覧を置く場所（中央の列の先頭。一覧の分だけページが下がる）
+  const [omniboxSlot, setOmniboxSlot] = useState<HTMLElement | null>(null)
+  // 別のタブ・Workspace へ移る候補を選んだ（F10）。別の Workspace のものは、先にその Workspace へ切り替える
+  // （別の Mode の URL を、今の Workspace のログインで開かないため）。切り替えに失敗したら何もしない
+  const pickCandidate = async (c: Candidate): Promise<boolean> => {
+    const target = c.workspaceId
+    if (target === undefined) return false
+    if (c.otherWorkspace && (await switchTo(target))) return false
+    if (c.kind === 'workspace') return true
+    if (c.kind === 'tab' && c.tabId !== undefined) {
+      const result = await window.trueful.tab.activate(target, c.tabId)
+      await tabs.refresh()
+      return result.ok
+    }
+    // 別の Workspace の履歴: その Workspace に新しいタブを作って開く
+    if (c.url === undefined) return false
+    const created = await window.trueful.tab.create(target)
+    if (!created.ok) return false
+    const opened = await window.trueful.tab.navigate(target, created.value.id, c.url)
+    await tabs.refresh()
+    return opened.ok
+  }
   const addingPage = useRef(false)
   const addCurrentPage = async (): Promise<void> => {
     // 作成画面・削除の確認が開いているとき・進行中・http・https でないページは追加しない（ボタンとショートカットで同じ）
@@ -159,6 +182,12 @@ function App(): React.JSX.Element {
             key={activeTab?.id}
             tab={activeTab}
             page={activeTab && tabs.pages[activeTab.id]}
+            workspaceId={state.status === 'ready' ? state.currentId : null}
+            workspaceName={(id) =>
+              state.status === 'ready' ? state.workspaces.find((w) => w.id === id)?.name : undefined
+            }
+            slot={omniboxSlot}
+            onPick={pickCandidate}
             onNavigate={(input) => tabs.run((api, ws) => api.navigate(ws, activeTab!.id, input))}
             onControl={(action) =>
               void tabs.run((api, ws) => api.control(ws, activeTab!.id, action))
@@ -330,6 +359,7 @@ function App(): React.JSX.Element {
           />
         ) : startup === 'pending' ? null : (
           <>
+            <div ref={setOmniboxSlot} />
             {permission.prompt && (
               <PermissionBar
                 key={permission.prompt.id}
