@@ -121,6 +121,49 @@ describe('その場の答え（F10）', () => {
     })
   })
 
+  describe('レビューの指摘', () => {
+    it('対になっていないサロゲートでも例外を出さない（1文字ごとに呼ばれるため）', () => {
+      expect(answers('urlencode \uD800', ctx)).toEqual([])
+      expect(answers('urle a\uDC00b', ctx)).toEqual([])
+    })
+    it('13 桁を超える整数の計算で桁を落とさない', () => {
+      expect(one('1700000000000+1')?.value).toBe('1700000000001')
+      expect(one('2^53')?.value).toBe('9007199254740992')
+      expect(one('2^40')?.value).toBe('1099511627776')
+      expect(one('1 / 3')?.value).toBe('0.333333333333333') // 小数は 15 桁
+    })
+    it('西暦 0〜99 年を 1900 年代にしない', () => {
+      expect(one('0099-01-01')).toEqual({ kind: 'date-to-unix', value: '-59042995200' })
+    })
+    it('時差は 23:59 まで。+0900 と、空白のあとの時差も読む', () => {
+      expect(answers('2024-01-01T00:00:00+99:99', ctx)).toEqual([])
+      expect(one('2023-11-15T07:13:20+0900')?.value).toBe('1700000000')
+      expect(one('2023-11-15 07:13:20 +09:00')?.value).toBe('1700000000')
+    })
+    it('自分の出力（ミリ秒つきの ISO 8601）を読み返せる', () => {
+      expect(one('2023-11-14T22:13:20.000Z')).toEqual({ kind: 'date-to-unix', value: '1700000000' })
+    })
+    it('数字を - や / でつないだだけのもの（電話番号・日付）と、単項のマイナスだけの数は計算しない', () => {
+      for (const q of [
+        '555-1234',
+        '03-1234-5678',
+        '2024-1-1',
+        '1-2-3',
+        '12/31',
+        '2024/01/01',
+        '-1',
+        '-5'
+      ]) {
+        expect(answers(q, ctx), q).toEqual([])
+      }
+      expect(one('100 - 50')?.value).toBe('50') // 空白があれば計算
+    })
+    it('Base64 の復号: 制御文字になるもの・= が多すぎるものは断る', () => {
+      expect(answers('b64d AAAA', ctx)).toEqual([])
+      expect(answers('b64d aGVsbG8====', ctx)).toEqual([])
+    })
+  })
+
   it('ふつうの検索語には答えない', () => {
     for (const q of ['react hooks', 'example.com', 'uuid generator', 'now playing', 'github']) {
       expect(answers(q, ctx), q).toEqual([])

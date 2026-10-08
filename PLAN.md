@@ -207,7 +207,7 @@
 - 関係: `app/src/main/omnibox/`（commands、answers、shortcuts）、操作の定義ファイル
 - 受け入れ条件: Truefulの操作が言い換えの語で見つかる。その場の答え（Unix時刻、計算、色、Base64、URLエンコード、UUID）と近道（localhost、gh、npm、mdn）を単体テストで確認。言い換え語の初期セットはるりあの承認済み。
 - 依存: T4-1
-- 分割（2026-10-09、任された判断）: T4-1b1 その場の答え（Unix 時刻・日時、四則演算、色、Base64、URL エンコード、UUID。`omnibox/services/answers.ts`）。近道（localhost、gh、npm、mdn）は、T2-2b1 の `classifyInput` に入っている。T4-1b2 Truefulの操作（操作の定義ファイルと言い換えの語。初期セットは「るりあの承認済み」だが、リポジトリにないので、場所を聞くか、案を作って承認をもらってから着手する）。
+- 分割（2026-10-09、任された判断）: T4-1b1 その場の答え（Unix 時刻・日時、四則演算、色、Base64、URL エンコード、UUID。`omnibox/services/answers.ts`）。近道（localhost、gh、npm、mdn）は、T2-2b1 の `classifyInput` に入っている。T4-1b2 Truefulの操作（操作の定義ファイルと言い換えの語。初期セットは「るりあの承認済み」だが、リポジトリにないので、場所を聞くか、案を作って承認をもらってから着手する）。T4-1c への注意: `base64 decode javascript` のような普通の検索も、答えの候補が先頭に出る。Enter で選ぶ候補の既定は、答えではなく「開く」か Web 検索にする（答えは矢印キーで選んだときだけコピーする）。
 
 ### T4-2 起動時の復元とDeveloper Home（F11）
 - 受け入れ条件: F11をすべて満たす。時刻をモックして「1時間以内」「超過」「表示しない設定」の3通りをテスト。

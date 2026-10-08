@@ -16,9 +16,10 @@ export type AnswerKind =
 export type Answer = { kind: AnswerKind; value: string; detail?: string; color?: string }
 
 const MAX_INPUT = 2000
-const DATE = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?(Z|[+-]\d{2}:\d{2})?$/i
+const DATE =
+  /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,3})?)?)?(?:\s?(Z|[+-]\d{2}:?\d{2}))?$/i
 
-// 日時の文字列を Unix 時刻（ミリ秒）にする。時差がなければ UTC。存在しない日付は undefined
+// 日時の文字列を Unix 時刻（ミリ秒）にする。時差がなければ UTC。存在しない日付・日時は undefined
 function parseDate(text: string): number | undefined {
   const m = DATE.exec(text)
   if (!m) return undefined
@@ -30,21 +31,28 @@ function parseDate(text: string): number | undefined {
     number,
     number
   ]
-  const utc = Date.UTC(y, mo - 1, d, h, mi, s)
-  const check = new Date(utc)
+  // Date.UTC は 0〜99 年を 1900 年代にするので、年は setUTCFullYear で入れる
+  const date = new Date(0)
+  date.setUTCFullYear(y, mo - 1, d)
+  date.setUTCHours(h, mi, s, 0)
   // 2023-02-30 のように繰り上がる日付や、25 時・61 分は、存在しない日時として断る
-  if (check.getUTCMonth() !== mo - 1 || check.getUTCDate() !== d || h > 23 || mi > 59 || s > 59)
+  if (date.getUTCMonth() !== mo - 1 || date.getUTCDate() !== d || h > 23 || mi > 59 || s > 59)
     return undefined
   const zone = m[7]
-  if (!zone || zone.toUpperCase() === 'Z') return utc
-  const sign = zone.startsWith('-') ? -1 : 1
-  return utc - sign * (Number(zone.slice(1, 3)) * 60 + Number(zone.slice(4, 6))) * 60_000
+  if (!zone || zone.toUpperCase() === 'Z') return date.getTime()
+  const digits = zone.slice(1).replace(':', '')
+  const [zh, zm] = [Number(digits.slice(0, 2)), Number(digits.slice(2, 4))]
+  if (zh > 23 || zm > 59) return undefined
+  return date.getTime() - (zone.startsWith('-') ? -1 : 1) * (zh * 60 + zm) * 60_000
 }
 
 // 四則演算（+ - * / % ^ とかっこ、単項のマイナス）。eval は使わず、再帰下降で読む。
 // 演算子が1つもなければ（数字だけ・かっこだけ）、答えない。壊れた式・0 で割る・深すぎるものも答えない
 function calc(text: string): string | undefined {
   if (!/^[\d\s+\-*/%^().]+$/.test(text) || !/[+\-*/%^]/.test(text)) return undefined
+  // 数字を - でつないだだけのもの（電話番号・日付）、2024/01/01 や 12/31 のような日付らしいものは、
+  // 計算のつもりではないことが多い。空白を入れれば計算する（12 / 31）
+  if (/^-?\d+(?:-\d+)+$|^\d+\/\d+\/\d+$|^\d{1,2}\/\d{1,2}$/.test(text)) return undefined
   const tokens = text.match(/\d+(?:\.\d+)?|[+\-*/%^()]/g) ?? []
   if (tokens.join('').length !== text.replace(/\s/g, '').length) return undefined // 数字として読めない（192.168.0.1 など）
   let pos = 0
@@ -65,7 +73,6 @@ function calc(text: string): string | undefined {
     }
     if (t === '-') {
       if (++depth > 50) fail()
-      sawOperator = true
       const v = -power()
       depth--
       return v
@@ -104,7 +111,8 @@ function calc(text: string): string | undefined {
   try {
     const v = add()
     if (pos !== tokens.length || !sawOperator || !Number.isFinite(v)) return undefined
-    return String(parseFloat(v.toPrecision(12))) // 0.1 + 0.2 が 0.30000000000000004 にならないように
+    // 整数はそのまま（桁を落とさない）。小数は 15 桁に丸める（0.1 + 0.2 が 0.30000000000000004 にならないように）
+    return Number.isInteger(v) ? String(v) : String(parseFloat(v.toPrecision(15)))
   } catch {
     return undefined
   }
@@ -128,16 +136,27 @@ function color(text: string): Answer | undefined {
 }
 
 function base64Decode(text: string): string | undefined {
-  const t = text.replace(/=+$/, '')
+  const t = text.replace(/={1,2}$/, '')
   if (!/^[A-Za-z0-9+/_-]*$/.test(t) || t.length % 4 === 1) return undefined
   try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(Buffer.from(t, 'base64'))
+    const decoded = new TextDecoder('utf-8', { fatal: true }).decode(Buffer.from(t, 'base64'))
+    // eslint-disable-next-line no-control-regex -- 制御文字（\t \n \r 以外）を含むものは、文字列ではなく2進数
+    return /[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(decoded) ? undefined : decoded
   } catch {
     return undefined // UTF-8 ではない
   }
 }
 
+// 1文字ごとに呼ばれるので、どんな入力でも例外を出さない（対になっていないサロゲートで encodeURIComponent が投げる、など）
 export function answers(query: string, ctx: { now?: number; uuid?: () => string } = {}): Answer[] {
+  try {
+    return compute(query, ctx)
+  } catch {
+    return []
+  }
+}
+
+function compute(query: string, ctx: { now?: number; uuid?: () => string }): Answer[] {
   const text = query.trim()
   if (text === '' || text.length > MAX_INPUT) return []
   const now = ctx.now ?? Date.now()

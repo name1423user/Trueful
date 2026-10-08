@@ -28,7 +28,7 @@ const LIMIT = { tab: 3, history: 3, bookmark: 2, other: 3, total: 8 } as const
 // 重複や今の Workspace のものを除いても足りるよう、多めに取ってから切る
 const FETCH = 50
 
-// 候補の並び（SPEC F10）: （その場の答え → 近道 → Truefulの操作 は T4-1b）→ 開く → 今の Workspace の
+// 候補の並び（SPEC F10）: （近道は classifyInput、Truefulの操作は T4-1b2）→ 開く → 今の Workspace の
 // タブ・履歴・ブックマーク → 他の Workspace の候補 → Web 検索。同じ URL は1つにまとめる（タブ > ブックマーク > 履歴、
 // 今の Workspace > 他の Workspace）
 export function suggest(
