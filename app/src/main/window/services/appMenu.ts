@@ -23,6 +23,7 @@ type Labels = Record<
   | 'view-menu'
   | 'close-window'
   | 'workspace-menu'
+  | 'tab-select-menu'
   | 'tab-select-n'
   | 'tab-select-last'
   | 'workspace-switch-n',
@@ -89,7 +90,7 @@ export function appMenuTemplate(
       ...(tabSelectKeys
         ? [
             {
-              label: labels['tab-select-n'].replace('{{n}}', ''),
+              label: labels['tab-select-menu'],
               submenu: numbered(
                 (n) => `tab-select-${n}`,
                 (n) =>

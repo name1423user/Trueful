@@ -106,11 +106,15 @@ function App(): React.JSX.Element {
     if (!code) finishStartup()
     setSwitchError(code)
   }
-  // ショートカットは、左パネルの並び順の n 番目へ（今の Workspace へは何もしない）
+  // ショートカットは、左パネルの並び順の n 番目へ。削除の確認の間は切り替えない（確認と競合させない。
+  // 左パネルは inert にしてあるのと同じ）。今の Workspace の番号でも、作成画面・起動の画面が出ているときは、
+  // 行を選ぶのと同じに、閉じてページへ戻る
   const switchByNumber = (n: number): void => {
-    if (state.status !== 'ready') return
+    if (state.status !== 'ready' || confirming) return
     const target = state.workspaces[n - 1]
-    if (target && target.id !== state.currentId) void switchWorkspace(target.id)
+    if (!target) return
+    const plain = startup === 'done' && !adding
+    if (target.id !== state.currentId || !plain) void switchWorkspace(target.id)
   }
   const switchByNumberRef = useRef(switchByNumber)
   useEffect(() => {

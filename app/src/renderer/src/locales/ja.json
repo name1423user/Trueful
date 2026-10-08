@@ -52,6 +52,7 @@
     "bookmark-page": "このページをブックマークに追加",
     "workspace-menu": "Workspace",
     "workspace-switch-n": "{{n}} 番目の Workspace へ切り替え",
+    "tab-select-menu": "タブを選ぶ",
     "tab-select-n": "{{n}} 番目のタブを選ぶ",
     "tab-select-last": "最後のタブを選ぶ"
   },

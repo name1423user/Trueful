@@ -77,7 +77,6 @@ test('Workspace の切り替え（macOS は Ctrl+数字、Windows・Linux は Al
     // 1つ目のタブを開いてページを前に出し、そのページへキーを送る
     await menuItem('tab-select-1')
     await expect(tabs.nth(0)).toHaveAttribute('aria-current', 'true')
-    const modifiers = process.platform === 'darwin' ? (['control'] as const) : (['alt'] as const)
     await expect
       .poll(() =>
         app.evaluate(({ BrowserWindow }) => {
@@ -86,6 +85,20 @@ test('Workspace の切り替え（macOS は Ctrl+数字、Windows・Linux は Al
         })
       )
       .toBeGreaterThan(0)
+    // タブの選択（Cmd/Ctrl+数字）も、ページが keydown を止めても効く。1つ目のタブのページから、2つ目のタブを選ぶ
+    await app.evaluate(
+      ({ BrowserWindow }, mod) => {
+        const view = BrowserWindow.getAllWindows()[0]!.contentView.children.at(-1) as unknown as {
+          webContents: Electron.WebContents
+        }
+        view.webContents.focus()
+        view.webContents.sendInputEvent({ type: 'keyDown', keyCode: '2', modifiers: [mod] })
+      },
+      process.platform === 'darwin' ? ('meta' as const) : ('control' as const)
+    )
+    await expect(tabs.nth(1)).toHaveAttribute('aria-current', 'true')
+
+    const modifiers = process.platform === 'darwin' ? (['control'] as const) : (['alt'] as const)
     await app.evaluate(({ BrowserWindow }, mods) => {
       const view = BrowserWindow.getAllWindows()[0]!.contentView.children.at(-1) as unknown as {
         webContents: Electron.WebContents
@@ -94,6 +107,45 @@ test('Workspace の切り替え（macOS は Ctrl+数字、Windows・Linux は Al
       view.webContents.sendInputEvent({ type: 'keyDown', keyCode: '1', modifiers: [...mods] })
     }, modifiers)
     await expect(rows.nth(0)).toHaveAttribute('aria-current', 'true')
+  } finally {
+    await app.close()
+    cleanup()
+  }
+})
+
+test('Workspace のショートカット: 削除の確認の間は切り替えない。作成画面が出ているときは、今の Workspace の番号でも閉じて戻る', async () => {
+  const { app, cleanup } = await launchApp()
+  try {
+    const window = await app.firstWindow()
+    for (const name of ['案件A', '案件B']) {
+      if (name !== '案件A') await window.getByRole('button', { name: 'Workspace を追加' }).click()
+      await window.getByLabel('名前').fill(name)
+      await window.getByRole('button', { name: '作成' }).click()
+      await expect(window.getByText(`今の Workspace: ${name}`)).toBeVisible()
+    }
+    const rows = window.locator('.workspace-row')
+    const menuItem = (id: string): Promise<void> =>
+      app.evaluate(({ Menu }, itemId) => {
+        Menu.getApplicationMenu()?.getMenuItemById(itemId)?.click()
+      }, id)
+
+    // 削除の確認が出ている間は、ショートカットで切り替えない（確認は出たまま、今の Workspace は B のまま）
+    await window.getByRole('button', { name: /案件A を削除/ }).click()
+    const confirm = window.getByRole('heading', { name: /削除/ })
+    await expect(confirm).toBeVisible()
+    await menuItem('workspace-switch-1')
+    await expect(confirm).toBeVisible()
+    await expect(rows.nth(1)).toHaveAttribute('aria-current', 'true')
+    await window.getByRole('button', { name: 'やめる' }).click()
+    await expect(confirm).toBeHidden()
+
+    // 作成画面が出ているときは、今の Workspace（B。2 番）のショートカットでも、作成画面を閉じてページに戻る
+    await window.getByRole('button', { name: 'Workspace を追加' }).click()
+    const form = window.getByRole('button', { name: '作成' })
+    await expect(form).toBeVisible()
+    await menuItem('workspace-switch-2')
+    await expect(form).toBeHidden()
+    await expect(rows.nth(1)).toHaveAttribute('aria-current', 'true')
   } finally {
     await app.close()
     cleanup()

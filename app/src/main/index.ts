@@ -385,6 +385,8 @@ app.whenReady().then(() => {
       command === 'bookmark-page' ||
       command.startsWith('workspace-switch-')
     ) {
+      // 切り替えのあと、キー入力が見えなくなったページに残らないよう、フォーカスを UI に移す
+      if (command.startsWith('workspace-switch-')) target.webContents.focus()
       target.webContents.send(channelNames.uiCommand, command)
       return
     }
@@ -395,7 +397,12 @@ app.whenReady().then(() => {
     const db = database
     if (!db?.isOpen) return
     const selected = /^tab-select-([1-9])$/.exec(command)?.[1]
-    if (selected) return pages.selectNth(db, Number(selected))
+    if (selected) {
+      pages.selectNth(db, Number(selected))
+      // 選んだタブのページにキー入力が届くよう、フォーカスをそのページへ
+      views.shownWebContents()?.focus()
+      return
+    }
     const tabCommand = (
       {
         'tab-new': 'new',
