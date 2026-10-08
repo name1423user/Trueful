@@ -172,7 +172,12 @@ const api = {
     // メニューのショートカットのうち、画面で行うもの（アドレスバー・統合検索へのフォーカス、2段目の開閉）
     onCommand: (
       listener: (
-        command: 'focus-address-bar' | 'focus-search' | 'toggle-side-panel' | 'bookmark-page'
+        command:
+          | 'focus-address-bar'
+          | 'focus-search'
+          | 'toggle-side-panel'
+          | 'bookmark-page'
+          | `workspace-switch-${number}`
       ) => void
     ): (() => void) => subscribe(channelNames.uiCommand, listener)
   },

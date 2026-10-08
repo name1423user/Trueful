@@ -97,6 +97,29 @@ function App(): React.JSX.Element {
 
   // 今のページをブックマークに足す（Cmd/Ctrl+D と、パネルのボタン）。http・https のページだけ
   const activeTab = tabs.tabs.find((tab) => tab.id === tabs.activeId)
+  // Workspace の行を選ぶ・ショートカット（Ctrl/Alt+1〜9）で、Workspace を切り替える
+  const switchWorkspace = async (id: number): Promise<void> => {
+    setAdding(false)
+    setDeletingId(null)
+    const code = await switchTo(id)
+    // Developer Home は、開けてから閉じる（失敗したら Home に留めて知らせる）
+    if (!code) finishStartup()
+    setSwitchError(code)
+  }
+  // ショートカットは、左パネルの並び順の n 番目へ。削除の確認の間は切り替えない（確認と競合させない。
+  // 左パネルは inert にしてあるのと同じ）。今の Workspace の番号でも、作成画面・起動の画面が出ているときは、
+  // 行を選ぶのと同じに、閉じてページへ戻る
+  const switchByNumber = (n: number): void => {
+    if (state.status !== 'ready' || confirming) return
+    const target = state.workspaces[n - 1]
+    if (!target) return
+    const plain = startup === 'done' && !adding
+    if (target.id !== state.currentId || !plain) void switchWorkspace(target.id)
+  }
+  const switchByNumberRef = useRef(switchByNumber)
+  useEffect(() => {
+    switchByNumberRef.current = switchByNumber
+  })
   // 統合検索欄の候補の一覧を置く場所（中央の列の先頭。一覧の分だけページが下がる）
   const [omniboxSlot, setOmniboxSlot] = useState<HTMLElement | null>(null)
   // 別のタブ・Workspace へ移る候補を選んだ（F10）。別の Workspace のものは、先にその Workspace へ切り替える
@@ -142,6 +165,8 @@ function App(): React.JSX.Element {
     () =>
       window.trueful.ui.onCommand((command) => {
         if (command === 'bookmark-page') void addCurrentPageRef.current()
+        const n = /^workspace-switch-([1-9])$/.exec(command)?.[1]
+        if (n) switchByNumberRef.current(Number(n))
       }),
     []
   )
@@ -281,14 +306,7 @@ function App(): React.JSX.Element {
         <WorkspaceList
           workspaces={state.workspaces}
           currentId={state.currentId}
-          onSwitch={async (id) => {
-            setAdding(false)
-            setDeletingId(null)
-            const code = await switchTo(id)
-            // Developer Home は、開けてから閉じる（失敗したら Home に留めて知らせる）
-            if (!code) finishStartup()
-            setSwitchError(code)
-          }}
+          onSwitch={switchWorkspace}
           onAdd={() => {
             setSwitchError(undefined)
             setDeletingId(null)

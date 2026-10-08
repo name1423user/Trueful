@@ -5,6 +5,7 @@ import {
   type Rectangle,
   type WebContents
 } from 'electron'
+import type { MenuCommand } from '../../window/services/appMenu'
 import { isAllowedPageUrl } from './urlInput'
 import { pageUserAgent } from './userAgent'
 import { classifyLoadError, type LoadError } from './loadError'
@@ -54,21 +55,45 @@ type Handlers = {
   ) => boolean
   // ページにフォーカスがあるときに押された、ページに奪わせないショートカット（Chrome と同じ予約キー）
   onReservedShortcut: (command: ReservedShortcut) => void
+  // Workspace の切り替えの修飾キー（設定 workspaceSwitchModifier を、今のプラットフォームで解決したもの）
+  workspaceModifier: () => 'ctrl' | 'alt'
   // 上限（F02）を超えたので、これらのタブのページを破棄した（URL とタイトルは DB に残っている）
   onDiscarded: (tabIds: number[]) => void
   // タブのページを破棄した（閉じた・上限・休止・ウィンドウを閉じた）。そのページの権限の確認を終えるため
   onPageGone: (tabId: number) => void
 }
 
-export type ReservedShortcut = 'tab-new' | 'tab-close' | 'tab-reopen'
+// メニューの操作のうち、ページに奪わせないもの（番号つきは 1〜9）
+export type ReservedShortcut = Extract<
+  MenuCommand,
+  'tab-new' | 'tab-close' | 'tab-reopen' | `tab-select-${number}` | `workspace-switch-${number}`
+>
 
-// ページに奪わせないキー（ページが keydown を止めても、Trueful の操作にする）
+// ページに奪わせないキー（ページが keydown を止めても、Trueful の操作にする）。
+// 数字のキーは、Workspace の切り替え（workspaceModifier の Ctrl か Alt + 1〜9。F01）と、
+// タブの選択（macOS は Cmd、Windows・Linux は Ctrl + 1〜9。F02）。Windows・Linux で Workspace に Ctrl を
+// 選んだら、Ctrl+数字は Workspace が使う（appMenu と同じ。ぶつからない）
 export function reservedShortcut(
-  input: Pick<Electron.Input, 'type' | 'key' | 'control' | 'meta' | 'shift' | 'alt'>,
-  platform: NodeJS.Platform
+  input: Pick<Electron.Input, 'type' | 'key' | 'code' | 'control' | 'meta' | 'shift' | 'alt'>,
+  platform: NodeJS.Platform,
+  workspaceModifier: 'ctrl' | 'alt' = platform === 'darwin' ? 'ctrl' : 'alt'
 ): ReservedShortcut | undefined {
+  if (input.type !== 'keyDown') return undefined
+  // 数字は code で見る（macOS で Alt を押すと、key は 1 ではなく「¡」になる）
+  const digit = /^Digit([1-9])$/.exec(input.code)?.[1]
+  if (digit) {
+    if (input.shift) return undefined
+    const workspace =
+      workspaceModifier === 'ctrl'
+        ? input.control && !input.meta && !input.alt
+        : input.alt && !input.control && !input.meta
+    if (workspace) return `workspace-switch-${digit}` as ReservedShortcut
+    const tab = platform === 'darwin' ? input.meta && !input.control : input.control && !input.meta
+    if (tab && !input.alt) return `tab-select-${digit}` as ReservedShortcut
+    return undefined
+  }
   const mod = platform === 'darwin' ? input.meta && !input.control : input.control && !input.meta
-  if (input.type !== 'keyDown' || !mod || input.alt) return undefined
+  if (!mod || input.alt) return undefined
   const key = input.key.toLowerCase()
   if (key === 't') return input.shift ? 'tab-reopen' : 'tab-new'
   if (key === 'w' && !input.shift) return 'tab-close'
@@ -349,7 +374,7 @@ export class TabViews {
       }
     })
     wc.on('before-input-event', (event, input) => {
-      const command = reservedShortcut(input, process.platform)
+      const command = reservedShortcut(input, process.platform, this.handlers.workspaceModifier())
       if (!command) return
       event.preventDefault()
       this.handlers.onReservedShortcut(command)

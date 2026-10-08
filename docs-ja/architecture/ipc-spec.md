@@ -58,7 +58,7 @@ IPCはinvoke型（request/response）を採用。詳細は [ADR-007](./adr/adr-0
 | `view:setBounds` | R→M | ページを表示する場所（Renderer の空の div の位置と大きさ、整数の CSS ピクセル。ADR-008）。UI のズームは 1 のままにする前提（変えるなら Main で倍率を掛ける） |
 | `tab:pageChanged` | M→R | ページの URL・タイトル・戻る/進むの可否・読み込み中が変わった（タブの id と一緒に）。読み込みに失敗したときは `error`（`kind`: `offline`・`certificate`・`load-failed`、`url`、`description`）が付く。そのタブのページの実体は隠され、Renderer が同じ場所にエラー画面を出す（F16） |
 | `tab:listChanged` | M→R | Renderer の invoke ではない理由でタブ列が変わった（ページの `window.open`・`target=_blank` を新しいタブで開いた、メニューのショートカット）。Workspace の id。ページが開く新しいタブは http・https だけで、直前のユーザーの入力1回につき1つ（ポップアップブロッカーの代わり）。Cmd/Ctrl+クリック・中クリックは選ばずに開く |
-| `ui:command` | M→R | メニューのショートカットのうち画面で行うもの（`focus-address-bar`: Cmd/Ctrl+L、`focus-search`: Cmd/Ctrl+K、`toggle-side-panel`: Cmd/Ctrl+B で左パネルの2段目を畳む・開く、`bookmark-page`: Cmd/Ctrl+D で今のページをブックマークに足す）。ショートカットはメニューの accelerator で受ける。Cmd/Ctrl+T・W・Shift+T は、ページが keydown を止めても効くよう、ページの `before-input-event` でも先に受ける（Chrome と同じ予約キー） |
+| `ui:command` | M→R | メニューのショートカットのうち画面で行うもの（`focus-address-bar`: Cmd/Ctrl+L、`focus-search`: Cmd/Ctrl+K、`toggle-side-panel`: Cmd/Ctrl+B で左パネルの2段目を畳む・開く、`bookmark-page`: Cmd/Ctrl+D で今のページをブックマークに足す、`workspace-switch-1`〜`workspace-switch-9`: Ctrl/Alt+数字で、左パネルの並び順の n 番目の Workspace へ切り替える〈修飾キーは設定 `workspaceSwitchModifier`。今の Workspace や、ない番号は何もしない〉。タブの選択〈Cmd/Ctrl+1〜9〉は Main がそのまま行う）。ショートカットはメニューの accelerator で受ける。Cmd/Ctrl+T・W・Shift+T と、数字のキー（Workspace の切り替えの Ctrl/Alt+1〜9、タブの選択の Cmd/Ctrl+1〜9）は、ページが keydown を止めても効くよう、ページの `before-input-event` でも先に受ける（Chrome と同じ予約キー） |
 
 エラーの `code`: `forbidden-sender`（送り元が UI でない）、`invalid-args`（引数が不正）、`not-found`（対象がない）、`unavailable`（DB などの準備ができていない）、`internal`（そのほか）。
 
