@@ -115,3 +115,18 @@ export function touchTab(db: DatabaseSync, id: number, now: number): boolean {
     db.prepare('UPDATE tab SET last_active_time_ms = ? WHERE id = ?').run(now, id).changes === 1
   )
 }
+
+// 統合検索欄の候補（F10）。全 Workspace のタブを、タイトルと URL の部分一致で探す（空のタブは除く。最近見た順）
+export function searchTabs(db: DatabaseSync, query: string, limit = 20): Tab[] {
+  const q = query.trim()
+  if (q === '') return []
+  const like = `%${q.replace(/[\\%_]/g, '\\$&')}%`
+  return db
+    .prepare(
+      `SELECT ${COLUMNS} FROM tab
+       WHERE url <> ? AND (title LIKE ? ESCAPE '\\' OR url LIKE ? ESCAPE '\\')
+       ORDER BY last_active_time_ms DESC LIMIT ?`
+    )
+    .all(NEW_TAB_URL, like, like, limit)
+    .map(toTab)
+}
