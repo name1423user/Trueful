@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { omniboxSuggest } from './omniboxChannels'
+import { omniboxCopy, omniboxSuggest } from './omniboxChannels'
 
 describe('omnibox:* の引数', () => {
   it('suggest: 文字列（2048 文字まで）と、今の Workspace の id（なければ null）', () => {
@@ -14,6 +14,20 @@ describe('omnibox:* の引数', () => {
       { query: 'a', workspaceId: 1, limit: 5 }
     ]) {
       expect(omniboxSuggest.args.safeParse(bad).success).toBe(false)
+    }
+  })
+
+  it('copy: 1 文字以上 16384 文字までの文字列だけ', () => {
+    expect(omniboxCopy.args.safeParse({ text: '3' }).success).toBe(true)
+    for (const bad of [
+      undefined,
+      {},
+      { text: '' },
+      { text: 'a'.repeat(16_385) },
+      { text: 1 },
+      { text: 'a', x: 1 }
+    ]) {
+      expect(omniboxCopy.args.safeParse(bad).success).toBe(false)
     }
   })
 })

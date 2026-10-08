@@ -104,7 +104,10 @@ const api = {
   omnibox: {
     // 統合検索欄の候補（F10）。打った文字列と今の Workspace の id から
     suggest: (query: string, workspaceId: number | null): Promise<IpcResult<OmniboxCandidate[]>> =>
-      ipcRenderer.invoke(channelNames.omniboxSuggest, { query, workspaceId })
+      ipcRenderer.invoke(channelNames.omniboxSuggest, { query, workspaceId }),
+    // 「その場の答え」をクリップボードにコピーする（Renderer では Clipboard API が使えないため Main が書く）
+    copy: (text: string): Promise<IpcResult<null>> =>
+      ipcRenderer.invoke(channelNames.omniboxCopy, { text })
   },
   history: {
     search: (input: {
