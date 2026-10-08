@@ -106,6 +106,27 @@ describe('統合検索欄の候補（F10）', () => {
   })
 })
 
+describe('その場の答え（候補の先頭）', () => {
+  const answerContext = { now: Date.UTC(2026, 9, 9), uuid: () => 'u' }
+  it('答えは「開く」より前に出し、その後ろに通常の候補と Web 検索が続く', () => {
+    const list = suggest(db, { query: '1+2', workspaceId: a, answerContext })
+    expect(list[0]).toEqual({ kind: 'answer', title: '3', answerKind: 'calc' })
+    expect(list.at(-1)?.kind).toBe('search')
+  })
+  it('色には detail と color が付く', () => {
+    expect(suggest(db, { query: '#f80', workspaceId: a, answerContext })[0]).toEqual({
+      kind: 'answer',
+      title: '#ff8800',
+      answerKind: 'color',
+      detail: 'rgb(255, 136, 0)',
+      color: '#ff8800'
+    })
+  })
+  it('答えのない入力には、答えの候補を出さない', () => {
+    expect(kinds('react hooks')).toEqual(['search'])
+  })
+})
+
 describe('今の Workspace と他の Workspace（レビューの指摘）', () => {
   it('同じ URL が他の Workspace にもあっても、今の Workspace のタブを出す（他の Workspace のものにしない）', () => {
     insertTab(db, { workspaceId: a, url: 'https://react.dev/x', title: 'X' }, 10)
