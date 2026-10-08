@@ -8,7 +8,7 @@ import { BACKUP_FILE, DB_FILE, initDatabase } from './initDatabase'
 
 // 壊れた DB を戻したこと（画面で知らせる）。brokenFile は、残した壊れたファイルの名前（保存場所の中）。
 // 動かしたファイルがなければ（DB がなかった）、ない
-export type DatabaseRecovery = { kind: 'restored' | 'recreated'; brokenFile?: string }
+export type DatabaseRecovery = { kind: 'restored' | 'recreated'; brokenFile?: string | undefined }
 
 const RESTORING = `${DB_FILE}.restoring`
 
@@ -27,7 +27,8 @@ export async function openOrRecoverDatabase(
   // 前回の復元の途中で残った一時ファイル
   rmSync(join(dir, RESTORING), { force: true })
   const broken = freeName(dir, `${DB_FILE}.broken-${now}`)
-  // DB がないのに WAL・共有メモリだけ残っているときは、脇へよける（新しい DB に古い変更が書き戻されないように）
+  // DB がないのに WAL・共有メモリだけ残っているときは、脇へよける（新しい DB に古い変更が書き戻されないように）。
+  // バックアップもなければ、そのまま新しく作る（失うものがないので、知らせない）
   let moved = !existsSync(dbPath) && moveDatabaseFiles(dbPath, join(dir, broken))
   if (existsSync(dbPath) || !existsSync(backup)) {
     try {

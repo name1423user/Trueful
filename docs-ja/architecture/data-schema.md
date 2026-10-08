@@ -286,7 +286,7 @@ workspace_snapshot（外部キーなし。削除された Workspace の控え）
 ### 起動時の手順とバックアップ（SPEC 6章、ADR-012）
 0. 同じ保存場所で、もう Trueful が動いていたら、何もせずに終わる（`requestSingleInstanceLock`。DB には触れない）。
 1. DB を開き、`PRAGMA quick_check` で壊れていないか確かめる。
-2. 壊れていたら、`trueful.db`・`trueful.db-wal`・`trueful.db-shm` を `trueful.db.broken-<時刻>`（と同じ接尾辞）に移し、`trueful.db.bak` から戻して、ユーザーに知らせる（F12、`db/flows/recoverDatabase.ts`）。バックアップがない・バックアップも壊れていたら、新しく作って知らせる（壊れたバックアップも `trueful.db.bak.broken-<時刻>` として残す）。WAL のファイルを残すと、戻した DB に古い変更が書き戻されるため、3つを一緒に移す。
+2. 壊れていたら、`trueful.db`・`trueful.db-wal`・`trueful.db-shm` を `trueful.db.broken-<時刻>`（と同じ接尾辞）に移し、`trueful.db.bak` から戻して、ユーザーに知らせる（F12、`db/flows/recoverDatabase.ts`）。バックアップがない・バックアップも壊れていたら、新しく作って知らせる（壊れたバックアップも `trueful.db.bak.broken-<時刻>` として残す）。WAL のファイルを残すと、戻した DB に古い変更が書き戻されるため、3つを一緒に移す。`trueful.db` がなく WAL・共有メモリだけ残っているとき（復元が途中で止まった後など）も、同じ名前で脇へよけてから開く（動かしたものがなければ、知らせに壊れたファイルの名前は出さない。バックアップがなければ、よけるだけで知らせない）。
 3. 壊れていなければ、`sqlite.backup()` で DB 全体を一時ファイルに写し、`trueful.db.bak` に名前を変える（1世代、アトミック書き込み）。壊れた DB でバックアップを上書きしないため、必ず手順1の後に行う。
 4. マイグレーションを適用する。
 5. `app_state.clean_exit` を見て異常終了を判定し、0 にする（正常な終了で 1 に戻す）。
