@@ -71,7 +71,7 @@ F01〜F17（5章の機能一覧）。
 | R1 | GoogleがElectron内のログインを拒否する（"This browser or app may not be secure"） | Electron 44でGoogleアカウントにログインし、再起動後も保持されるか。User-Agentの調整で通るか | 合格ラインを見直す（るりあが判断） | 通過（macOS）。UA のままでも `Electron/` を除いても、ログインでき、再起動後も保持された。UA は `Electron/` を除く方を推奨。パスキーは反応せず、パスワードでログインした（[RESULT](spikes/google-login/RESULT.md)） |
 | R2 | MV3拡張がElectronで動かない | 1Password・Bitwarden・React DevTools・翻訳拡張を、ストア導入とunpackedで入れて主要操作が動くか。「全Workspace共通」にした拡張のログインがWorkspace間で共有されるか。デスクトップアプリとの連携（ネイティブメッセージング）とサイドパネル（sidePanel API）が動くか | 動かない拡張を一覧化し、代替を決める。パスワード管理は拡張単体で動けば合格とし、不便ならOS全体の自動入力（1Password Quick Access等）を併用。致命的ならFirefoxフォーク案を再検討 | 試作あり・実機確認待ち。サイドパネルは Electron が未対応（`Permission 'sidePanel' is unknown`）。ライブラリは GPL-3.0 か有料ライセンス（[RESULT](spikes/extensions/RESULT.md)） |
 | R3 | ChromiumのPDF表示がElectronで使えない | PDFのURLとローカルPDFを開き、拡大・検索・印刷ができるか | PDF.jsの組み込みを検討 | 条件付きで通過（macOS）。URL・ローカルとも、表示とビューアのボタンでの拡大はできた。`plugins` の設定は不要。検索は、URL では検索語がファイル名にも当たり本文に移らなかった。件数も期待値より1多い。印刷はビューアのボタンで出力できた（ローカルのみ確認）が、`webContents.print()` の出力は未確認。印刷プレビューはない（[RESULT](spikes/pdf/RESULT.md)） |
-| R4 | 統合検索欄の候補一覧がWebページの層の下に隠れる | 候補一覧を小さな専用のWebContentsViewとして最前面に出し、入力中の表示・キー操作・フォーカスが崩れないか | 入力中だけページ表示領域を候補の高さ分下げる（固定の高さで毎回同じ動き） | 試作あり・実機確認待ち（[RESULT](spikes/omnibox-popup/RESULT.md)） |
+| R4 | 統合検索欄の候補一覧がWebページの層の下に隠れる | 候補一覧を小さな専用のWebContentsViewとして最前面に出し、入力中の表示・キー操作・フォーカスが崩れないか | 入力中だけページ表示領域を候補の高さ分下げる（固定の高さで毎回同じ動き） | 試作あり。実機確認は待たず、代替案（ページの領域を下げる）で進める（2026-10-05、任された判断。[RESULT](spikes/omnibox-popup/RESULT.md)） |
 | R5 | 内蔵広告ブロック（`session.webRequest`）と拡張の `chrome.webRequest` が衝突する | 両方を有効にして、必須の拡張（R2）と広告ブロックがともに動くか | 内蔵広告ブロックを優先し、`chrome.webRequest` に依存する拡張は管理画面で「一部動きません」と表示 | 試作あり・実機確認待ち。Ghostery は2つめのセッションで有効にできない（IPC の二重登録）。Electron 44 は MV3 の拡張に `chrome.webRequest` を届けない（広告ブロックと無関係）。MV2 の拡張では、広告ブロックを有効にすると `chrome.webRequest` が止まる（[RESULT](spikes/adblock-extensions/RESULT.md)、[調査](spikes/webrequest-probe/RESULT.md)） |
 | R6 | パスキー（WebAuthn の Touch ID・iCloud キーチェーンなど）がElectronで使えない | 署名したアプリでGoogleと他のサイトにパスキーで登録・ログインできるか | パスワードや他の確認方法でログインしてもらい、パスキーだけのアカウントは合格ラインの対象外にする（るりあが判断） | T0-1で発見。macOSの未署名のアプリで、パスキーの画面は出るがTouch IDのダイアログが出ない。署名したアプリでは未確認（[RESULT](spikes/google-login/RESULT.md)） |
 
@@ -149,7 +149,7 @@ GitHub Releases（配布・更新情報）、Chromeウェブストア（拡張�
 ### 画面一覧と遷移
 - メインウィンドウ: 上端の統合検索欄（F10）＋左パネル（1段目・2段目、F15）＋Webページ表示領域（2段目を畳むと上に最近使ったタブ列）
 - Developer Home: Workspace一覧のカード。選ぶとメインウィンドウでそのWorkspaceを開く
-- 検索候補の一覧: 統合検索欄の真下に重ねて出し、Escで閉じる（R4）
+- 検索候補の一覧: 統合検索欄の真下に出し（入力中だけ、ページの領域を候補の高さ分下げる。R4 の代替案）、Escで閉じる
 - 設定: Cmd/Ctrl+, で開く。テーマ、レイアウト、既定値、拡張の管理、開発者モード
 - ダウンロード一覧・ブックマーク: 左パネルの2段目に表示（1段目、または統合検索欄の右の切替から）
 - エラー画面・権限の確認: Webページ表示領域の中に表示（エラー画面はページを隠した同じ場所。権限の確認は表示領域の上端の細い帯で、その分ページを下げる）
@@ -208,7 +208,7 @@ GitHub Releases（配布・更新情報）、Chromeウェブストア（拡張�
 
 **F10 統合検索欄**
 - 上端の欄1つで、URLの入力、Web検索、開いているタブ・履歴・ブックマーク・Workspace・Truefulの操作の候補を出す。Cmd/Ctrl+L または Cmd/Ctrl+K で欄にフォーカスする。
-- 入力から16ms以内に候補を更新する（性能予算）。候補の一覧は欄の真下に出す（R4）。
+- 入力から16ms以内に候補を更新する（性能予算）。候補の一覧は欄の真下に出し、その分だけページの領域を下げる（R4 の代替案）。
 - 候補の並び: その場の答え → 近道 → Truefulの操作 → 今のWorkspaceのタブ・履歴・ブックマーク → 他のWorkspaceの候補（Mode色の印付き） → Web検索。
 - Truefulの操作は、正式名に加えて言い換えの語で見つかる（例: 「キャッシュを消去」に「キャッシュ、削除、消す、クリア、cache、重い」）。言い換えの語は操作の定義ファイルに一緒に書く。
 - その場の答え（MVP）: Unix時刻と日時の相互変換、四則演算、色コードのプレビュー、Base64とURLエンコードの変換、UUIDの生成。選ぶと結果をクリップボードにコピーする。

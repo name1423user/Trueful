@@ -169,6 +169,20 @@ describe('削除と保存期間（F09）', () => {
   })
 })
 
+describe('よくある語の検索は、新しい履歴を返す（候補の 200 件が古い方に偏らない）', () => {
+  it('300 件ヒットしても、いちばん新しい訪問が先頭に来る', () => {
+    const insertUrl = db.prepare(
+      'INSERT INTO history_url (workspace_id, url, title, visit_count, last_visited_time_ms) VALUES (?, ?, ?, 1, ?)'
+    )
+    for (let i = 0; i < 300; i++) insertUrl.run(ws1, `https://a.example/${i}`, `react ${i}`, i)
+    expect(searchHistory(db, { query: 'react', limit: 3 }).map((h) => h.url)).toEqual([
+      'https://a.example/299',
+      'https://a.example/298',
+      'https://a.example/297'
+    ])
+  })
+})
+
 describe('10 万件での検索は 16ms 以内（F09、SPEC の性能予算）', () => {
   it('3文字以上・2文字以下のどちらも、最速の 5 回のうち最も遅くない値で 16ms 以内', () => {
     db.exec('BEGIN')
