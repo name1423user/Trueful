@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Candidate } from './useSuggestions'
 
@@ -12,8 +13,19 @@ export function OmniboxList(props: {
   onChoose: (index: number) => void
 }): React.JSX.Element {
   const { t } = useTranslation()
+  // 矢印キーで選んだ行が、一覧の見える範囲に入るようにする
+  useEffect(() => {
+    document.getElementById(`${props.id}-${props.active}`)?.scrollIntoView({ block: 'nearest' })
+  }, [props.id, props.active])
   return (
-    <ul id={props.id} role="listbox" aria-label={t('omnibox.listLabel')} className="omnibox-list">
+    <ul
+      id={props.id}
+      role="listbox"
+      aria-label={t('omnibox.listLabel')}
+      className="omnibox-list"
+      // 一覧のどこを押しても（スクロールバー・余白も）、入力欄のフォーカスが外れて一覧が閉じないように
+      onMouseDown={(e) => e.preventDefault()}
+    >
       {props.candidates.map((c, i) => {
         const kind =
           c.kind === 'answer' ? t(`omnibox.answer.${c.answerKind}`) : t(`omnibox.kind.${c.kind}`)
@@ -25,8 +37,6 @@ export function OmniboxList(props: {
             role="option"
             aria-selected={i === props.active}
             className="omnibox-option"
-            // クリックで入力欄のフォーカスが外れて、一覧が閉じないように
-            onMouseDown={(e) => e.preventDefault()}
             onClick={() => props.onChoose(i)}
           >
             <span className="omnibox-kind">{kind}</span>

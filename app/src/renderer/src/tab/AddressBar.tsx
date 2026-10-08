@@ -7,6 +7,9 @@ import type { PageState, Tab } from './useTabs'
 
 type Action = 'back' | 'forward' | 'reload' | 'stop'
 
+// コピーした結果を出しておく時間（ミリ秒）
+const COPIED_MS = 3000
+
 // 上端のアドレスバー（F02）。戻る・進む・再読み込み（読み込み中は停止）と、URL・検索語の入力。
 // タブごとに作り直す（App で key にタブの id を渡す。打ちかけの文字を別のタブに送らないため）。
 // Cmd/Ctrl+L（アドレスバー）と Cmd/Ctrl+K（統合検索）はどちらもここにフォーカスする。
@@ -31,7 +34,16 @@ export function AddressBar(props: {
   // 一覧を閉じているか（Esc・選んだあと）と、選んでいる候補（-1: なし）
   const [closed, setClosed] = useState(false)
   const [active, setActive] = useState(-1)
+  // コピーの結果（目に見える形でも出し、少しして消す。同じ答えを続けてコピーしても読み上げ直すため、末尾を交互に変える）
   const [copied, setCopied] = useState('')
+  const copyCount = useRef(0)
+  useEffect(() => {
+    if (copied === '') return
+    const timer = setTimeout(() => setCopied(''), COPIED_MS)
+    return () => clearTimeout(timer)
+  }, [copied])
+  // 実行中は、続けて Enter やクリックをされても、もう一度実行しない（別の Workspace へ移る間に、タブが2つできるなど）
+  const choosing = useRef(false)
   const listId = useId()
   const candidates = useSuggestions(editing, props.workspaceId)
   const showList = editing !== null && !closed && candidates.length > 0
@@ -53,10 +65,21 @@ export function AddressBar(props: {
 
   // 候補を選んで実行する。答えはクリップボードにコピーし、ほかは開く・切り替える。失敗したら一覧を残す
   const choose = async (c: Candidate): Promise<void> => {
+    if (choosing.current) return
+    choosing.current = true
+    try {
+      await run(c)
+    } finally {
+      choosing.current = false
+    }
+  }
+  const run = async (c: Candidate): Promise<void> => {
     if (c.kind === 'answer') {
       const result = await window.trueful.omnibox.copy(c.title).catch(() => undefined)
-      setCopied(result?.ok ? t('omnibox.copied', { value: c.title }) : t('omnibox.copyFailed'))
+      const message = result?.ok ? t('omnibox.copied', { value: c.title }) : t('omnibox.copyFailed')
+      setCopied(message + (copyCount.current++ % 2 ? '\u00a0' : ''))
       setClosed(true)
+      setActive(-1)
       return
     }
     const here = c.otherWorkspace !== true
@@ -140,7 +163,9 @@ export function AddressBar(props: {
             e.preventDefault()
             setClosed(false)
             const n = candidates.length
-            setActive((i) => (e.key === 'ArrowDown' ? (i + 1) % n : (i - 1 + n) % n))
+            setActive((i) =>
+              e.key === 'ArrowDown' ? (i + 1) % n : i < 0 ? n - 1 : (i - 1 + n) % n
+            )
             return
           }
           // 候補を選んでいるときの Enter は、その候補を実行する（フォームの送信にしない）
@@ -170,7 +195,7 @@ export function AddressBar(props: {
         }}
       />
       {/* 選んだ結果の読み上げ（領域は常に置き、中身だけ入れる） */}
-      <p role="status" aria-live="polite" className="visually-hidden">
+      <p role="status" aria-live="polite" className={copied ? 'omnibox-copied' : undefined}>
         {copied}
       </p>
       {showList &&

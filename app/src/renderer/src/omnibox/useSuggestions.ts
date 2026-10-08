@@ -14,9 +14,10 @@ export function useSuggestions(query: string | null, workspaceId: number | null)
   useEffect(() => {
     if (text === '') return
     let alive = true
-    void window.trueful.omnibox.suggest(text, workspaceId).then((r) => {
-      if (alive) setList(r.ok ? r.value : [])
-    })
+    window.trueful.omnibox.suggest(text, workspaceId).then(
+      (r) => alive && setList(r.ok ? r.value : []),
+      () => alive && setList([])
+    )
     return () => {
       alive = false
     }

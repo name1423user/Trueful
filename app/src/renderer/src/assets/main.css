@@ -903,3 +903,15 @@ h1[tabindex='-1']:focus {
   color: var(--text-muted);
   font-size: 12px;
 }
+
+/* コピーした結果（アドレスバーの右に、しばらく出す。色だけに頼らず文字で出す） */
+.omnibox-copied {
+  flex: none;
+  margin: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+}

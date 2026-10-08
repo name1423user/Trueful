@@ -158,3 +158,65 @@ test('統合検索欄: 他の Workspace の候補は Mode の印と名前が付�
     cleanup()
   }
 })
+
+test('統合検索欄: ↑ は最後の候補から始まる。多い候補でも選んでいる行が見える。コピーの結果は目に見える。スクロールバーを押しても閉じない', async () => {
+  const { app, cleanup } = await launchApp()
+  try {
+    const window = await app.firstWindow()
+    await window.getByLabel('名前').fill('案件A')
+    await window.getByRole('button', { name: '作成' }).click()
+    const tabs = window.locator('.tab-row')
+    const address = window.getByLabel('アドレス')
+    // 候補が一覧の高さに収まらないほど多い状態にする（タブ 12 個）
+    for (let i = 0; i < 12; i++) {
+      await address.fill(`${origin}/many${i}`)
+      await address.press('Enter')
+      await expect(tabs.last()).toHaveText(`page /many${i}`)
+      if (i < 11) await window.getByRole('button', { name: '新しいタブ' }).first().click()
+    }
+    await window.getByRole('button', { name: '新しいタブ' }).first().click()
+    await address.fill('many')
+    const options = window.getByRole('option')
+    await expect(options.last()).toContainText('検索')
+
+    // 一覧を2行ぶんの高さにして、溢れさせる（候補は種類ごとに上限があり、普通は一覧に収まるため）
+    await window.getByRole('listbox').evaluate((el) => (el.style.maxHeight = '72px'))
+    // 何も選んでいないときの ↑ は、最後の候補（Web 検索）を選ぶ
+    await address.press('ArrowUp')
+    await expect(options.last()).toHaveAttribute('aria-selected', 'true')
+    // 選んでいる行は、一覧の見える範囲に入っている
+    const inView = (): Promise<boolean> =>
+      window.evaluate(() => {
+        const row = document.querySelector('[role="option"][aria-selected="true"]')!
+        const list = document.querySelector('[role="listbox"]')!
+        const r = row.getBoundingClientRect()
+        const l = list.getBoundingClientRect()
+        return r.top >= l.top - 1 && r.bottom <= l.bottom + 1
+      })
+    await expect.poll(inView).toBe(true)
+    for (let i = 0; i < 9; i++) {
+      await address.press('ArrowUp')
+      await expect.poll(inView).toBe(true)
+    }
+
+    // コピーの結果は、目に見える形でも出る（しばらくして消える）
+    await address.fill('1+2')
+    await address.press('ArrowDown')
+    await address.press('Enter')
+    await expect(window.locator('.omnibox-copied')).toHaveText('コピーしました: 3')
+    await expect(window.locator('.omnibox-copied')).toBeHidden({ timeout: 6000 })
+
+    // 一覧のスクロールバーなど、候補の外を押しても一覧は閉じない
+    await address.fill('many')
+    const list = window.getByRole('listbox', { name: '候補' })
+    await expect(list).toBeVisible()
+    const box = (await list.boundingBox())!
+    await window.mouse.move(box.x + box.width - 2, box.y + 10)
+    await window.mouse.down()
+    await window.mouse.up()
+    await expect(list).toBeVisible()
+  } finally {
+    await app.close()
+    cleanup()
+  }
+})
