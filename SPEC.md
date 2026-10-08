@@ -164,7 +164,7 @@ GitHub Releases（配布・更新情報）、Chromeウェブストア（拡張�
 - 削除の前に自動スナップショットを1回作成する。スナップショットは30日で自動的に消す。
 - 削除すると、そのWorkspaceのパーティション（Cookie・ストレージ・拡張のデータ）も消す。
 - 名前は1〜100文字で、前後の空白は取り除く。
-- Workspaceの切り替えショートカット: macOSは Ctrl+1〜9、Windows・Linuxは Alt+1〜9（左パネルの並び順。設定で変更可）。タブの切り替えはChromeと同じ Cmd/Ctrl+1〜9 のまま。
+- Workspaceの切り替えショートカット: macOSは Ctrl+1〜9、Windows・Linuxは Alt+1〜9（左パネルの並び順。設定で変更可）。タブの切り替えはChromeと同じ Cmd/Ctrl+1〜8（左から数えたタブ）と 9（最後のタブ）のまま。修飾キーの設定（`workspaceSwitchModifier`: auto・ctrl・alt）で変えられ、Windows・Linux で Ctrl にしたら、Ctrl+数字は Workspace が使う（タブの切り替えのキーは外す。ぶつからない）。どちらも、ページがキーを止めても効く。存在しない番号のときは何もしない。
 
 **F02 タブとナビゲーション**
 - URL入力で読み込み、戻る・進む・再読み込み・停止ができる。URL以外の文字列は既定の検索エンジンで検索する。

@@ -146,6 +146,19 @@ export class TabPages {
     this.notify.tabsChanged(workspaceId)
   }
 
+  // Cmd/Ctrl+1〜9（Chrome と同じ）。今の Workspace の、左から n 番目のタブを選ぶ。9 は最後のタブ。
+  // タブの数より大きい番号なら何もしない
+  selectNth(db: DatabaseSync, n: number): void {
+    const workspaceId = getCurrentWorkspaceId(db)
+    if (workspaceId === null) return
+    const { tabs } = this.tabs.list(db, workspaceId)
+    const tab = n === 9 ? tabs.at(-1) : tabs[n - 1]
+    if (!tab) return
+    this.tabs.activate(db, workspaceId, tab.id)
+    this.showActive(db, workspaceId)
+    this.notify.tabsChanged(workspaceId)
+  }
+
   // TabViews から: ページが新しいウィンドウを開こうとした → 同じ Workspace の新しいタブで開く
   // background（Cmd/Ctrl+クリック・中クリック）のときは、開いたタブを選ばない
   openRequested(tabId: number, url: string, background = false): void {

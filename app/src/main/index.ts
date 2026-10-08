@@ -98,7 +98,11 @@ import {
 } from './workspace/services/workspaceDB'
 import { SettingsStore } from './settings/flows/settingsStore'
 import ja from '../renderer/src/locales/ja.json'
-import { appMenuTemplate, type MenuCommand } from './window/services/appMenu'
+import {
+  appMenuTemplate,
+  resolveWorkspaceModifier,
+  type MenuCommand
+} from './window/services/appMenu'
 import { isAppUrl } from './window/services/appUrl'
 import { isExternalUrl } from './window/services/externalUrl'
 
@@ -262,9 +266,12 @@ app.whenReady().then(() => {
     .catch((e) => console.error('[main] DB の準備に失敗', e))
 
   // 設定（F14）。壊れていたら既定値で起動し、問題は settings:get と settings:changed で Renderer に伝える
-  const store = SettingsStore.open(userData, (snapshot) =>
+  // メニューの作り直し（Workspace の切り替えのキーの設定が変わったとき。メニューを作った後に入れる）
+  let rebuildMenu: () => void = () => {}
+  const store = SettingsStore.open(userData, (snapshot) => {
     mainWindow?.webContents.send(channelNames.settingsChanged, snapshot)
-  )
+    rebuildMenu()
+  })
   settingsStore = store
   const problem = store.get().problem
   if (problem) console.warn('[main] settings.json に問題があった', problem)
@@ -350,6 +357,8 @@ app.whenReady().then(() => {
       onPermissionCheck: (workspaceId, url, permission, details) =>
         permissions.check(workspaceId, url, permission, details),
       onReservedShortcut: (command) => runMenuCommand(command),
+      workspaceModifier: () =>
+        resolveWorkspaceModifier(store.get().settings.workspaceSwitchModifier, process.platform),
       onDiscarded: (tabIds) => pages.discarded(tabIds),
       onPageGone: (tabId) => prompts.dismissTab(tabId)
     },
@@ -370,8 +379,12 @@ app.whenReady().then(() => {
       target.webContents.send(channelNames.uiCommand, command)
       return
     }
-    // 2段目の開閉と、今のページのブックマーク追加は画面で行う（フォーカスは動かさない）
-    if (command === 'toggle-side-panel' || command === 'bookmark-page') {
+    // 2段目の開閉・今のページのブックマーク追加・Workspace の切り替えは、画面で行う（フォーカスは動かさない）
+    if (
+      command === 'toggle-side-panel' ||
+      command === 'bookmark-page' ||
+      command.startsWith('workspace-switch-')
+    ) {
       target.webContents.send(channelNames.uiCommand, command)
       return
     }
@@ -381,6 +394,8 @@ app.whenReady().then(() => {
     }
     const db = database
     if (!db?.isOpen) return
+    const selected = /^tab-select-([1-9])$/.exec(command)?.[1]
+    if (selected) return pages.selectNth(db, Number(selected))
     const tabCommand = (
       {
         'tab-new': 'new',
@@ -391,9 +406,21 @@ app.whenReady().then(() => {
     )[command]
     pages.command(db, tabCommand)
   }
-  Menu.setApplicationMenu(
-    Menu.buildFromTemplate(appMenuTemplate(process.platform, ja.menu, runMenuCommand))
-  )
+  // メニュー。Workspace の切り替えの修飾キー（設定）が変わったら、作り直す
+  let menuModifier = store.get().settings.workspaceSwitchModifier
+  const installMenu = (): void =>
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate(
+        appMenuTemplate(process.platform, ja.menu, runMenuCommand, menuModifier)
+      )
+    )
+  installMenu()
+  rebuildMenu = () => {
+    const next = store.get().settings.workspaceSwitchModifier
+    if (next === menuModifier) return
+    menuModifier = next
+    installMenu()
+  }
   // 起動したら・ウィンドウを開き直したら、今の Workspace の選択中のタブを表示する
   const showCurrent = (): void =>
     void databaseReady
