@@ -135,6 +135,31 @@ describe('今の Workspace と他の Workspace（レビューの指摘）', () =
     expect(list.filter((c) => c.kind === 'history' && !c.otherWorkspace)).toHaveLength(1)
   })
 
+  it('今の Workspace に新しいヒットが50件以上あっても、他の Workspace の候補は出る', () => {
+    for (let i = 0; i < 60; i++) {
+      insertTab(db, { workspaceId: a, url: `https://react.dev/a${i}`, title: 'a' }, 100 + i)
+      recordVisit(db, {
+        workspaceId: a,
+        url: `https://react.dev/ah${i}`,
+        title: 'ah',
+        now: 100 + i
+      })
+    }
+    insertTab(db, { workspaceId: b, url: 'https://react.dev/b-tab', title: 'b' }, 1)
+    recordVisit(db, { workspaceId: b, url: 'https://react.dev/b-history', title: 'bh', now: 1 })
+    const others = suggest(db, { query: 'react.dev', workspaceId: a }).filter(
+      (c) => c.otherWorkspace
+    )
+    expect(others.map((c) => c.kind).sort()).toEqual(['history', 'tab'])
+  })
+
+  it('打った URL と同じ URL のタブが他の Workspace にだけあるときも、切り替える候補として出す', () => {
+    insertTab(db, { workspaceId: b, url: 'https://react.dev/', title: 'React' }, 1)
+    const list = suggest(db, { query: 'react.dev', workspaceId: a })
+    expect(list.map((c) => c.kind)).toEqual(['url', 'tab', 'search'])
+    expect(list[1]).toMatchObject({ kind: 'tab', workspaceId: b, otherWorkspace: true })
+  })
+
   it('今の Workspace が多くても、他の Workspace の候補の枠は残る（合わせて 8 件まで）', () => {
     for (let i = 0; i < 5; i++) {
       insertTab(db, { workspaceId: a, url: `https://react.dev/t${i}`, title: 't' }, i)

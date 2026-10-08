@@ -84,13 +84,21 @@ const SHORT_SCAN = 5000
 
 export function searchHistory(
   db: DatabaseSync,
-  input: { query: string; workspaceId?: number; limit?: number }
+  input: { query: string; workspaceId?: number; exceptWorkspaceId?: number; limit?: number }
 ): HistoryEntry[] {
   const query = input.query.trim()
   if (query === '') return []
   const limit = input.limit ?? 20
-  const workspace = input.workspaceId === undefined ? '' : 'AND h.workspace_id = ?'
-  const workspaceArgs = input.workspaceId === undefined ? [] : [input.workspaceId]
+  // workspaceId はその Workspace だけ、exceptWorkspaceId はその Workspace 以外
+  const workspace =
+    input.workspaceId !== undefined
+      ? 'AND h.workspace_id = ?'
+      : input.exceptWorkspaceId !== undefined
+        ? 'AND h.workspace_id <> ?'
+        : ''
+  const workspaceArgs = [input.workspaceId ?? input.exceptWorkspaceId].filter(
+    (id) => id !== undefined
+  )
   if ([...query].length >= 3) {
     // 入力全体を1つの語（フレーズ）として探す。" は "" に直す
     const match = `"${query.replaceAll('"', '""')}"`
@@ -111,7 +119,7 @@ export function searchHistory(
   return db
     .prepare(
       `SELECT ${COLUMNS} FROM (
-         SELECT * FROM history_url h ${workspace ? 'WHERE h.workspace_id = ?' : ''}
+         SELECT * FROM history_url h ${workspace ? workspace.replace('AND', 'WHERE') : ''}
          ORDER BY last_visited_time_ms DESC LIMIT ${SHORT_SCAN}
        ) h
        WHERE (h.title LIKE ? ESCAPE '\\' OR h.url LIKE ? ESCAPE '\\')

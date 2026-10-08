@@ -72,15 +72,24 @@ export function suggest(
   // 今の Workspace（まとめる優先順は タブ > ブックマーク > 履歴）
   const current = input.workspaceId
   const tabs =
-    current === null ? [] : take(searchTabs(db, text, FETCH, current), (t) => t.url, LIMIT.tab)
-  // 開いているタブは、打った URL と同じでも残す（新しく開くより、そのタブへ切り替えたいことが多い）
-  if (!isSearch) seen.add(url)
-  const bookmarks = take(searchBookmarks(db, text, FETCH), (b) => b.url ?? '', LIMIT.bookmark)
+    current === null
+      ? []
+      : take(searchTabs(db, text, FETCH, { workspaceId: current }), (t) => t.url, LIMIT.tab)
+  // 打った URL と同じブックマーク・履歴は「開く」にまとめる。開いているタブは同じでも残す
+  // （新しく開くより、そのタブへ切り替えたいことが多い）
+  const notTyped = (u: string): boolean => isSearch || u !== url
+  const bookmarks = take(
+    searchBookmarks(db, text, FETCH).filter((b) => notTyped(b.url ?? '')),
+    (b) => b.url ?? '',
+    LIMIT.bookmark
+  )
   const history =
     current === null
       ? []
       : take(
-          searchHistory(db, { query: text, workspaceId: current, limit: FETCH }),
+          searchHistory(db, { query: text, workspaceId: current, limit: FETCH }).filter((h) =>
+            notTyped(h.url)
+          ),
           (h) => h.url,
           LIMIT.history
         )
@@ -92,12 +101,16 @@ export function suggest(
       .filter((w) => !isCurrent(w.id) && w.name.toLowerCase().includes(lower))
       .map((w) => ({ kind: 'workspace' as const, title: w.name, ...other(w.id) })),
     ...take(
-      searchTabs(db, text, FETCH).filter((t) => !isCurrent(t.workspaceId)),
+      searchTabs(db, text, FETCH, current === null ? {} : { exceptWorkspaceId: current }),
       (t) => t.url,
       LIMIT.other
     ).map(tabCandidate),
     ...take(
-      searchHistory(db, { query: text, limit: FETCH }).filter((h) => !isCurrent(h.workspaceId)),
+      searchHistory(db, {
+        query: text,
+        ...(current === null ? {} : { exceptWorkspaceId: current }),
+        limit: FETCH
+      }).filter((h) => notTyped(h.url)),
       (h) => h.url,
       LIMIT.other
     ).map(historyCandidate)

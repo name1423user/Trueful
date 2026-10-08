@@ -117,23 +117,33 @@ export function touchTab(db: DatabaseSync, id: number, now: number): boolean {
 }
 
 // 統合検索欄の候補（F10）。全 Workspace のタブを、タイトルと URL の部分一致で探す（空のタブは除く。最近見た順）
-// workspaceId を指定すると、その Workspace のタブだけを探す
+// scope で、その Workspace のタブだけ（workspaceId）、またはその Workspace 以外のタブだけ（exceptWorkspaceId）に絞る
 export function searchTabs(
   db: DatabaseSync,
   query: string,
   limit = 20,
-  workspaceId?: number
+  scope: { workspaceId?: number; exceptWorkspaceId?: number } = {}
 ): Tab[] {
   const q = query.trim()
   if (q === '') return []
   const like = `%${q.replace(/[\\%_]/g, '\\$&')}%`
-  const scope = workspaceId === undefined ? '' : 'AND workspace_id = ?'
+  const only = scope.workspaceId !== undefined
+  const filter = only
+    ? 'AND workspace_id = ?'
+    : scope.exceptWorkspaceId !== undefined
+      ? 'AND workspace_id <> ?'
+      : ''
+  const filterArgs = only
+    ? [scope.workspaceId]
+    : scope.exceptWorkspaceId !== undefined
+      ? [scope.exceptWorkspaceId]
+      : []
   return db
     .prepare(
       `SELECT ${COLUMNS} FROM tab
-       WHERE url <> ? AND (title LIKE ? ESCAPE '\\' OR url LIKE ? ESCAPE '\\') ${scope}
+       WHERE url <> ? AND (title LIKE ? ESCAPE '\\' OR url LIKE ? ESCAPE '\\') ${filter}
        ORDER BY last_active_time_ms DESC LIMIT ?`
     )
-    .all(NEW_TAB_URL, like, like, ...(workspaceId === undefined ? [] : [workspaceId]), limit)
+    .all(NEW_TAB_URL, like, like, ...(filterArgs as number[]), limit)
     .map(toTab)
 }
