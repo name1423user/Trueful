@@ -13,7 +13,7 @@ export const BACKUP_FILE = 'trueful.db.bak'
 // 起動時の手順（data-schema.md の「起動時の手順とバックアップ」）:
 // 開く → 壊れていないか確かめる → バックアップ → マイグレーション。
 // 壊れた DB で正しいバックアップを上書きしないよう、確かめてからバックアップする。
-// 壊れていたときの復元は F12 で行う
+// 壊れていたときの復元は recoverDatabase.ts（F12）
 export async function initDatabase(
   dir: string,
   migrations: readonly Migration[] = defaultMigrations

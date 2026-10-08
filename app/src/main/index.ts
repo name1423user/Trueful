@@ -203,7 +203,6 @@ app.whenReady().then(() => {
   )
   session.defaultSession.setPermissionCheckHandler(() => false)
 
-  // 失敗したときの復元と通知は F12 で行う。ここでは記録だけする
   const userData = app.getPath('userData')
   // パーティションは sessionData の下に作られる（既定では userData と同じ場所）
   const workspaceRoots: WorkspaceRoots = { userData, sessionData: app.getPath('sessionData') }
@@ -287,10 +286,8 @@ app.whenReady().then(() => {
   // 起動のときに知らせること（壊れた DB を戻した、など）。DB の準備を待ってから返す
   handle(startupNotices, async () => {
     await databaseReady.catch(() => undefined)
-    // 知らせるのは1回だけ（ウィンドウを開き直したとき・再読み込みのときに、また出さない）
-    const notices = databaseRecovery ? [databaseRecovery] : []
-    databaseRecovery = undefined
-    return notices
+    // 何度聞かれても同じ答えを返す（読んだ画面が捨てられても、知らせが消えないように。再読み込みでは、また出る）
+    return databaseRecovery ? [databaseRecovery] : []
   })
   handle(startupMode, async () => {
     const m = await mode

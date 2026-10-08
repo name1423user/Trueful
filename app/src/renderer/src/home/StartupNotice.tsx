@@ -23,9 +23,11 @@ export function StartupNotice(): React.JSX.Element {
   }, [])
   // 新しく作った（以前の Workspace が一覧から消えた）ときは、強く知らせる（ADR-012 の「復旧不可」）
   const severe = notices.some((n) => n.kind === 'recreated')
-  const message = notices.map((n) => t(`startupNotice.${n.kind}`, { file: n.brokenFile })).join(' ')
+  const message = notices
+    .map((n) => t(`startupNotice.${n.kind}${n.brokenFile ? '' : 'NoFile'}`, { file: n.brokenFile }))
+    .join(' ')
   return (
-    <div className={notices.length > 0 ? 'startup-notice' : undefined}>
+    <div className={notices.length > 0 ? `startup-notice${severe ? ' severe' : ''}` : undefined}>
       <p role="status" aria-live="polite">
         {!severe && message}
       </p>
