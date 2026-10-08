@@ -168,13 +168,21 @@ test('統合検索欄: ↑ は最後の候補から始まる。多い候補で�
     const tabs = window.locator('.tab-row')
     const address = window.getByLabel('アドレス')
     // 候補が一覧の高さに収まらないほど多い状態にする（タブ 12 個）
+    const create = window.locator('.tab-new')
     for (let i = 0; i < 12; i++) {
+      // 新しいタブができて、選ばれるまで待つ（アドレスバーは、選んだタブごとに作り直されるため）
+      if (i > 0) {
+        await create.click()
+        await expect(tabs).toHaveCount(i + 1)
+        await expect(tabs.last()).toHaveAttribute('aria-current', 'true')
+      }
       await address.fill(`${origin}/many${i}`)
       await address.press('Enter')
       await expect(tabs.last()).toHaveText(`page /many${i}`)
-      if (i < 11) await window.getByRole('button', { name: '新しいタブ' }).first().click()
     }
-    await window.getByRole('button', { name: '新しいタブ' }).first().click()
+    await create.click()
+    await expect(tabs).toHaveCount(13)
+    await expect(tabs.last()).toHaveAttribute('aria-current', 'true')
     await address.fill('many')
     const options = window.getByRole('option')
     await expect(options.last()).toContainText('検索')
