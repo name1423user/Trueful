@@ -11,9 +11,14 @@ export class DatabaseCorruptedError extends Error {
 }
 
 // SQLite が「壊れている」と返したエラーか（SQLITE_CORRUPT = 11、SQLITE_NOTADB = 26。下位8ビットが基本のコード）
+// 包まれたエラー（マイグレーション・バックアップの失敗）の原因（cause）もたどる
 export function isCorruptionError(e: unknown): boolean {
-  const code = (e as { errcode?: unknown } | null)?.errcode
-  return typeof code === 'number' && [11, 26].includes(code & 0xff)
+  for (let cur = e, depth = 0; cur && depth < 5; depth++) {
+    const code = (cur as { errcode?: unknown }).errcode
+    if (typeof code === 'number' && [11, 26].includes(code & 0xff)) return true
+    cur = (cur as { cause?: unknown }).cause
+  }
+  return false
 }
 
 export class DatabaseTooNewError extends Error {

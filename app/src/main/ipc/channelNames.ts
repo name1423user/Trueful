@@ -33,6 +33,7 @@ export const channelNames = {
   tabControl: 'tab:control',
   viewSetBounds: 'view:setBounds',
   startupMode: 'startup:mode',
+  startupNotices: 'startup:notices',
   // Main → Renderer の知らせ（webContents.send。ADR-007）
   settingsChanged: 'settings:changed',
   tabPageChanged: 'tab:pageChanged',

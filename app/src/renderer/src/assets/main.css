@@ -60,7 +60,8 @@ body {
   /* 1段目（48px）・2段目（240px）・中央（F15） */
   grid-template-columns: 48px 240px minmax(0, 1fr);
   /* minmax(0, 1fr): 左パネルの中身が増えても行が伸びない（ページの場所がずれないように） */
-  grid-template-rows: 44px minmax(0, 1fr);
+  /* 上端は 44px。知らせが長いときは伸び、ページはその分だけ下がる */
+  grid-template-rows: minmax(44px, auto) minmax(0, 1fr);
   grid-template-areas:
     'rail top top'
     'rail left content';
@@ -80,6 +81,7 @@ body {
 .top-bar {
   grid-area: top;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 16px;
   padding: 0 8px;
@@ -249,11 +251,13 @@ body {
   border-style: dashed;
 }
 
-.dormant-notice p {
+.dormant-notice p,
+.startup-notice p {
   margin: 0;
 }
 
-.dormant-notice {
+.dormant-notice,
+.startup-notice {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -814,4 +818,10 @@ body {
 /* 画面を出したときにプログラムでフォーカスする見出し（読み上げの起点）。押す部品ではないので枠は出さない */
 h1[tabindex='-1']:focus {
   outline: none;
+}
+
+/* 起動のときの知らせは、上端の2段目に全幅で出す（アドレスバーを押し縮めない） */
+.startup-notice {
+  flex-basis: 100%;
+  margin-bottom: 8px;
 }
