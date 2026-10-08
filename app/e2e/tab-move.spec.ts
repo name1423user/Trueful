@@ -33,7 +33,12 @@ test('タブを別の Workspace へ移す: 移動先に同じ URL のタブが�
       if (!first.ok) throw new Error(first.error.message)
       const opened = await tab.navigate(a, first.value.tabs[0]!.id, url)
       if (!opened.ok) throw new Error(opened.error.message)
-      await new Promise((resolve) => setTimeout(resolve, 500)) // タイトルが記録されるのを待つ
+      // タイトルが記録されるのを待つ（移すと、そのタイトルが引き継がれる）
+      for (let i = 0; i < 100; i++) {
+        const listed = await tab.list(a)
+        if (listed.ok && listed.value.tabs[0]?.title) break
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
       const moved = await tab.move(a, opened.value.id, b)
       return {
         moved,

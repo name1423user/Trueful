@@ -121,7 +121,8 @@ export function moveTabFlow(
     if (destination.status === 'dormant') {
       touchWorkspace(db, toWorkspaceId, now)
       setWorkspaceActive(db, toWorkspaceId)
-      limitActiveWorkspaces(db, toWorkspaceId, now)
+      // 復帰させる Workspace と、見ている今の Workspace は休止にしない（画面に出ているページが消えるため）
+      limitActiveWorkspaces(db, [toWorkspaceId, getCurrentWorkspaceId(db) ?? toWorkspaceId], now)
     }
     // 選択の時刻は、同じミリ秒の操作や時計の巻き戻りでも新しくなるようにする（TabFlows と同じ）
     const stamp = Math.max(now, (latestActiveTime(db, toWorkspaceId) ?? -1) + 1)
@@ -167,7 +168,11 @@ export function deleteWorkspaceFlow(
 
 // フルアクティブな Workspace が上限（5 個）を超えていたら、いちばん長く使っていないものを休止にする。
 // 開こうとしている Workspace（keepId）は選ばない（ADR-011）。ページの実体の破棄は呼び出し側で行う
-function limitActiveWorkspaces(db: DatabaseSync, keepId: number, now: number): void {
+function limitActiveWorkspaces(
+  db: DatabaseSync,
+  keepId: number | readonly number[],
+  now: number
+): void {
   const active = listWorkspaces(db).filter((w) => w.status === 'active')
   for (const id of workspacesToDormant(active, MAX_ACTIVE_WORKSPACES, keepId)) {
     setWorkspaceDormant(db, id, now)

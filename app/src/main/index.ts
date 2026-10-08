@@ -618,7 +618,7 @@ app.whenReady().then(() => {
     const db = await getDatabase()
     try {
       const moved = moveTabFlow(db, { tabId: id, fromWorkspaceId: workspaceId, toWorkspaceId })
-      views.destroy(id)
+      pages.forget(id)
       const current = getCurrentWorkspaceId(db)
       if (current !== null) pages.showActive(db, current)
       releaseDormant(db)
