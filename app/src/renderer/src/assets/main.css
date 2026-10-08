@@ -915,3 +915,88 @@ h1[tabindex='-1']:focus {
   color: var(--text);
   font-size: 12px;
 }
+
+/* タブの右クリックメニュー「Workspaceへ移動」（F17）。左パネルの中に収める */
+.tab-context-menu {
+  position: fixed;
+  z-index: 10;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 20%);
+  list-style: none;
+  max-height: calc(100vh - 8px);
+  overflow-y: auto;
+}
+
+.tab-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tab-menu-item:hover,
+.tab-menu-item:focus-visible {
+  background: var(--selected);
+}
+
+/* キーボードで選んでいるものは、背景だけでなく枠でも示す（背景だけでは、白地との差が小さい） */
+.tab-menu-item:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: -2px;
+}
+
+.tab-menu-item[aria-disabled='true'] {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+/* 移す前の確認（ログイン状態が変わる）。左パネルの中に出す */
+.move-tab-confirm {
+  margin: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.move-tab-confirm h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+}
+
+.move-tab-confirm p {
+  margin: 0 0 8px;
+  font-size: 12px;
+}
+
+.move-tab-confirm label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.move-tab-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.tab-move-status {
+  margin: 4px 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}

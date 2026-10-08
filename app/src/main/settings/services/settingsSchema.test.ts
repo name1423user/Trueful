@@ -11,7 +11,8 @@ describe('settingsSchema', () => {
       historyRetentionDays: 90,
       adBlockEnabled: true,
       developerMode: false,
-      sentryEnabled: false
+      sentryEnabled: false,
+      hideMoveTabNotice: false
     })
     expect(defaultSettings().shortcuts.map((s) => s.keyword)).toEqual(['gh', 'npm', 'mdn'])
   })
