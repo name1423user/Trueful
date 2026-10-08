@@ -136,7 +136,8 @@
     "moveConfirm": "移す",
     "moveCancel": "やめる",
     "moved": "{{title}} を {{name}} へ移しました",
-    "moveFailed": "タブを移せませんでした。もう一度お試しください。"
+    "moveFailed": "タブを移せませんでした。もう一度お試しください。",
+    "moveNotFound": "タブを移せませんでした。そのタブはもう閉じられたか、別の Workspace に移っています。"
   },
   "panel": {
     "railLabel": "パネルの切り替え",

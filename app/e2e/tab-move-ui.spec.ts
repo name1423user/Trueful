@@ -99,3 +99,61 @@ test('タブの右クリックメニュー「Workspaceへ移動」: 確認（ロ
     cleanup()
   }
 })
+
+test('タブの移動の確認: 答えないまま Workspace を切り替えたら閉じる。やめると、メニューを開いたタブにフォーカスが戻る。確認の最初のフォーカスは「やめる」', async () => {
+  const { app, cleanup } = await launchApp()
+  try {
+    const window = await app.firstWindow()
+    await window.getByLabel('名前').fill('案件A')
+    await window.getByRole('button', { name: '作成' }).click()
+    const address = window.getByLabel('アドレス')
+    const tabs = window.locator('.tab-row')
+    await address.fill(`${origin}/f1`)
+    await address.press('Enter')
+    await expect(tabs.first()).toHaveText('page /f1')
+    // 2つ目のタブ（今選んでいる）。メニューは1つ目のタブで開く
+    await window.getByRole('button', { name: '新しいタブ' }).first().click()
+    await expect(tabs).toHaveCount(2)
+    await address.fill(`${origin}/f2`)
+    await address.press('Enter')
+    await expect(tabs.nth(1)).toHaveText('page /f2')
+    for (const name of ['案件B', '案件C']) {
+      await window.getByRole('button', { name: 'Workspace を追加' }).click()
+      await window.getByLabel('名前').fill(name)
+      await window.getByRole('button', { name: '作成' }).click()
+      await expect(window.getByText(`今の Workspace: ${name}`)).toBeVisible()
+    }
+    const rows = window.locator('.workspace-row')
+    await rows.nth(0).click()
+    await expect(tabs).toHaveCount(2)
+
+    // 1つ目のタブから、案件B への確認を出す。最初のフォーカスは「やめる」。やめると、1つ目のタブに戻る
+    await tabs.first().click({ button: 'right' })
+    await window.getByRole('menuitem', { name: /案件B/ }).click()
+    const dialog = window.getByRole('alertdialog')
+    await expect(dialog).toBeVisible()
+    await expect
+      .poll(() => window.evaluate(() => document.activeElement?.textContent ?? ''))
+      .toBe('やめる')
+    await window.keyboard.press('Enter')
+    await expect(dialog).toBeHidden()
+    await expect
+      .poll(() => window.evaluate(() => document.activeElement?.textContent ?? ''))
+      .toContain('page /f1')
+
+    // 確認を出したまま、別の Workspace（案件C）へ切り替えると、確認は閉じる（古いタブを別の Workspace で移さない）
+    await tabs.first().click({ button: 'right' })
+    await window.getByRole('menuitem', { name: /案件B/ }).click()
+    await expect(dialog).toBeVisible()
+    await rows.nth(2).click()
+    await expect(rows.nth(2)).toHaveAttribute('aria-current', 'true')
+    await expect(dialog).toBeHidden()
+    // 案件A に戻っても、確認は戻らない。タブは動いていない
+    await rows.nth(0).click()
+    await expect(tabs).toHaveCount(2)
+    await expect(dialog).toBeHidden()
+  } finally {
+    await app.close()
+    cleanup()
+  }
+})

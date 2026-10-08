@@ -15,8 +15,9 @@ export function MoveTabConfirm(props: {
   const root = useRef<HTMLDivElement>(null)
   const headingId = useId()
   const bodyId = useId()
+  // 最初のフォーカスは「やめる」（メニューの Enter に続けて Enter を押しても、読まずに移さないため）
   useEffect(() => {
-    root.current?.querySelector<HTMLElement>('button')?.focus()
+    root.current?.querySelector<HTMLElement>('button[data-cancel]')?.focus()
   }, [])
   return (
     <div
@@ -42,7 +43,7 @@ export function MoveTabConfirm(props: {
         <button type="button" onClick={() => props.onConfirm(dontAsk)}>
           {t('tab.moveConfirm')}
         </button>
-        <button type="button" onClick={props.onCancel}>
+        <button type="button" data-cancel onClick={props.onCancel}>
           {t('tab.moveCancel')}
         </button>
       </div>

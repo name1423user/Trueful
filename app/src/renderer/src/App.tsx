@@ -52,6 +52,10 @@ function App(): React.JSX.Element {
     workspaceId: state.status === 'ready' ? state.currentId : null,
     onMoved: async () => {
       await Promise.all([tabs.refresh(), refresh()])
+      // 移したタブは消えたので、フォーカスを選んでいるタブへ（body に落とさない）
+      requestAnimationFrame(() =>
+        document.querySelector<HTMLElement>('.tab-row[aria-current="true"]')?.focus()
+      )
     }
   })
   const permission = usePermissionPrompt(
@@ -316,8 +320,12 @@ function App(): React.JSX.Element {
                   onConfirm={(dontAsk) => void move.confirm(dontAsk)}
                   onCancel={() => {
                     move.cancel()
-                    // フォーカスを選んでいるタブに戻す（確認が消えて、body に落ちないように）
-                    document.querySelector<HTMLElement>('.tab-row[aria-current="true"]')?.focus()
+                    // フォーカスを、メニューを開いたタブに戻す（なければ選んでいるタブ。body に落とさない）
+                    const id = move.pending?.tab.id
+                    ;(
+                      document.querySelector<HTMLElement>(`.tab-row[data-tab-id="${id}"]`) ??
+                      document.querySelector<HTMLElement>('.tab-row[aria-current="true"]')
+                    )?.focus()
                   }}
                 />
               )}

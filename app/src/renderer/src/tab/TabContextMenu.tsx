@@ -4,6 +4,7 @@ import type { Workspace } from '../workspace/useWorkspaces'
 
 const MENU_WIDTH = 200
 const MARGIN = 4
+const ITEM_HEIGHT = 32
 
 // タブの右クリックのメニュー「Workspaceへ移動」（F17）。移動先の Workspace を並べる（今の Workspace は除く）。
 // ページ（WebContentsView）は左パネルの外の中央に重なるので、メニューは左パネルの中に収める。
@@ -27,6 +28,9 @@ export function TabContextMenu(props: {
   const minX = (panel?.left ?? 0) + MARGIN
   const maxX = (panel?.right ?? window.innerWidth) - MENU_WIDTH - MARGIN
   const left = Math.max(minX, Math.min(props.x, maxX))
+  // 窓の下からはみ出さない（はみ出す分は、メニューの中でスクロールする）
+  const height = Math.max(props.destinations.length, 1) * ITEM_HEIGHT + 2 * MARGIN
+  const top = Math.max(MARGIN, Math.min(props.y, window.innerHeight - height - MARGIN))
 
   useEffect(() => {
     const items = menu.current?.querySelectorAll<HTMLElement>('[role="menuitem"]')
@@ -60,7 +64,7 @@ export function TabContextMenu(props: {
       role="menu"
       aria-label={t('tab.moveMenuLabel', { title: props.title })}
       className="tab-context-menu"
-      style={{ left, top: props.y, width: MENU_WIDTH }}
+      style={{ left, top, width: MENU_WIDTH }}
       onKeyDown={(e) => {
         const keys: Record<string, 'next' | 'previous' | 'first' | 'last'> = {
           ArrowDown: 'next',

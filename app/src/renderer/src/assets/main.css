@@ -927,6 +927,8 @@ h1[tabindex='-1']:focus {
   background: var(--surface);
   box-shadow: 0 4px 12px rgb(0 0 0 / 20%);
   list-style: none;
+  max-height: calc(100vh - 8px);
+  overflow-y: auto;
 }
 
 .tab-menu-item {
@@ -948,6 +950,12 @@ h1[tabindex='-1']:focus {
 .tab-menu-item:hover,
 .tab-menu-item:focus-visible {
   background: var(--selected);
+}
+
+/* キーボードで選んでいるものは、背景だけでなく枠でも示す（背景だけでは、白地との差が小さい） */
+.tab-menu-item:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: -2px;
 }
 
 .tab-menu-item[aria-disabled='true'] {

@@ -35,6 +35,7 @@ export function TabList(props: {
                 type="button"
                 className={discarded ? 'tab-row tab-discarded' : 'tab-row'}
                 aria-current={tab.id === props.activeId ? 'true' : undefined}
+                data-tab-id={tab.id}
                 title={tab.url}
                 onClick={() => props.onActivate(tab.id)}
                 onContextMenu={(e) => {
