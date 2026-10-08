@@ -17,7 +17,10 @@ import { AddressBar } from './tab/AddressBar'
 import type { Candidate } from './omnibox/useSuggestions'
 import { ErrorScreen } from './tab/ErrorScreen'
 import { PageArea } from './tab/PageArea'
+import { MoveTabConfirm } from './tab/MoveTabConfirm'
 import { TabList } from './tab/TabList'
+import { tabTitle } from './tab/tabTitle'
+import { useMoveTab } from './tab/useMoveTab'
 import { useTabs } from './tab/useTabs'
 import { useWorkspaces, type IpcErrorCode } from './workspace/useWorkspaces'
 import { WorkspaceCreateForm } from './workspace/WorkspaceCreateForm'
@@ -28,7 +31,7 @@ import { WorkspaceList } from './workspace/WorkspaceList'
 // （位置と大きさを IPC で Main に報告する。ADR-008）
 function App(): React.JSX.Element {
   const { t } = useTranslation()
-  const { state, create, switchTo, remove, notice, dismissNotice } = useWorkspaces()
+  const { state, create, switchTo, remove, refresh, notice, dismissNotice } = useWorkspaces()
   const [adding, setAdding] = useState(false)
   // 削除の確認を出している Workspace の id
   const [deletingId, setDeletingId] = useState<number | null>(null)
@@ -44,6 +47,13 @@ function App(): React.JSX.Element {
   const bookmarks = useBookmarks()
   const [bookmarkMessage, setBookmarkMessage] = useState<string>()
   const tabs = useTabs(state.status === 'ready' ? state.currentId : null)
+  // タブを別の Workspace へ移す（F17）。終わったら、タブ列と Workspace の一覧を読み直す
+  const move = useMoveTab({
+    workspaceId: state.status === 'ready' ? state.currentId : null,
+    onMoved: async () => {
+      await Promise.all([tabs.refresh(), refresh()])
+    }
+  })
   const permission = usePermissionPrompt(
     state.status === 'ready' ? state.currentId : null,
     tabs.activeId ?? null
@@ -288,14 +298,38 @@ function App(): React.JSX.Element {
         >
           {/* Developer Home・異常終了の確認の間はタブ列を出さない（選ぶと、見えないままページを読み込むため） */}
           {!showCreate && !showHome && !showCrash && panelView === 'tabs' && (
-            <TabList
-              tabs={tabs.tabs}
-              activeId={tabs.activeId}
-              discardedIds={tabs.discardedIds}
-              onActivate={(id) => void tabs.run((api, ws) => api.activate(ws, id))}
-              onClose={(id) => void tabs.run((api, ws) => api.close(ws, id))}
-              onCreate={() => void tabs.run((api, ws) => api.create(ws))}
-            />
+            <>
+              <TabList
+                tabs={tabs.tabs}
+                activeId={tabs.activeId}
+                discardedIds={tabs.discardedIds}
+                onActivate={(id) => void tabs.run((api, ws) => api.activate(ws, id))}
+                onClose={(id) => void tabs.run((api, ws) => api.close(ws, id))}
+                onCreate={() => void tabs.run((api, ws) => api.create(ws))}
+                destinations={state.workspaces.filter((w) => w.id !== state.currentId)}
+                onMove={(tab, to) => void move.request(tab, to)}
+              />
+              {move.pending && (
+                <MoveTabConfirm
+                  title={tabTitle(t, move.pending.tab)}
+                  destination={move.pending.to}
+                  onConfirm={(dontAsk) => void move.confirm(dontAsk)}
+                  onCancel={() => {
+                    move.cancel()
+                    // フォーカスを選んでいるタブに戻す（確認が消えて、body に落ちないように）
+                    document.querySelector<HTMLElement>('.tab-row[aria-current="true"]')?.focus()
+                  }}
+                />
+              )}
+              {/* 移した結果の読み上げ（領域は常に置き、中身だけ入れる） */}
+              <p
+                role="status"
+                aria-live="polite"
+                className={move.status ? 'tab-move-status' : 'visually-hidden'}
+              >
+                {move.status}
+              </p>
+            </>
           )}
         </WorkspaceList>
       )}

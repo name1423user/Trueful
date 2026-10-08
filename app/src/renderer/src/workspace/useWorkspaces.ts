@@ -33,6 +33,8 @@ export function useWorkspaces(): {
   remove: (
     id: number
   ) => Promise<{ ok: true; currentId: number | null } | { ok: false; code: IpcErrorCode }>
+  // 一覧を読み直す（タブの移動で、復帰・休止した Workspace の状態をそろえるため）
+  refresh: () => Promise<void>
   // 自動で休止した Workspace の名前（事後の知らせ。ADR-011）
   notice: string[]
   dismissNotice: () => void
@@ -116,5 +118,7 @@ export function useWorkspaces(): {
 
   const dismissNotice = useCallback(() => setNotice([]), [])
 
-  return { state, create, switchTo, remove, notice, dismissNotice }
+  const refresh = useCallback(async () => void (await reload()), [reload])
+
+  return { state, create, switchTo, remove, refresh, notice, dismissNotice }
 }

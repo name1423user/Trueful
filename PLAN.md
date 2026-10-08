@@ -145,6 +145,7 @@
 ### T2-6 タブのWorkspace間移動と切替ショートカット（F17、F01の一部）
 - 関係: `app/src/main/workspace/flows/`、`app/src/renderer/src/components/MoveTabMenu`
 - 受け入れ条件: F17をすべて満たす。F01のWorkspace切替ショートカット（macOS: Ctrl+1〜9、Windows・Linux: Alt+1〜9）が動き、Chromeと同じタブ切替（Cmd/Ctrl+1〜9）と衝突しない。
+- 進み（2026-10-09）: T2-6a はマージ済み。T2-6b（右クリックメニューと確認）は実装した。T2-6c が残り。
 - 分割（2026-10-09、任された判断）: T2-6a Main の流れと IPC（`tab:move`）、T2-6b 画面（タブの右クリックメニュー「Workspaceへ移動」、Cookie が別でログインが変わる確認と「今後表示しない」。移したあとは Workspace の一覧も読み直す〈復帰・上限による休止で、一覧の状態と休止の知らせが変わるため〉）、T2-6c Workspace の切り替えショートカット（macOS: Ctrl+1〜9、Windows・Linux: Alt+1〜9）。
 - 検証: `pnpm test && pnpm test:e2e`
 - 依存: T2-5

@@ -30,6 +30,8 @@ export const settingsFields = {
     ]),
   // Workspace の切り替えの修飾キー（F01）。auto は macOS で Ctrl、Windows・Linux で Alt
   workspaceSwitchModifier: z.enum(['auto', 'ctrl', 'alt']).default('auto'),
+  // タブを別の Workspace へ移すときの「ログイン状態が変わります」の確認を、もう出さない（F17）
+  hideMoveTabNotice: z.boolean().default(false),
   showDeveloperHome: z.boolean().default(true),
   developerHomeAfterMinutes: z.int().min(1).max(10080).default(60),
   historyRetentionDays: z.int().min(1).max(3650).default(90),

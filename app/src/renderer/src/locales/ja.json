@@ -126,7 +126,17 @@
     "stop": "読み込みを止める",
     "address": "アドレス",
     "addressPlaceholder": "URL を入力、または検索",
-    "discarded": "（休止中）"
+    "discarded": "（休止中）",
+    "moveMenuLabel": "{{title}} を別の Workspace へ移動",
+    "moveTo": "{{name}} へ移動",
+    "moveNoDestination": "移動先の Workspace がありません",
+    "moveConfirmTitle": "{{title}} を移しますか",
+    "moveConfirmBody": "「{{name}}」はログイン（Cookie）が別なので、移すと、このページのログイン状態は引き継がれません。移動先でログインし直すことがあります。",
+    "moveDontAsk": "今後表示しない",
+    "moveConfirm": "移す",
+    "moveCancel": "やめる",
+    "moved": "{{title}} を {{name}} へ移しました",
+    "moveFailed": "タブを移せませんでした。もう一度お試しください。"
   },
   "panel": {
     "railLabel": "パネルの切り替え",
