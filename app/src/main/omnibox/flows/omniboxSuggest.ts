@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
+import { answers, type Answer } from '../services/answers'
 import { searchBookmarks } from '../../bookmark/services/bookmarkDB'
 import { searchHistory, type HistoryEntry } from '../../history/services/historyDB'
 import { searchTabs, type Tab } from '../../tab/services/tabDB'
@@ -8,8 +9,12 @@ import { listWorkspaces, type WorkspaceMode } from '../../workspace/services/wor
 // 統合検索欄の候補（F10）。url は「開く」、search は Web 検索、workspace はその Workspace へ切り替える。
 // 他の Workspace のもの（otherWorkspace）には、その Workspace の Mode を付ける（画面で Mode 色の印を出す）
 export type OmniboxCandidate = {
-  kind: 'url' | 'search' | 'tab' | 'history' | 'bookmark' | 'workspace'
+  kind: 'answer' | 'url' | 'search' | 'tab' | 'history' | 'bookmark' | 'workspace'
   title: string
+  // answer: その場の答え。title は答え（コピーする文字列）、answerKind は見出しを引くための種類、detail と color は補足
+  answerKind?: Answer['kind']
+  detail?: string
+  color?: string
   url?: string
   tabId?: number
   workspaceId?: number
@@ -28,7 +33,12 @@ const FETCH = 50
 // 今の Workspace > 他の Workspace）
 export function suggest(
   db: DatabaseSync,
-  input: { query: string; workspaceId: number | null; shortcuts?: Shortcut[] }
+  input: {
+    query: string
+    workspaceId: number | null
+    shortcuts?: Shortcut[]
+    answerContext?: Parameters<typeof answers>[1]
+  }
 ): OmniboxCandidate[] {
   const query = input.query.trim()
   // 「?」で始まる入力は Web 検索の指定。探すのは「?」のあと
@@ -122,6 +132,15 @@ export function suggest(
     ...bookmarks.map((b) => ({ kind: 'bookmark' as const, title: b.title || b.url!, url: b.url! }))
   ]
   return [
+    ...answers(query, input.answerContext).map(
+      ({ kind, value, detail, color }): OmniboxCandidate => ({
+        kind: 'answer',
+        title: value,
+        answerKind: kind,
+        ...(detail === undefined ? {} : { detail }),
+        ...(color === undefined ? {} : { color })
+      })
+    ),
     ...(isSearch ? [] : [{ kind: 'url' as const, title: url, url }]),
     ...here.slice(0, LIMIT.total - others.length),
     ...others,
