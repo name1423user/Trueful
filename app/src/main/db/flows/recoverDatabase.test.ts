@@ -93,10 +93,11 @@ describe('openOrRecoverDatabase（F12、data-schema の起動時の手順2）', 
 
   it('DB と WAL・共有メモリのファイルを、同じ接尾辞でいっしょに移す（WAL を残すと、戻した DB に古い変更が書き戻される）', () => {
     for (const suffix of ['', '-wal', '-shm']) writeFileSync(join(dir, DB_FILE + suffix), 'x')
-    moveDatabaseFiles(join(dir, DB_FILE), join(dir, 'moved'))
+    expect(moveDatabaseFiles(join(dir, DB_FILE), join(dir, 'moved'))).toBe(true)
     expect(readdirSync(dir).sort()).toEqual(['moved', 'moved-shm', 'moved-wal'])
-    moveDatabaseFiles(join(dir, 'moved'), undefined)
+    expect(moveDatabaseFiles(join(dir, 'moved'), undefined)).toBe(true)
     expect(readdirSync(dir)).toEqual([])
+    expect(moveDatabaseFiles(join(dir, 'moved'), undefined)).toBe(false)
   })
 
   it('前回の復元が途中で止まり DB がないときは、新しく作らずにバックアップから戻す（バックアップを空の DB で上書きしない）', async () => {
@@ -132,5 +133,25 @@ describe('openOrRecoverDatabase（F12、data-schema の起動時の手順2）', 
     await expect(openOrRecoverDatabase(dir, [createTable], NOW)).rejects.toThrow()
     expect(existsSync(join(dir, DB_FILE))).toBe(true)
     expect(readdirSync(dir).some((n) => n.includes('.broken-'))).toBe(false)
+  })
+
+  it('DB がなくバックアップがあるとき、動かすものがなければ brokenFile はない（ないファイルを残したと言わない）', async () => {
+    await prepare()
+    rmSync(join(dir, DB_FILE))
+    const { db, recovery } = await openOrRecoverDatabase(dir, [createTable], NOW)
+    db.close()
+    expect(recovery).toEqual({ kind: 'restored', brokenFile: undefined })
+    expect(readdirSync(dir).some((n) => n.includes('.broken-'))).toBe(false)
+  })
+
+  it('DB もバックアップもなく WAL だけ残っているときは、WAL を脇へよけて新しく作る（古い変更を書き戻さない）', async () => {
+    writeFileSync(join(dir, `${DB_FILE}-wal`), 'old wal')
+    const { db } = await openOrRecoverDatabase(dir, [createTable], NOW)
+    try {
+      expect(db.prepare('SELECT count(*) n FROM item').get()?.['n']).toBe(0)
+    } finally {
+      db.close()
+    }
+    expect(readdirSync(dir)).toContain(`${DB_FILE}.broken-${NOW}-wal`)
   })
 })
