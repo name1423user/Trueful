@@ -106,8 +106,85 @@ describe('統合検索欄の候補（F10）', () => {
   })
 })
 
+describe('今の Workspace と他の Workspace（レビューの指摘）', () => {
+  it('同じ URL が他の Workspace にもあっても、今の Workspace のタブを出す（他の Workspace のものにしない）', () => {
+    insertTab(db, { workspaceId: a, url: 'https://react.dev/x', title: 'X' }, 10)
+    insertTab(db, { workspaceId: b, url: 'https://react.dev/x', title: 'X' }, 99) // こちらが新しい
+    const tabs = suggest(db, { query: 'react.dev/x', workspaceId: a }).filter(
+      (c) => c.kind === 'tab'
+    )
+    expect(tabs).toHaveLength(1)
+    expect(tabs[0]).toMatchObject({ workspaceId: a })
+    expect(tabs[0]?.otherWorkspace).toBeUndefined()
+  })
+
+  it('他の Workspace に新しいヒットが20件以上あっても、今の Workspace の候補は出る', () => {
+    insertTab(db, { workspaceId: a, url: 'https://react.dev/mine', title: 'mine' }, 1)
+    recordVisit(db, { workspaceId: a, url: 'https://react.dev/history', title: 'h', now: 1 })
+    for (let i = 0; i < 60; i++) {
+      insertTab(db, { workspaceId: b, url: `https://react.dev/b${i}`, title: 'b' }, 100 + i)
+      recordVisit(db, {
+        workspaceId: b,
+        url: `https://react.dev/bh${i}`,
+        title: 'bh',
+        now: 100 + i
+      })
+    }
+    const list = suggest(db, { query: 'react.dev', workspaceId: a })
+    expect(list.filter((c) => c.kind === 'tab' && !c.otherWorkspace)).toHaveLength(1)
+    expect(list.filter((c) => c.kind === 'history' && !c.otherWorkspace)).toHaveLength(1)
+  })
+
+  it('今の Workspace が多くても、他の Workspace の候補の枠は残る（合わせて 8 件まで）', () => {
+    for (let i = 0; i < 5; i++) {
+      insertTab(db, { workspaceId: a, url: `https://react.dev/t${i}`, title: 't' }, i)
+      recordVisit(db, { workspaceId: a, url: `https://react.dev/h${i}`, title: 'h', now: i })
+      insertBookmark(db, { kind: 'url', title: 'bk', url: `https://react.dev/k${i}` }, i)
+    }
+    insertTab(db, { workspaceId: b, url: 'https://react.dev/other', title: 'other' }, 500)
+    const list = suggest(db, { query: 'react.dev', workspaceId: a }).filter(
+      (c) => c.kind !== 'url' && c.kind !== 'search'
+    )
+    expect(list.length).toBeLessThanOrEqual(8)
+    expect(list.some((c) => c.otherWorkspace && c.mode === 'production')).toBe(true)
+  })
+
+  it('ブックマークは、タブとまとめたあとで足りない分を補う', () => {
+    for (let i = 0; i < 3; i++) {
+      insertTab(db, { workspaceId: a, url: `https://react.dev/k${i}`, title: 'tab' }, i)
+      insertBookmark(db, { kind: 'url', title: 'bk', url: `https://react.dev/k${i}` }, 10 + i)
+    }
+    insertBookmark(db, { kind: 'url', title: 'bk', url: 'https://react.dev/other1' }, 1)
+    insertBookmark(db, { kind: 'url', title: 'bk', url: 'https://react.dev/other2' }, 2)
+    const bookmarks = suggest(db, { query: 'react.dev', workspaceId: a }).filter(
+      (c) => c.kind === 'bookmark'
+    )
+    expect(bookmarks.map((c) => c.url).sort()).toEqual([
+      'https://react.dev/other1',
+      'https://react.dev/other2'
+    ])
+  })
+
+  it('Workspace が決まっていない（null）ときは、タブと履歴はすべて他の Workspace として出す', () => {
+    insertTab(db, { workspaceId: a, url: 'https://react.dev/t', title: 't' }, 1)
+    const list = suggest(db, { query: 'react.dev', workspaceId: null })
+    expect(list.find((c) => c.kind === 'tab')).toMatchObject({
+      otherWorkspace: true,
+      mode: 'development'
+    })
+  })
+
+  it('「?」で始まる入力は、「?」を除いて探し、Web 検索の見出しにも「?」を出さない', () => {
+    insertTab(db, { workspaceId: a, url: 'https://react.dev/', title: 'React' }, 1)
+    const list = suggest(db, { query: '?react', workspaceId: a })
+    expect(list.map((c) => c.kind)).toEqual(['tab', 'workspace', 'search']) // workspace は「React 本番」
+    expect(list.at(-1)).toMatchObject({ title: 'react' })
+    expect(suggest(db, { query: '?', workspaceId: a })).toEqual([])
+  })
+})
+
 describe('履歴 10 万件で 16ms 以内（F10 の性能予算、data-schema の「履歴の検索」）', () => {
-  it('3文字以上のよくある語と、2文字でヒットなしの検索', () => {
+  it('3文字以上のよくある語・まれな語と、2文字でヒットなしの検索', () => {
     const insert = db.prepare(
       'INSERT INTO history_url (workspace_id, url, title, visit_count, last_visited_time_ms) VALUES (?, ?, ?, 1, ?)'
     )
@@ -116,16 +193,28 @@ describe('履歴 10 万件で 16ms 以内（F10 の性能予算、data-schema �
       insert.run(i % 2 ? a : b, `https://react.dev/page/${i}`, `React ページ ${i}`, i)
     }
     db.exec('COMMIT')
-    const best = (query: string): number => {
+    // タブ・ブックマークも置く（候補の組み立ては、3種類を合わせて測る）
+    for (let i = 0; i < 2000; i++) {
+      insertTab(
+        db,
+        { workspaceId: i % 2 ? a : b, url: `https://react.dev/tab/${i}`, title: `T${i}` },
+        i
+      )
+      insertBookmark(db, { kind: 'url', title: `B${i}`, url: `https://react.dev/bm/${i}` }, i)
+    }
+    // 1回ならし、7回の中央値で測る
+    const median = (query: string): number => {
+      suggest(db, { query, workspaceId: a })
       const times: number[] = []
       for (let i = 0; i < 7; i++) {
         const start = performance.now()
         suggest(db, { query, workspaceId: a })
         times.push(performance.now() - start)
       }
-      return times.sort((x, y) => x - y)[4]!
+      return times.sort((x, y) => x - y)[3]!
     }
-    expect(best('react')).toBeLessThan(16)
-    expect(best('zq')).toBeLessThan(16)
-  })
+    expect(median('react')).toBeLessThan(16) // ほぼ全件にヒット
+    expect(median('page/99999')).toBeLessThan(16) // 10 万件に1件
+    expect(median('zq')).toBeLessThan(16) // 2文字でヒットなし
+  }, 60_000) // 10 万件の準備に、CI では 5 秒以上かかる
 })

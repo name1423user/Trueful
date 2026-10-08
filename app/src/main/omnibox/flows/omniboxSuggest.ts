@@ -1,7 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { searchBookmarks } from '../../bookmark/services/bookmarkDB'
-import { searchHistory } from '../../history/services/historyDB'
-import { searchTabs } from '../../tab/services/tabDB'
+import { searchHistory, type HistoryEntry } from '../../history/services/historyDB'
+import { searchTabs, type Tab } from '../../tab/services/tabDB'
 import { classifyInput, type Shortcut } from '../../tab/services/urlInput'
 import { listWorkspaces, type WorkspaceMode } from '../../workspace/services/workspaceDB'
 
@@ -17,17 +17,23 @@ export type OmniboxCandidate = {
   mode?: WorkspaceMode
 }
 
-// 種類ごとの上限と、合わせた上限（「開く」と Web 検索は数えない）
+// 種類ごとの上限と、合わせた上限（「開く」と Web 検索は数えない）。
+// 他の Workspace の候補（other）は、今の Workspace が埋まっていても枠を取っておく
 const LIMIT = { tab: 3, history: 3, bookmark: 2, other: 3, total: 8 } as const
+// 重複や今の Workspace のものを除いても足りるよう、多めに取ってから切る
+const FETCH = 50
 
 // 候補の並び（SPEC F10）: （その場の答え → 近道 → Truefulの操作 は T4-1b）→ 開く → 今の Workspace の
-// タブ・履歴・ブックマーク → 他の Workspace の候補 → Web 検索。同じ URL は1つにまとめる（タブ > ブックマーク > 履歴）
+// タブ・履歴・ブックマーク → 他の Workspace の候補 → Web 検索。同じ URL は1つにまとめる（タブ > ブックマーク > 履歴、
+// 今の Workspace > 他の Workspace）
 export function suggest(
   db: DatabaseSync,
   input: { query: string; workspaceId: number | null; shortcuts?: Shortcut[] }
 ): OmniboxCandidate[] {
   const query = input.query.trim()
-  if (query === '') return []
+  // 「?」で始まる入力は Web 検索の指定。探すのは「?」のあと
+  const text = query.startsWith('?') ? query.slice(1).trim() : query
+  if (text === '') return []
   const { url, isSearch } = classifyInput(query, input.shortcuts)
   const modes = new Map(listWorkspaces(db).map((w) => [w.id, w] as const))
   const isCurrent = (id: number): boolean => id === input.workspaceId
@@ -36,70 +42,76 @@ export function suggest(
       ? { workspaceId }
       : { workspaceId, otherWorkspace: true, mode: modes.get(workspaceId)?.mode }
 
-  // 同じ URL を2度出さない。優先する種類から順に、使った URL を覚える
+  // 同じ URL を2度出さない。出すことにしたものだけ URL を覚える（上限で切られたものは覚えない）
   const seen = new Set<string>()
-  const take = <T>(items: T[], urlOf: (item: T) => string): T[] =>
-    items.filter((item) => {
+  const take = <T>(items: T[], urlOf: (item: T) => string, limit: number): T[] => {
+    const kept: T[] = []
+    for (const item of items) {
+      if (kept.length >= limit) break
       const key = urlOf(item)
-      if (seen.has(key)) return false
+      if (seen.has(key)) continue
       seen.add(key)
-      return true
-    })
-  // 開いているタブは、打った URL と同じでも残す（新しく開くより、そのタブへ切り替えたいことが多い）
-  const tabs = take(searchTabs(db, query, 20), (t) => t.url)
-  if (!isSearch) seen.add(url)
-  const bookmarks = take(searchBookmarks(db, query, LIMIT.bookmark), (b) => b.url ?? '')
-  const history = take(searchHistory(db, { query, limit: 20 }), (h) => h.url)
+      kept.push(item)
+    }
+    return kept
+  }
+  const tabCandidate = (t: Tab): OmniboxCandidate => ({
+    kind: 'tab',
+    title: t.title || t.url,
+    url: t.url,
+    tabId: t.id,
+    ...other(t.workspaceId)
+  })
+  const historyCandidate = (h: HistoryEntry): OmniboxCandidate => ({
+    kind: 'history',
+    title: h.title || h.url,
+    url: h.url,
+    ...other(h.workspaceId)
+  })
 
-  const current: OmniboxCandidate[] = [
-    ...tabs
-      .filter((t) => isCurrent(t.workspaceId))
-      .slice(0, LIMIT.tab)
-      .map((t) => ({
-        kind: 'tab' as const,
-        title: t.title || t.url,
-        url: t.url,
-        tabId: t.id,
-        ...other(t.workspaceId)
-      })),
-    ...history
-      .filter((h) => isCurrent(h.workspaceId))
-      .slice(0, LIMIT.history)
-      .map((h) => ({
-        kind: 'history' as const,
-        title: h.title || h.url,
-        url: h.url,
-        ...other(h.workspaceId)
-      })),
-    ...bookmarks.map((b) => ({ kind: 'bookmark' as const, title: b.title || b.url!, url: b.url! }))
-  ]
-  const lower = query.toLowerCase()
+  // 今の Workspace（まとめる優先順は タブ > ブックマーク > 履歴）
+  const current = input.workspaceId
+  const tabs =
+    current === null ? [] : take(searchTabs(db, text, FETCH, current), (t) => t.url, LIMIT.tab)
+  // 開いているタブは、打った URL と同じでも残す（新しく開くより、そのタブへ切り替えたいことが多い）
+  if (!isSearch) seen.add(url)
+  const bookmarks = take(searchBookmarks(db, text, FETCH), (b) => b.url ?? '', LIMIT.bookmark)
+  const history =
+    current === null
+      ? []
+      : take(
+          searchHistory(db, { query: text, workspaceId: current, limit: FETCH }),
+          (h) => h.url,
+          LIMIT.history
+        )
+
+  // 他の Workspace（今の Workspace が出したものは出さない）
+  const lower = text.toLowerCase()
   const others: OmniboxCandidate[] = [
     ...[...modes.values()]
       .filter((w) => !isCurrent(w.id) && w.name.toLowerCase().includes(lower))
       .map((w) => ({ kind: 'workspace' as const, title: w.name, ...other(w.id) })),
-    ...tabs
-      .filter((t) => !isCurrent(t.workspaceId))
-      .map((t) => ({
-        kind: 'tab' as const,
-        title: t.title || t.url,
-        url: t.url,
-        tabId: t.id,
-        ...other(t.workspaceId)
-      })),
-    ...history
-      .filter((h) => !isCurrent(h.workspaceId))
-      .map((h) => ({
-        kind: 'history' as const,
-        title: h.title || h.url,
-        url: h.url,
-        ...other(h.workspaceId)
-      }))
+    ...take(
+      searchTabs(db, text, FETCH).filter((t) => !isCurrent(t.workspaceId)),
+      (t) => t.url,
+      LIMIT.other
+    ).map(tabCandidate),
+    ...take(
+      searchHistory(db, { query: text, limit: FETCH }).filter((h) => !isCurrent(h.workspaceId)),
+      (h) => h.url,
+      LIMIT.other
+    ).map(historyCandidate)
   ].slice(0, LIMIT.other)
 
+  const here: OmniboxCandidate[] = [
+    ...tabs.map(tabCandidate),
+    ...history.map(historyCandidate),
+    ...bookmarks.map((b) => ({ kind: 'bookmark' as const, title: b.title || b.url!, url: b.url! }))
+  ]
   return [
     ...(isSearch ? [] : [{ kind: 'url' as const, title: url, url }]),
-    ...[...current, ...others].slice(0, LIMIT.total),
-    { kind: 'search', title: query, url: isSearch ? url : classifyInput(`?${query}`).url }
+    ...here.slice(0, LIMIT.total - others.length),
+    ...others,
+    { kind: 'search', title: text, url: isSearch ? url : classifyInput(`?${text}`).url }
   ]
 }

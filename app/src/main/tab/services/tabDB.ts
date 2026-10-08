@@ -117,16 +117,23 @@ export function touchTab(db: DatabaseSync, id: number, now: number): boolean {
 }
 
 // 統合検索欄の候補（F10）。全 Workspace のタブを、タイトルと URL の部分一致で探す（空のタブは除く。最近見た順）
-export function searchTabs(db: DatabaseSync, query: string, limit = 20): Tab[] {
+// workspaceId を指定すると、その Workspace のタブだけを探す
+export function searchTabs(
+  db: DatabaseSync,
+  query: string,
+  limit = 20,
+  workspaceId?: number
+): Tab[] {
   const q = query.trim()
   if (q === '') return []
   const like = `%${q.replace(/[\\%_]/g, '\\$&')}%`
+  const scope = workspaceId === undefined ? '' : 'AND workspace_id = ?'
   return db
     .prepare(
       `SELECT ${COLUMNS} FROM tab
-       WHERE url <> ? AND (title LIKE ? ESCAPE '\\' OR url LIKE ? ESCAPE '\\')
+       WHERE url <> ? AND (title LIKE ? ESCAPE '\\' OR url LIKE ? ESCAPE '\\') ${scope}
        ORDER BY last_active_time_ms DESC LIMIT ?`
     )
-    .all(NEW_TAB_URL, like, like, limit)
+    .all(NEW_TAB_URL, like, like, ...(workspaceId === undefined ? [] : [workspaceId]), limit)
     .map(toTab)
 }

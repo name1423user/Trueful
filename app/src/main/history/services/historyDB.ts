@@ -76,7 +76,8 @@ export function updateHistoryTitle(
 }
 
 // 検索（タイトルと URL の部分一致、新しい順。16ms 以内。data-schema.md「履歴の検索」）。
-// 3文字以上: 全文検索（trigram）で最大 200 件を取り、その中を新しい順に並べる。
+// 3文字以上: 全文検索（trigram）で、あとから作られた URL から最大 200 件を取り、その中を新しい順に並べる
+// （shortcut: 作られた順で切るので、古い URL を最近訪れ直しても、200 件より後ろのヒットなら出ない。困ったら索引に最終訪問を持たせる）。
 // 2文字以下: 新しい 5,000 件（Workspace の指定があればその中で）のタイトルと URL を LIKE で見る
 const FTS_CANDIDATES = 200
 const SHORT_SCAN = 5000
@@ -100,7 +101,7 @@ export function searchHistory(
         `SELECT ${COLUMNS} FROM history_url h
          WHERE h.id IN (
            SELECT f.rowid FROM history_url_fts f CROSS JOIN history_url h ON h.id = f.rowid
-           WHERE history_url_fts MATCH ? ${workspace} LIMIT ${FTS_CANDIDATES})
+           WHERE history_url_fts MATCH ? ${workspace} ORDER BY f.rowid DESC LIMIT ${FTS_CANDIDATES})
          ORDER BY h.last_visited_time_ms DESC LIMIT ?`
       )
       .all(match, ...workspaceArgs, limit)
