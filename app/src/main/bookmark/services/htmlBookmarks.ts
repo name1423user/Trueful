@@ -24,7 +24,7 @@ export function parseHtmlBookmarks(html: string): ParsedBookmarks {
   let failed = 0
   let sawList = false
   for (const m of html.matchAll(
-    /<(\/?)(DL|H3|A)\b((?:"[^"]*"|'[^']*'|[^>"']){0,4096})>([^<]*)/gi
+    /<(\/?)(DL|H3|A)\b((?:"[^"]*"|'[^']*'|[^<>"']){0,4096})>([^<]*)/gi
   )) {
     const [, close, tag, attrs, text] = m as unknown as [string, string, string, string, string]
     const name = tag.toUpperCase()
