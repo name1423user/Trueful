@@ -20,6 +20,13 @@ export class TabNotFoundError extends Error {
   }
 }
 
+// その Workspace のタブを返す。ない・別の Workspace のタブなら TabNotFoundError
+export function getOwnedTab(db: DatabaseSync, workspaceId: number, id: number): Tab {
+  const tab = getTab(db, id)
+  if (!tab || tab.workspaceId !== workspaceId) throw new TabNotFoundError(id)
+  return tab
+}
+
 // タブ列の様子（Renderer に返す形）
 export type TabState = { tabs: Tab[]; activeId: number | null }
 
@@ -58,8 +65,7 @@ export class TabFlows {
   // タブを閉じる（Cmd/Ctrl+W）。選択中のタブを閉じたら、その前に選んでいたタブを選ぶ（使った順。
   // ipc-spec.md）。最後の1つを閉じたら、空のタブを1つ開く。空のタブは控えに積まない
   close(db: DatabaseSync, workspaceId: number, id: number): TabState {
-    const tab = getTab(db, id)
-    if (!tab || tab.workspaceId !== workspaceId) throw new TabNotFoundError(id)
+    const tab = getOwnedTab(db, workspaceId, id)
     const index = listTabs(db, workspaceId).findIndex((t) => t.id === id)
     const state = inTransaction(db, () => {
       deleteTab(db, id)
@@ -94,8 +100,7 @@ export class TabFlows {
 
   // タブを選ぶ
   activate(db: DatabaseSync, workspaceId: number, id: number): Tab {
-    const tab = getTab(db, id)
-    if (!tab || tab.workspaceId !== workspaceId) throw new TabNotFoundError(id)
+    getOwnedTab(db, workspaceId, id)
     touchTab(db, id, this.stamp(db, workspaceId))
     return getTab(db, id)!
   }

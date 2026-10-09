@@ -142,6 +142,17 @@ let mainWindow: BrowserWindow | undefined
 // ウィンドウを閉じたときの片付け（タブのページの破棄。whenReady の中で設定する）
 let onWindowClosed = (): void => {}
 
+// ない Workspace・タブの例外は not-found にして返す（ほかの例外はそのまま投げて internal にする）
+const notFoundAs = <T>(fn: () => T): T => {
+  try {
+    return fn()
+  } catch (e) {
+    if (e instanceof TabNotFoundError || e instanceof WorkspaceNotFoundError)
+      throw new IpcHandlerError('not-found', e.message)
+    throw e
+  }
+}
+
 // UI から外へ出るリンクは、http(s) だけ既定のブラウザに渡す
 function openExternal(url: string): void {
   if (!isExternalUrl(url)) return
@@ -464,26 +475,15 @@ app.whenReady().then(() => {
   })
   handle(workspaceSwitch, async ({ id }) => {
     const db = await getDatabase()
-    try {
-      const switched = switchWorkspace(db, id)
-      pages.showActive(db, id)
-      releaseDormant(db)
-      return switched
-    } catch (e) {
-      if (e instanceof WorkspaceNotFoundError) throw new IpcHandlerError('not-found', e.message)
-      throw e
-    }
+    const switched = notFoundAs(() => switchWorkspace(db, id))
+    pages.showActive(db, id)
+    releaseDormant(db)
+    return switched
   })
   // 削除。DB（スナップショットと行）が先。成功したら、ページを破棄し、ログインとサイトのデータを消す
   handle(workspaceDelete, async ({ id }) => {
     const db = await getDatabase()
-    let deleted: ReturnType<typeof deleteWorkspaceFlow>
-    try {
-      deleted = deleteWorkspaceFlow(db, id)
-    } catch (e) {
-      if (e instanceof WorkspaceNotFoundError) throw new IpcHandlerError('not-found', e.message)
-      throw e
-    }
+    const deleted = notFoundAs(() => deleteWorkspaceFlow(db, id))
     // 消した Workspace の確認は、答えなし（拒否して記憶しない）にする
     permissions.dismissWorkspace(id)
     for (const tabId of deleted.tabIds) views.destroy(tabId)
@@ -604,14 +604,6 @@ app.whenReady().then(() => {
   })
 
   // タブ（F02）。ない Workspace・タブは not-found で返す。作成・閉じる・戻す・選ぶの後は、選択中のタブを表示する
-  const notFoundAs = <T>(fn: () => T): T => {
-    try {
-      return fn()
-    } catch (e) {
-      if (e instanceof TabNotFoundError) throw new IpcHandlerError('not-found', e.message)
-      throw e
-    }
-  }
   const getWorkspaceDatabase = async (workspaceId: number): Promise<DatabaseSync> => {
     const db = await getDatabase()
     if (!getWorkspace(db, workspaceId)) {
@@ -650,22 +642,18 @@ app.whenReady().then(() => {
   // 移動先の復帰で休止したページを破棄する。移動先のページは、その Workspace を開くときに読み込む
   handle(tabMove, async ({ workspaceId, id, toWorkspaceId }) => {
     const db = await getDatabase()
-    try {
-      const moved = moveTabFlow(db, { tabId: id, fromWorkspaceId: workspaceId, toWorkspaceId })
-      pages.forget(id)
-      const current = getCurrentWorkspaceId(db)
-      if (current !== null) pages.showActive(db, current)
-      releaseDormant(db)
-      // 今の Workspace のタブ列が変わった（元か移動先）。画面に読み直させる
-      for (const changed of [workspaceId, toWorkspaceId]) {
-        mainWindow?.webContents.send(channelNames.tabListChanged, changed)
-      }
-      return moved
-    } catch (e) {
-      if (e instanceof TabNotFoundError || e instanceof WorkspaceNotFoundError)
-        throw new IpcHandlerError('not-found', e.message)
-      throw e
+    const moved = notFoundAs(() =>
+      moveTabFlow(db, { tabId: id, fromWorkspaceId: workspaceId, toWorkspaceId })
+    )
+    pages.forget(id)
+    const current = getCurrentWorkspaceId(db)
+    if (current !== null) pages.showActive(db, current)
+    releaseDormant(db)
+    // 今の Workspace のタブ列が変わった（元か移動先）。画面に読み直させる
+    for (const changed of [workspaceId, toWorkspaceId]) {
+      mainWindow?.webContents.send(channelNames.tabListChanged, changed)
     }
+    return moved
   })
   handle(tabNavigate, async ({ workspaceId, id, input }) => {
     const db = await getWorkspaceDatabase(workspaceId)

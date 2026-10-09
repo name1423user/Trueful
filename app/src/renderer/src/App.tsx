@@ -27,6 +27,8 @@ import { WorkspaceCreateForm } from './workspace/WorkspaceCreateForm'
 import { WorkspaceDeleteConfirm } from './workspace/WorkspaceDeleteConfirm'
 import { WorkspaceList } from './workspace/WorkspaceList'
 
+const isHttp = (url: string): boolean => /^https?:\/\//i.test(url)
+
 // 上端・左パネル（1段目・2段目、F15）・中央。中央の <main> にページの WebContentsView を重ねる
 // （位置と大きさを IPC で Main に報告する。ADR-008）
 function App(): React.JSX.Element {
@@ -40,16 +42,14 @@ function App(): React.JSX.Element {
   const [switchError, setSwitchError] = useState<IpcErrorCode>()
   const [panelView, setPanelView] = useState<PanelView>('tabs')
   const [collapsed, setCollapsed] = useSidePanelCollapsed()
-  const downloads = useDownloads(
-    state.status === 'ready' ? state.currentId : null,
-    panelView === 'downloads' && !collapsed
-  )
+  const workspaceId = state.status === 'ready' ? state.currentId : null
+  const downloads = useDownloads(workspaceId, panelView === 'downloads' && !collapsed)
   const bookmarks = useBookmarks()
   const [bookmarkMessage, setBookmarkMessage] = useState<string>()
-  const tabs = useTabs(state.status === 'ready' ? state.currentId : null)
+  const tabs = useTabs(workspaceId)
   // タブを別の Workspace へ移す（F17）。終わったら、タブ列と Workspace の一覧を読み直す
   const move = useMoveTab({
-    workspaceId: state.status === 'ready' ? state.currentId : null,
+    workspaceId,
     onMoved: async () => {
       await Promise.all([tabs.refresh(), refresh()])
       // 移したタブは消えたので、フォーカスを選んでいるタブへ（body に落とさない）
@@ -58,10 +58,7 @@ function App(): React.JSX.Element {
       )
     }
   })
-  const permission = usePermissionPrompt(
-    state.status === 'ready' ? state.currentId : null,
-    tabs.activeId ?? null
-  )
+  const permission = usePermissionPrompt(workspaceId, tabs.activeId ?? null)
   // 作成画面を閉じたら、フォーカスを左パネルの今の Workspace に戻す（キーボードで続けて操作できるように）。
   // 戻し先は作った（やめたときは今の）Workspace の id。その Workspace が「今の」になった描画の後（effect）で探す。
   // 作成画面を閉じる描画が、新しい一覧の描画より先に来ることがあり（負荷が高いとき）、
@@ -97,6 +94,9 @@ function App(): React.JSX.Element {
 
   // 今のページをブックマークに足す（Cmd/Ctrl+D と、パネルのボタン）。http・https のページだけ
   const activeTab = tabs.tabs.find((tab) => tab.id === tabs.activeId)
+  const activePage = activeTab && tabs.pages[activeTab.id]
+  const control = (action: 'back' | 'forward' | 'reload' | 'stop'): void =>
+    void tabs.run((api, ws) => api.control(ws, activeTab!.id, action))
   // Workspace の行を選ぶ・ショートカット（Ctrl/Alt+1〜9）で、Workspace を切り替える
   const switchWorkspace = async (id: number): Promise<void> => {
     setAdding(false)
@@ -147,8 +147,7 @@ function App(): React.JSX.Element {
     // 作成画面・削除の確認が開いているとき・進行中・http・https でないページは追加しない（ボタンとショートカットで同じ）
     if (adding || confirming || addingPage.current) return
     const url = activeTab?.url ?? ''
-    if (!activeTab || !/^https?:\/\//i.test(url))
-      return setBookmarkMessage(t('bookmark.addUnsupported'))
+    if (!activeTab || !isHttp(url)) return setBookmarkMessage(t('bookmark.addUnsupported'))
     addingPage.current = true
     try {
       const ok = await bookmarks.add(activeTab.title || url, url)
@@ -205,7 +204,6 @@ function App(): React.JSX.Element {
   // 作成画面・削除の確認・Developer Home を出している間と、起動の表示が決まるまでは、ページを隠す
   const pageHidden = showCreate || deleting !== undefined || startup !== 'done'
 
-  const activePage = activeTab && tabs.pages[activeTab.id]
   return (
     <div className={collapsed ? 'app-shell side-collapsed' : 'app-shell'}>
       <header className="top-bar">
@@ -220,17 +218,13 @@ function App(): React.JSX.Element {
           <AddressBar
             key={activeTab?.id}
             tab={activeTab}
-            page={activeTab && tabs.pages[activeTab.id]}
-            workspaceId={state.status === 'ready' ? state.currentId : null}
-            workspaceName={(id) =>
-              state.status === 'ready' ? state.workspaces.find((w) => w.id === id)?.name : undefined
-            }
+            page={activePage}
+            workspaceId={workspaceId}
+            workspaceName={(id) => state.workspaces.find((w) => w.id === id)?.name}
             slot={omniboxSlot}
             onPick={pickCandidate}
             onNavigate={(input) => tabs.run((api, ws) => api.navigate(ws, activeTab!.id, input))}
-            onControl={(action) =>
-              void tabs.run((api, ws) => api.control(ws, activeTab!.id, action))
-            }
+            onControl={control}
           />
         )}
         {/* ページ（WebContentsView）は UI の上に重なるので、エラーはページの外（上端）に出す */}
@@ -282,11 +276,11 @@ function App(): React.JSX.Element {
       ) : panelView === 'bookmarks' ? (
         <BookmarkPanel
           bookmarks={bookmarks.bookmarks}
-          canAddPage={!showCreate && /^https?:\/\//i.test(activeTab?.url ?? '')}
+          canAddPage={!showCreate && isHttp(activeTab?.url ?? '')}
           message={bookmarkMessage}
           onOpen={(url) => {
             // 保存されている URL でも、http・https 以外は開かない
-            if (activeTab && /^https?:\/\//i.test(url)) {
+            if (activeTab && isHttp(url)) {
               void tabs.run((api, ws) => api.navigate(ws, activeTab.id, url))
             }
           }}
@@ -408,11 +402,9 @@ function App(): React.JSX.Element {
             workspaces={state.workspaces}
             error={switchError}
             afterCrash={startup === 'home-after-crash'}
-            onOpen={async (id) => {
+            onOpen={(id) => {
               refocus.current = id
-              const code = await switchTo(id)
-              if (!code) finishStartup()
-              setSwitchError(code)
+              void switchWorkspace(id)
             }}
             // 作成画面が前に出る。作れば Home は閉じ、やめれば Home に戻る（ページは読み込んでいないため）
             onAdd={() => setAdding(true)}
@@ -432,10 +424,8 @@ function App(): React.JSX.Element {
                 <ErrorScreen
                   error={activePage.error}
                   canGoBack={activePage.canGoBack}
-                  onReload={() =>
-                    void tabs.run((api, ws) => api.control(ws, activeTab!.id, 'reload'))
-                  }
-                  onBack={() => void tabs.run((api, ws) => api.control(ws, activeTab!.id, 'back'))}
+                  onReload={() => control('reload')}
+                  onBack={() => control('back')}
                 />
               )}
             </PageArea>

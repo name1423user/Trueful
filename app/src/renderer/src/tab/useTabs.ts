@@ -52,10 +52,9 @@ export function useTabs(workspaceId: number | null): {
   // Workspace が変わったら読み直す。タブ列の知らせは今の Workspace のものだけ受ける
   useEffect(() => {
     void reload()
-    const offList = api.onListChanged((id) => {
+    return api.onListChanged((id) => {
       if (id === workspaceId) void reload()
     })
-    return offList
   }, [workspaceId, reload])
 
   // ページの様子が変わったら、タブ列の表示にも反映する。読み込み中の URL は前のページのことがあるので、

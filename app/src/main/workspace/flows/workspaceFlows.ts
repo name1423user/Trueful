@@ -1,10 +1,9 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { inTransaction } from '../../db/services/transaction'
-import { TabNotFoundError } from '../../tab/flows/tabFlows'
+import { getOwnedTab } from '../../tab/flows/tabFlows'
 import {
   compactPositions,
   deleteTab,
-  getTab,
   insertTab,
   latestActiveTime,
   listTabs,
@@ -113,8 +112,7 @@ export function moveTabFlow(
 ): Tab {
   const { tabId, fromWorkspaceId, toWorkspaceId } = input
   return inTransaction(db, () => {
-    const tab = getTab(db, tabId)
-    if (!tab || tab.workspaceId !== fromWorkspaceId) throw new TabNotFoundError(tabId)
+    const tab = getOwnedTab(db, fromWorkspaceId, tabId)
     if (fromWorkspaceId === toWorkspaceId) throw new SameWorkspaceError(toWorkspaceId)
     const destination = getWorkspace(db, toWorkspaceId)
     if (!destination) throw new WorkspaceNotFoundError(toWorkspaceId)
