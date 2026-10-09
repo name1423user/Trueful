@@ -26,8 +26,9 @@ export function importFromFile(
     // 開いてから大きさを確かめ、同じファイルから読む（確かめた後に差し替えられても、上限を超えて読まない）
     const fd = openSync(path, 'r')
     try {
-      const { size } = fstatSync(fd)
-      if (!fstatSync(fd).isFile() || size > maxBytes) return { status: 'unreadable' }
+      const stat = fstatSync(fd)
+      const size = stat.size
+      if (!stat.isFile() || size > maxBytes) return { status: 'unreadable' }
       const buffer = Buffer.alloc(size)
       readSync(fd, buffer, 0, size, 0)
       const text = buffer.toString('utf8')

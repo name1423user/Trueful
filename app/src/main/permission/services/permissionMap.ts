@@ -32,9 +32,8 @@ export function requiredPermissions(
     case 'clipboard-read':
     case 'display-capture':
     case 'idle-detection':
-      return [electronPermission]
     case 'midi':
-      return ['midi']
+      return [electronPermission]
     default:
       return []
   }

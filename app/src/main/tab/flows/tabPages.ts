@@ -13,7 +13,7 @@ import {
 import { getTab, listTabs, updateTabPage, updateTabScroll, type Tab } from '../services/tabDB'
 import type { PageState, TabViews } from '../services/tabViews'
 import { isAllowedPageUrl, resolveInput, type Shortcut } from '../services/urlInput'
-import { TabNotFoundError, type TabFlows, type TabState } from './tabFlows'
+import { getOwnedTab, type TabFlows, type TabState } from './tabFlows'
 
 export type PageAction = 'back' | 'forward' | 'reload' | 'stop'
 
@@ -91,7 +91,7 @@ export class TabPages {
     input: string,
     shortcuts: Shortcut[]
   ): Tab {
-    const tab = this.owned(db, workspaceId, id)
+    const tab = getOwnedTab(db, workspaceId, id)
     const url = resolveInput(input, shortcuts)
     updateTabPage(db, id, { url, title: tab.title })
     const wc = this.views.webContents(id)
@@ -118,7 +118,7 @@ export class TabPages {
 
   // 戻る・進む・再読み込み・停止（ページがまだないタブでは何もしない）
   control(db: DatabaseSync, workspaceId: number, id: number, action: PageAction): void {
-    this.owned(db, workspaceId, id)
+    getOwnedTab(db, workspaceId, id)
     const wc = this.views.webContents(id)
     if (!wc) return
     if (action === 'back') wc.navigationHistory.goBack()
@@ -205,11 +205,5 @@ export class TabPages {
     } catch (e) {
       console.error('[main] 履歴を記録できなかった', e)
     }
-  }
-
-  private owned(db: DatabaseSync, workspaceId: number, id: number): Tab {
-    const tab = getTab(db, id)
-    if (!tab || tab.workspaceId !== workspaceId) throw new TabNotFoundError(id)
-    return tab
   }
 }
