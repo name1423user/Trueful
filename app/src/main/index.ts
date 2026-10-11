@@ -75,7 +75,8 @@ import { interruptUnfinishedDownloads, listDownloads } from './download/services
 import { deleteHistory, purgeExpiredHistory, searchHistory } from './history/services/historyDB'
 import { TabFlows, TabNotFoundError } from './tab/flows/tabFlows'
 import { TabPages } from './tab/flows/tabPages'
-import { TabViews } from './tab/services/tabViews'
+import { reservedShortcut, TabViews } from './tab/services/tabViews'
+import { nextZoomFactor } from './tab/services/zoom'
 import {
   createWorkspaceFlow,
   deleteWorkspaceFlow,
@@ -156,6 +157,9 @@ function getAppUrl(): string {
     : pathToFileURL(join(__dirname, '../renderer/index.html')).href
 }
 
+// UI にフォーカスがあるときの、ページの拡大・縮小のキー（メニューを作った後に入れる）
+let runZoomKey: ((command: MenuCommand) => void) | undefined
+
 function createWindow(): void {
   const window = new BrowserWindow({
     width: 1200,
@@ -196,6 +200,14 @@ function createWindow(): void {
   }
   window.webContents.on('will-navigate', guard)
   window.webContents.on('will-redirect', guard)
+  // UI にフォーカスがあるときも、ページの拡大・縮小のキーはページ側と同じに受ける。メニューの Plus は
+  // US 配列の Cmd/Ctrl+=（Shift なし）とテンキーに当たらず、隠した項目のキーは Windows・Linux で効かないため
+  window.webContents.on('before-input-event', (event, input) => {
+    const command = reservedShortcut(input, process.platform)
+    if (!command?.startsWith('page-zoom-')) return
+    event.preventDefault()
+    runZoomKey?.(command)
+  })
 
   window.loadURL(appUrl)
 }
@@ -369,6 +381,11 @@ app.whenReady().then(() => {
     tabsChanged: (workspaceId) =>
       mainWindow?.webContents.send(channelNames.tabListChanged, workspaceId)
   })
+  const zoomDirections = {
+    'page-zoom-in': 'in',
+    'page-zoom-out': 'out',
+    'page-zoom-reset': 'reset'
+  } as const
   // メニューのショートカット（F02・F10）。ページにフォーカスがあっても効く
   // macOS ではウィンドウを閉じてもメニューのキーが効くので、ウィンドウがないときは何もしない
   const runMenuCommand = (command: MenuCommand): void => {
@@ -392,6 +409,18 @@ app.whenReady().then(() => {
     }
     if (command === 'page-devtools') {
       views.shownWebContents()?.toggleDevTools()
+      return
+    }
+    // 表示中のページの拡大・縮小（F02）。Chromium は同じサイト（同じパーティション）の倍率をそろえる（Chrome と同じ）。
+    // shortcut: 倍率は再起動で 100% に戻る。残すなら、サイトごとの倍率を DB に記憶する。
+    // エラー画面（F16）を出しているときは、隠れているページの倍率が変わる（そのサイトに戻ると効いている）
+    if (
+      command === 'page-zoom-in' ||
+      command === 'page-zoom-out' ||
+      command === 'page-zoom-reset'
+    ) {
+      const page = views.shownWebContents()
+      page?.setZoomFactor(nextZoomFactor(page.getZoomFactor(), zoomDirections[command]))
       return
     }
     const db = database
@@ -422,6 +451,7 @@ app.whenReady().then(() => {
       )
     )
   installMenu()
+  runZoomKey = runMenuCommand
   rebuildMenu = () => {
     const next = store.get().settings.workspaceSwitchModifier
     if (next === menuModifier) return

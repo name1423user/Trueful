@@ -66,7 +66,14 @@ type Handlers = {
 // メニューの操作のうち、ページに奪わせないもの（番号つきは 1〜9）
 export type ReservedShortcut = Extract<
   MenuCommand,
-  'tab-new' | 'tab-close' | 'tab-reopen' | `tab-select-${number}` | `workspace-switch-${number}`
+  | 'tab-new'
+  | 'tab-close'
+  | 'tab-reopen'
+  | 'page-zoom-in'
+  | 'page-zoom-out'
+  | 'page-zoom-reset'
+  | `tab-select-${number}`
+  | `workspace-switch-${number}`
 >
 
 // ページに奪わせないキー（ページが keydown を止めても、Trueful の操作にする）。
@@ -95,6 +102,10 @@ export function reservedShortcut(
   const mod = platform === 'darwin' ? input.meta && !input.control : input.control && !input.meta
   if (!mod || input.alt) return undefined
   const key = input.key.toLowerCase()
+  // 拡大は = と +（US 配列は =、JIS 配列は Shift+; で +）のどちらでも
+  if (key === '=' || key === '+') return 'page-zoom-in'
+  if (key === '-' && !input.shift) return 'page-zoom-out'
+  if (key === '0' && !input.shift) return 'page-zoom-reset'
   if (key === 't') return input.shift ? 'tab-reopen' : 'tab-new'
   if (key === 'w' && !input.shift) return 'tab-close'
   return undefined
