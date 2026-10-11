@@ -50,6 +50,7 @@
     "focus-search": "統合検索へ移動",
     "page-devtools": "開発者ツール",
     "bookmark-page": "このページをブックマークに追加",
+    "open-settings": "設定",
     "workspace-menu": "Workspace",
     "workspace-switch-n": "{{n}} 番目の Workspace へ切り替え",
     "tab-select-menu": "タブを選ぶ",
@@ -208,5 +209,32 @@
     "recreatedNoFile": "データが壊れていて、バックアップからも戻せなかったため、新しく作りました。以前の Workspace とタブは一覧に出ません。",
     "close": "閉じる",
     "closeLabel": "データを戻したことの知らせを閉じる"
+  },
+  "settings": {
+    "title": "設定",
+    "close": "閉じる",
+    "saveFailed": "設定を保存できませんでした。",
+    "outOfRange": "{{min}}〜{{max}} の整数で入力してください。",
+    "problem": {
+      "invalid-json": "settings.json が壊れていたので、既定値で起動しました（壊れたファイルは残しています）。",
+      "invalid-values": "settings.json に正しくない値があったので、その項目だけ既定値にしました。",
+      "unavailable": "settings.json を読み書きできないため、既定値で起動しています。設定は変えられません。"
+    },
+    "theme": "テーマ",
+    "themes": { "system": "OS に合わせる", "light": "ライト", "dark": "ダーク" },
+    "startup": "起動",
+    "showDeveloperHome": "しばらく使っていなかったら Developer Home を出す",
+    "developerHomeAfterMinutes": "Developer Home を出すまでの時間（分）",
+    "history": "履歴",
+    "historyRetentionDays": "履歴の保存期間（日）",
+    "keyboard": "キーボード",
+    "workspaceSwitchModifier": "Workspace の切り替え（+ 1〜9）",
+    "modifiers": {
+      "auto": "自動（macOS は Ctrl、Windows・Linux は Alt）",
+      "ctrl": "Ctrl",
+      "alt": "Alt"
+    },
+    "tabs": "タブ",
+    "showMoveTabNotice": "タブを別の Workspace へ移すときに確認を出す"
   }
 }

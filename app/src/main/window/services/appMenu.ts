@@ -16,6 +16,7 @@ export type MenuCommand =
   | 'focus-search'
   | 'toggle-side-panel'
   | 'bookmark-page'
+  | 'open-settings'
 
 type Labels = Record<
   | Exclude<MenuCommand, `${'tab-select' | 'workspace-switch'}-${number}`>
@@ -119,6 +120,9 @@ export function appMenuTemplate(
     {
       role: 'fileMenu',
       submenu: [
+        // 設定（F14）。Chrome・macOS の慣習と同じ Cmd/Ctrl+,
+        item('open-settings', 'CmdOrCtrl+,'),
+        { type: 'separator' },
         { role: 'close', label: labels['close-window'], accelerator: 'CmdOrCtrl+Shift+W' },
         ...(mac ? [] : [{ role: 'quit' } as const])
       ]

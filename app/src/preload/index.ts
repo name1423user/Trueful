@@ -177,6 +177,7 @@ const api = {
           | 'focus-search'
           | 'toggle-side-panel'
           | 'bookmark-page'
+          | 'open-settings'
           | `workspace-switch-${number}`
       ) => void
     ): (() => void) => subscribe(channelNames.uiCommand, listener)
