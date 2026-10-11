@@ -14,12 +14,18 @@ export function startTheme(): void {
     theme = next
     apply()
   }
-  // 設定を読むまでは OS に合わせる
+  // 設定を読むまでは OS に合わせる。shortcut: Linux では、設定と OS が違うと起動の直後に一瞬 OS の色が出る
+  // （Mac・Windows はウィンドウを作る前に nativeTheme を決めるので出ない）。気になるなら preload で同期に渡す
   apply()
   query.addEventListener('change', apply)
-  window.trueful.settings.onChanged((s) => set(s.settings.theme))
+  // 読んだ答えより後の知らせが先に届いていたら、答えは古いので捨てる
+  let changed = false
+  window.trueful.settings.onChanged((s) => {
+    changed = true
+    set(s.settings.theme)
+  })
   window.trueful.settings.get().then(
-    (result) => result.ok && set(result.value.settings.theme),
+    (result) => !changed && result.ok && set(result.value.settings.theme),
     () => undefined
   )
 }
