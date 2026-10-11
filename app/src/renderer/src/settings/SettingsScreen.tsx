@@ -120,6 +120,14 @@ export function SettingsScreen(props: {
           <SitePermissions workspaces={props.workspaces} disabled={locked} />
           <fieldset disabled={locked}>
             <legend>{t('settings.tabs')}</legend>
+            <label>
+              <input
+                type="checkbox"
+                checked={settings.secondaryPanelOpen}
+                onChange={(e) => change({ secondaryPanelOpen: e.target.checked })}
+              />
+              {t('settings.secondaryPanelOpen')}
+            </label>
             <NumberField
               label={t('settings.recentTabsCount')}
               value={settings.recentTabsCount}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BookmarkPanel } from './bookmark/BookmarkPanel'
 import { importMessageKey } from './bookmark/tree'
@@ -46,14 +46,17 @@ function App(): React.JSX.Element {
   const { view: startup, finish: finishStartup, showHome: showStartupHome } = useStartupView()
   const [switchError, setSwitchError] = useState<IpcErrorCode>()
   const [panelView, setPanelView] = useState<PanelView>('tabs')
-  const [collapsed, setCollapsed] = useSidePanelCollapsed()
+  // 最近使ったタブ列の枚数・2段目の開閉（設定）
+  const settings = useSettings()
+  const [collapsed, setCollapsed] = useSidePanelCollapsed(
+    settings.snapshot?.settings.secondaryPanelOpen,
+    (open) => void settings.update({ secondaryPanelOpen: open })
+  )
   const downloads = useDownloads(
     state.status === 'ready' ? state.currentId : null,
     panelView === 'downloads' && !collapsed
   )
   const bookmarks = useBookmarks()
-  // 最近使ったタブ列の枚数（設定 recentTabsCount）
-  const settings = useSettings()
   const [bookmarkMessage, setBookmarkMessage] = useState<string>()
   const tabs = useTabs(state.status === 'ready' ? state.currentId : null)
   // タブを別の Workspace へ移す（F17）。終わったら、タブ列と Workspace の一覧を読み直す
@@ -491,24 +494,43 @@ function App(): React.JSX.Element {
   )
 }
 
-// 2段目を畳んでいるか（F15）。Cmd/Ctrl+B（メニュー）で畳む・開く。
-// ウィンドウの幅が 960px 未満になったら畳み、960px 以上に戻ったら開く（境目を越えたときだけ変える）
+// 2段目を畳んでいるか（F15）。Cmd/Ctrl+B（メニュー）と1段目のボタンで畳む・開くと、設定 secondaryPanelOpen に残す
+// （次の起動でも同じ。settings.json を手で変えたら合わせる）。
+// ウィンドウの幅が 960px 未満になったら畳み、960px 以上に戻ったら設定の状態に戻す（幅による開閉は設定に残さない）
 const NARROW = '(max-width: 959px)'
-function useSidePanelCollapsed(): [boolean, (collapsed: boolean) => void] {
-  const [collapsed, setCollapsed] = useState(() => matchMedia(NARROW).matches)
+function useSidePanelCollapsed(
+  open: boolean | undefined,
+  save: (open: boolean) => void
+): [boolean, (collapsed: boolean) => void] {
+  const [collapsed, setCollapsed] = useState(() => matchMedia(NARROW).matches || open === false)
+  // 設定が変わったら（読み込み・手の編集）合わせる。幅が狭いときは畳んだまま（描画の中で前の値と比べる）
+  const [seen, setSeen] = useState(open)
+  if (seen !== open) {
+    setSeen(open)
+    if (open !== undefined && !matchMedia(NARROW).matches) setCollapsed(!open)
+  }
+  const latest = useRef({ open, collapsed, save })
+  useEffect(() => {
+    latest.current = { open, collapsed, save }
+  })
+  const toggle = useCallback((next: boolean): void => {
+    setCollapsed(next)
+    latest.current.save(!next)
+  }, [])
   useEffect(() => {
     const query = matchMedia(NARROW)
-    const onChange = (e: MediaQueryListEvent): void => setCollapsed(e.matches)
+    const onChange = (e: MediaQueryListEvent): void =>
+      setCollapsed(e.matches || latest.current.open === false)
     query.addEventListener('change', onChange)
     const unsubscribe = window.trueful.ui.onCommand((command) => {
-      if (command === 'toggle-side-panel') setCollapsed((c) => !c)
+      if (command === 'toggle-side-panel') toggle(!latest.current.collapsed)
     })
     return () => {
       query.removeEventListener('change', onChange)
       unsubscribe()
     }
-  }, [])
-  return [collapsed, setCollapsed]
+  }, [toggle])
+  return [collapsed, toggle]
 }
 
 export default App
