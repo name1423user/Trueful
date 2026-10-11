@@ -68,8 +68,10 @@ test('アドレスバーで開き、タブ列から作る・選ぶ・閉じる�
     await expect(tabs).toHaveCount(1)
     // 閉じたボタンの代わりに、残ったタブへフォーカスが移る（body に落ちない）
     await expect
-      .poll(() => window.evaluate(() => document.activeElement?.classList.contains('tab-row')))
-      .toBe(true)
+      .poll(() =>
+        window.evaluate(() => document.activeElement?.getAttribute('data-tab-id') ?? null)
+      )
+      .toBe(await tabs.first().getAttribute('data-tab-id'))
 
     // メニューの Cmd/Ctrl+L でアドレスバーにフォーカスする
     await tabs.first().focus()

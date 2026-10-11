@@ -13,7 +13,8 @@ export function TabList(props: {
   activeId: number | null
   discardedIds: number[]
   onActivate: (id: number) => void
-  onClose: (id: number) => void
+  // 閉じ終わったら true（失敗したら false）
+  onClose: (id: number) => Promise<boolean>
   onCreate: () => void
   // 右クリック（Shift+F10・メニューキー）のメニュー「Workspaceへ移動」の移動先（今の Workspace は除く）と、選んだとき（F17）
   destinations: Workspace[]
@@ -23,17 +24,21 @@ export function TabList(props: {
   const [menu, setMenu] = useState<{ tab: Tab; x: number; y: number } | null>(null)
   // メニューを開いたタブ（Esc で閉じたとき、フォーカスを戻す）
   const opener = useRef<HTMLElement | null>(null)
-  // × で閉じたら、消えたボタンの代わりに同じ位置（なければ前）のタブへフォーカスを移す（タブ列を読み直した後に。
-  // タブがなければ「新しいタブ」）。body に落とすと、キーボードで続けて操作できない
+  // × で閉じたら、消えたボタンの代わりにフォーカスを移す（body に落とすと、キーボードで続けて操作できない）。
+  // 選んでいるタブを閉じたら、次に選ばれたタブへ（Main が使った順で選ぶ）。ほかは同じ位置（なければ前）のタブへ。
+  // 閉じたタブがタブ列から消えてから行う（その前に、ほかのタブの知らせでタブ列が変わることがある）
   const list = useRef<HTMLUListElement>(null)
   const newTab = useRef<HTMLButtonElement>(null)
-  const focusAfterClose = useRef<number | null>(null)
+  const focusAfterClose = useRef<{ id: number; index: number; active: boolean } | null>(null)
   useEffect(() => {
-    const index = focusAfterClose.current
-    if (index === null) return
+    const closing = focusAfterClose.current
+    if (!closing || props.tabs.some((t) => t.id === closing.id)) return
     focusAfterClose.current = null
     const rows = list.current?.querySelectorAll<HTMLElement>('.tab-row') ?? []
-    ;(rows[Math.min(index, rows.length - 1)] ?? newTab.current)?.focus()
+    const target = closing.active
+      ? list.current?.querySelector<HTMLElement>('.tab-row[aria-current="true"]')
+      : rows[Math.min(closing.index, rows.length - 1)]
+    ;(target ?? newTab.current)?.focus()
   }, [props.tabs])
   return (
     <section className="tab-section" aria-label={t('tab.listLabel')}>
@@ -78,8 +83,16 @@ export function TabList(props: {
                 className="tab-close"
                 aria-label={t('tab.close', { title })}
                 onClick={() => {
-                  focusAfterClose.current = index
-                  props.onClose(tab.id)
+                  focusAfterClose.current = {
+                    id: tab.id,
+                    index,
+                    active: tab.id === props.activeId
+                  }
+                  // 閉じられなかったら、予約を捨てる（後の関係のない変化でフォーカスを動かさない）
+                  void props.onClose(tab.id).then((ok) => {
+                    if (!ok && focusAfterClose.current?.id === tab.id)
+                      focusAfterClose.current = null
+                  })
                 }}
               >
                 <span aria-hidden="true">×</span>
