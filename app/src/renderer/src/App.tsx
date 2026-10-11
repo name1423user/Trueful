@@ -326,7 +326,7 @@ function App(): React.JSX.Element {
                 activeId={tabs.activeId}
                 discardedIds={tabs.discardedIds}
                 onActivate={(id) => void tabs.run((api, ws) => api.activate(ws, id))}
-                onClose={(id) => void tabs.run((api, ws) => api.close(ws, id))}
+                onClose={(id) => tabs.run((api, ws) => api.close(ws, id))}
                 onCreate={() => void tabs.run((api, ws) => api.create(ws))}
                 destinations={state.workspaces.filter((w) => w.id !== state.currentId)}
                 onMove={(tab, to) => void move.request(tab, to)}
