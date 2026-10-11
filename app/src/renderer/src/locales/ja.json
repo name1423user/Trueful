@@ -124,6 +124,7 @@
   },
   "tab": {
     "listLabel": "タブ",
+    "recentLabel": "最近使ったタブ",
     "newTab": "新しいタブ",
     "close": "{{title}} を閉じる",
     "back": "戻る",
@@ -148,6 +149,7 @@
   "panel": {
     "railLabel": "パネルの切り替え",
     "tabs": "タブ",
+    "recentTabsCount": "最近使ったタブ列の枚数（左パネルの2段目を畳んだときに出す）",
     "downloads": "ダウンロード",
     "bookmarks": "ブックマーク"
   },
@@ -235,6 +237,7 @@
       "alt": "Alt"
     },
     "tabs": "タブ",
+    "recentTabsCount": "最近使ったタブ列の枚数（左パネルの2段目を畳んだときに出す）",
     "showMoveTabNotice": "タブを別の Workspace へ移すときに確認を出す",
     "shortcuts": "近道",
     "shortcutsHint": "統合検索欄で「キーワード 語」と打つと、URL の %s を語に置き換えて開きます。数字だけ（例: 3000）は http://localhost:3000 を開きます（組み込み）。",

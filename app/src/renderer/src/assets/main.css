@@ -1116,3 +1116,41 @@ h1[tabindex='-1']:focus {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* 最近使ったタブ列（F15）。2段目を畳んだときだけ、ページの上に1行で出す。選択はグレー系 */
+.recent-tabs {
+  display: flex;
+  flex: none;
+  gap: 4px;
+  padding: 4px 8px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+}
+
+.recent-tab {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 200px;
+  flex: 0 1 200px;
+  border-radius: 4px;
+}
+
+.recent-tab:has([aria-current='true']) {
+  background: var(--selected);
+}
+
+.recent-tab-select {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  overflow: hidden;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}

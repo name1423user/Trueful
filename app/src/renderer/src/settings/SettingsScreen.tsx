@@ -120,6 +120,13 @@ export function SettingsScreen(props: {
           <SitePermissions workspaces={props.workspaces} disabled={locked} />
           <fieldset disabled={locked}>
             <legend>{t('settings.tabs')}</legend>
+            <NumberField
+              label={t('settings.recentTabsCount')}
+              value={settings.recentTabsCount}
+              min={1}
+              max={10}
+              onCommit={(v) => change({ recentTabsCount: v })}
+            />
             <label>
               <input
                 type="checkbox"
