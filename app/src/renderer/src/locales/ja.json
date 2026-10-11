@@ -236,6 +236,7 @@
       "alt": "Alt"
     },
     "tabs": "タブ",
+    "secondaryPanelOpen": "左パネルの2段目（タブ・ブックマーク・ダウンロードの一覧）を開いておく（Cmd/Ctrl+B でも変わる）",
     "recentTabsCount": "最近使ったタブ列の枚数（左パネルの2段目を畳んだときに出す）",
     "showMoveTabNotice": "タブを別の Workspace へ移すときに確認を出す",
     "shortcuts": "近道",
