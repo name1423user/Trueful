@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-// main.css の色のトークン（ライトは :root、ダークは prefers-color-scheme: dark の :root）
+// main.css の色のトークン（ライトは :root、ダークは :root[data-theme='dark']）
 const css = readFileSync(join(__dirname, 'main.css'), 'utf8')
 // 値は #rrggbb だけにする（ほかの書き方だと、ここで読めずに検査から漏れるため、失敗させる）
 function tokens(block: string): Record<string, string> {
@@ -14,7 +14,7 @@ function tokens(block: string): Record<string, string> {
     })
   )
 }
-const darkBlock = /@media \(prefers-color-scheme: dark\) \{\s*:root \{([^}]*)\}/.exec(css)
+const darkBlock = /:root\[data-theme='dark'\] \{([^}]*)\}/.exec(css)
 if (!darkBlock) throw new Error('main.css にダークの :root がない')
 const light = tokens(css.slice(0, darkBlock.index))
 const dark = { ...light, ...tokens(darkBlock[1]!) }
