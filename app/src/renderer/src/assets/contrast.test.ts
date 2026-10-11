@@ -93,3 +93,29 @@ describe('地の色（T4-5b）', () => {
     }
   })
 })
+
+// 文字以外の見分け（T4-5b のレビュー）。選択中の背景と浮いた面が、どの地の上でも見分けられる
+const grounds = ['bg', 'bg-production', 'bg-development', 'bg-testing', 'bg-custom']
+describe.each([
+  ['ライト', light],
+  ['ダーク', dark]
+])('地との見分け（%s）', (_name, theme) => {
+  it.each(grounds)('選択中の背景と %s の明るさの差は 1.15 以上', (g) => {
+    expect(contrast(theme['selected']!, theme[g]!)).toBeGreaterThanOrEqual(1.15)
+  })
+
+  it.each(grounds)('浮いた面（surface）と %s の明るさの差は 1.08 以上', (g) => {
+    expect(contrast(theme['surface']!, theme[g]!)).toBeGreaterThanOrEqual(1.08)
+  })
+
+  it.each(['production', 'development', 'testing', 'custom'])(
+    'bg-%s は、素の地に Mode 色を 7% 混ぜた色（SPEC 8章）',
+    (m) => {
+      const ch = (hex: string, i: number): number => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16)
+      for (const i of [0, 1, 2]) {
+        const mixed = ch(theme['bg']!, i) * 0.93 + ch(theme[`mode-${m}`]!, i) * 0.07
+        expect(Math.abs(ch(theme[`bg-${m}`]!, i) - mixed)).toBeLessThanOrEqual(1)
+      }
+    }
+  )
+})

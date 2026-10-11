@@ -19,6 +19,8 @@ test('地の色が、今の Workspace の Mode に合わせて変わる', async 
         return { bg: getComputedStyle(el).backgroundColor, expected }
       })
 
+    // Workspace がまだない（作成画面）ときは Mode がないので、素の地のまま
+    await expect(shell).not.toHaveAttribute('data-mode')
     await window.getByLabel('名前').fill('案件B')
     await window.getByLabel('Production（本番）').check()
     await window.getByRole('button', { name: '作成' }).click()
