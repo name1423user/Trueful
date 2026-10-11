@@ -47,7 +47,15 @@ const pairs: [text: string, background: string][] = [
   ['on-mode-production', 'mode-production'],
   ['on-mode-development', 'mode-development'],
   ['on-mode-testing', 'mode-testing'],
-  ['on-mode-custom', 'mode-custom']
+  ['on-mode-custom', 'mode-custom'],
+  // 地の色は、今の Workspace の Mode 色を薄く混ぜたもの（T4-5b）。その上の文字も AA
+  ...(['production', 'development', 'testing', 'custom'] as const).flatMap(
+    (m): [string, string][] => [
+      ['text', `bg-${m}`],
+      ['text-muted', `bg-${m}`],
+      ['danger', `bg-${m}`]
+    ]
+  )
 ]
 
 describe.each([
@@ -64,4 +72,24 @@ describe.each([
 it('コントラスト比の計算（白と黒は 21:1、同じ色は 1:1）', () => {
   expect(contrast('#ffffff', '#000000')).toBeCloseTo(21, 5)
   expect(contrast('#777777', '#777777')).toBe(1)
+})
+
+describe('地の色（T4-5b）', () => {
+  it.each(['production', 'development', 'testing', 'custom'])(
+    '%s の Workspace では、地を --bg-%s にする',
+    (m) => {
+      expect(css).toMatch(
+        new RegExp(`\\.app-shell\\[data-mode='${m}'\\] \\{[^}]*--bg: var\\(--bg-${m}\\);`)
+      )
+    }
+  )
+
+  it('地の色は Mode ごとに違い、どれも素の地（--bg）とも違う', () => {
+    for (const theme of [light, dark]) {
+      const bgs = ['bg', 'bg-production', 'bg-development', 'bg-testing', 'bg-custom'].map(
+        (k) => theme[k]
+      )
+      expect(new Set(bgs).size).toBe(5)
+    }
+  })
 })

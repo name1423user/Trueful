@@ -108,6 +108,8 @@ const GESTURE_MS = 1000
 const TRUEFUL_WORLD = 1000
 // 休止の前にスクロール位置を読むのを待つ上限（固まったページで休止を止めない）
 const SCROLL_READ_MS = 500
+// ページの角丸（px）。main.css の .content の border-radius と同じ値にする
+const PAGE_RADIUS = 10
 
 // タブのページを WebContentsView で表示する（ADR-008）。表示するのは1つだけで、ほかは外しておく。
 // Workspace ごとのパーティション persist:workspace-<id> を使う（ログインを Workspace で分ける。F03）。
@@ -279,6 +281,8 @@ export class TabViews {
         partition: `persist:workspace-${workspaceId}`
       }
     })
+    // ページは角丸の面に載せる（main.css の .content と同じ 10px、T4-5b）
+    view.setBorderRadius(PAGE_RADIUS)
     const wc = view.webContents
     // ページのカメラ・通知などの権限（F16。パーティションごとに1回）
     const partition = `persist:workspace-${workspaceId}`

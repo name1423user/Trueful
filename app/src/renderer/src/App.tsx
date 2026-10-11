@@ -207,7 +207,8 @@ function App(): React.JSX.Element {
 
   const activePage = activeTab && tabs.pages[activeTab.id]
   return (
-    <div className={collapsed ? 'app-shell side-collapsed' : 'app-shell'}>
+    // 地の色は data-mode で決める（.mode-* は Mode 色で塗るクラスなので使わない、T4-5b）
+    <div className={collapsed ? 'app-shell side-collapsed' : 'app-shell'} data-mode={current?.mode}>
       <header className="top-bar">
         {/* 読み上げは1段目のバッジで行う（同じ内容を二度読まない） */}
         {current && (
