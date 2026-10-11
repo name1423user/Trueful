@@ -101,3 +101,48 @@ test('設定の画面: Developer Home の上で開いてもタブ列は出さず
     first.cleanup()
   }
 })
+
+test('設定の画面: 近道を足す・消す。正しくない近道は理由を知らせて足さない', async () => {
+  const { app, userDataDir, cleanup } = await launchApp()
+  const file = join(userDataDir, 'settings.json')
+  const keywords = (): string[] =>
+    (JSON.parse(readFileSync(file, 'utf8')).shortcuts as { keyword: string }[]).map(
+      (s) => s.keyword
+    )
+  try {
+    const window = await appWindow(app)
+    await window.getByLabel('名前').fill('案件A')
+    await window.getByRole('button', { name: '作成' }).click()
+    await app.evaluate(({ Menu }) =>
+      Menu.getApplicationMenu()!.getMenuItemById('open-settings')!.click()
+    )
+    const keyword = window.getByLabel('キーワード')
+    const url = window.getByLabel('URL（%s が語に置き換わる）')
+
+    // 数字だけは localhost の近道とぶつかるので足さない
+    await keyword.fill('8080')
+    await url.fill('https://example.com/?q=%s')
+    await window.getByRole('button', { name: '追加', exact: true }).click()
+    await expect(window.getByText('localhost の近道に使われている')).toBeVisible()
+    expect(keywords()).toEqual(['gh', 'npm', 'mdn'])
+
+    // 正しいものは足し、欄を空にする
+    // 大文字は小文字にして足す（統合検索欄は小文字で照らし合わせる）
+    await keyword.fill('Docs')
+    await url.press('Enter')
+    await expect.poll(keywords).toEqual(['gh', 'npm', 'mdn', 'docs'])
+    await expect(keyword).toHaveValue('')
+    await expect(window.getByText('https://example.com/?q=%s')).toBeVisible()
+
+    // 消す
+    await window.getByRole('button', { name: '近道「gh」を削除' }).click()
+    await expect.poll(keywords).toEqual(['npm', 'mdn', 'docs'])
+    await expect(window.getByRole('button', { name: '近道「gh」を削除' })).toHaveCount(0)
+    // フォーカスは次の行の削除ボタンへ
+    await expect(window.getByRole('button', { name: '近道「npm」を削除' })).toBeFocused()
+    await window.screenshot({ path: `test-results/settings-shortcuts-${process.platform}.png` })
+  } finally {
+    await app.close()
+    cleanup()
+  }
+})

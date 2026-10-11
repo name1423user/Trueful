@@ -1048,3 +1048,43 @@ h1[tabindex='-1']:focus {
 .settings-screen [role='alert'] {
   color: var(--danger);
 }
+
+.settings-hint {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* 近道の一覧。キーワード・URL・削除を1行に */
+.shortcut-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shortcut-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shortcut-list code {
+  min-width: 5em;
+}
+
+.shortcut-url {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shortcut-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+}
