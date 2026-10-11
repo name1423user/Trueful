@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ShortcutsEditor } from './ShortcutsEditor'
 import { useSettings, type Settings } from './useSettings'
 
 // 設定の画面（F14）。Cmd/Ctrl+, で開き、ページを隠した中央に出す。変えたらすぐ settings.json に書く
@@ -28,7 +29,12 @@ export function SettingsScreen(props: {
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [])
-  const change = (patch: Partial<Settings>): void => void update(patch).then((ok) => setFailed(!ok))
+  const save = async (patch: Partial<Settings>): Promise<boolean> => {
+    const ok = await update(patch)
+    setFailed(!ok)
+    return ok
+  }
+  const change = (patch: Partial<Settings>): void => void save(patch)
 
   const settings = snapshot?.settings
   const locked = snapshot?.problem?.kind === 'unavailable'
@@ -104,6 +110,11 @@ export function SettingsScreen(props: {
               </select>
             </label>
           </fieldset>
+          <ShortcutsEditor
+            shortcuts={settings.shortcuts}
+            disabled={locked}
+            onSave={(shortcuts) => save({ shortcuts })}
+          />
           <fieldset disabled={locked}>
             <legend>{t('settings.tabs')}</legend>
             <label>
