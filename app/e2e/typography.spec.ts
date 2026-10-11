@@ -26,6 +26,8 @@ test('UI は同梱の IBM Plex Sans JP で、等幅の欄の日本語も IBM Ple
     expect(result.uiBold).toContain('IBM Plex Sans JP')
     expect(result.monoLatin).toContain('IBM Plex Mono')
     expect(result.monoJa).toContain('IBM Plex Sans JP')
+    // 3 OS で同じ見た目になっているかを、CI の成果物で見比べる
+    await window.screenshot({ path: `test-results/typography-${process.platform}.png` })
   } finally {
     await app.close()
     cleanup()

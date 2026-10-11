@@ -423,6 +423,11 @@ h3 {
   font-family: var(--font-mono);
 }
 
+/* 案内文は日本語なので、等幅にしない（等幅だと語の間が空きすぎる） */
+.address-bar input::placeholder {
+  font-family: var(--font-ui);
+}
+
 /* 左パネルのタブ列（今の Workspace の行の下に入れ子で出す） */
 .tab-section {
   padding: 0 0 8px 16px;
