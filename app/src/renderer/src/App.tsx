@@ -502,21 +502,36 @@ function useSidePanelCollapsed(
   open: boolean | undefined,
   save: (open: boolean) => void
 ): [boolean, (collapsed: boolean) => void] {
+  // 設定を読むまでは、幅だけで決める（読んだら合わせる）
   const [collapsed, setCollapsed] = useState(() => matchMedia(NARROW).matches || open === false)
-  // 設定が変わったら（読み込み・手の編集）合わせる。幅が狭いときは畳んだまま（描画の中で前の値と比べる）
+  // 設定が変わったら（読み込み・手の編集）合わせる。「畳む」はいつでも、「開く」は幅が足りるときだけ
+  // （描画の中で前の値と比べる）
   const [seen, setSeen] = useState(open)
   if (seen !== open) {
     setSeen(open)
-    if (open !== undefined && !matchMedia(NARROW).matches) setCollapsed(!open)
+    if (open === false) setCollapsed(true)
+    else if (open === true && !matchMedia(NARROW).matches) setCollapsed(false)
   }
-  const latest = useRef({ open, collapsed, save })
+  // wanted は、最後に書いた（または届いた）設定の値。続けて押したとき、届く前の値と比べないため
+  const latest = useRef({ open, wanted: open, collapsed, save })
   useEffect(() => {
-    latest.current = { open, collapsed, save }
+    latest.current = { ...latest.current, open, save }
   })
+  useEffect(() => {
+    latest.current.wanted = open
+  }, [open])
   const toggle = useCallback((next: boolean): void => {
+    // 描画を待たずに覚える（Cmd/Ctrl+B を続けて押しても、押した数だけ切り替える）
+    latest.current.collapsed = next
     setCollapsed(next)
+    // 設定と同じなら書かない（1段目で別の一覧に切り替えるたびに、settings.json を書かないように）
+    if (latest.current.wanted === !next) return
+    latest.current.wanted = !next
     latest.current.save(!next)
   }, [])
+  useEffect(() => {
+    latest.current.collapsed = collapsed
+  }, [collapsed])
   useEffect(() => {
     const query = matchMedia(NARROW)
     const onChange = (e: MediaQueryListEvent): void =>

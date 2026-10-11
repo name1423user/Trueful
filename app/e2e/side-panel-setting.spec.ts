@@ -35,6 +35,32 @@ test('2段目の開閉は設定 secondaryPanelOpen に残り、起動時と手�
     // 手で編集したら合わせる
     writeFileSync(file, JSON.stringify({ ...saved(), secondaryPanelOpen: false }))
     await expect(side).toBeHidden()
+
+    // 1段目のボタンで開いても残る。別の一覧に切り替えても、設定は開いたまま
+    const rail = window.getByRole('navigation', { name: 'パネルの切り替え' })
+    await rail.getByRole('button', { name: 'タブ' }).click()
+    await expect(side).toBeVisible()
+    await expect.poll(() => saved().secondaryPanelOpen).toBe(true)
+    await rail.getByRole('button', { name: 'ブックマーク' }).click()
+    await expect(window.getByRole('heading', { name: 'ブックマーク' }).or(side)).toBeVisible()
+    expect(saved().secondaryPanelOpen).toBe(true)
+
+    // Cmd/Ctrl+B を続けて2回押すと、元に戻る（押下が消えない）
+    await app.evaluate(({ Menu }) => {
+      const item = Menu.getApplicationMenu()!.getMenuItemById('toggle-side-panel')!
+      item.click()
+      item.click()
+    })
+    await expect.poll(() => saved().secondaryPanelOpen).toBe(true)
+    await expect(window.locator('nav.left-panel, .left-panel').first()).toBeVisible()
+
+    // 設定の画面のチェックでも変わる
+    await app.evaluate(({ Menu }) =>
+      Menu.getApplicationMenu()!.getMenuItemById('open-settings')!.click()
+    )
+    // 保存の返事で表示が変わるので、uncheck（すぐの確認）ではなく押してから待つ
+    await window.getByLabel(/2段目.*を開いておく/).click()
+    await expect.poll(() => saved().secondaryPanelOpen).toBe(false)
   } finally {
     await app.close()
     cleanup()
