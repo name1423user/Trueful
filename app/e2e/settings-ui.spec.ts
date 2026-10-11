@@ -146,3 +146,62 @@ test('設定の画面: 近道を足す・消す。正しくない近道は理由
     cleanup()
   }
 })
+
+test('設定の画面: 記憶したサイトの権限を、左パネルの並びで Workspace の名前つきで出し、取り消せる', async () => {
+  const first = await launchApp()
+  try {
+    {
+      const window = await appWindow(first.app)
+      for (const [i, name] of ['案件A', '案件B'].entries()) {
+        if (i > 0) await window.getByRole('button', { name: 'Workspace を追加' }).click()
+        await window.getByLabel('名前').fill(name)
+        await window.getByRole('button', { name: '作成' }).click()
+        await expect(window.locator('.workspace-row')).toHaveCount(i + 1)
+      }
+      await first.app.close()
+    }
+    // 案件A で通知を許可・案件B でカメラをブロックしたことにし、左パネルで案件B を上にする
+    const db = new DatabaseSync(join(first.userDataDir, 'trueful.db'))
+    const insert = db.prepare(
+      'INSERT INTO site_permission (workspace_id, origin, permission, decision, decided_time_ms) VALUES (?, ?, ?, ?, 1)'
+    )
+    insert.run(1, 'https://a.example', 'notifications', 'allow')
+    insert.run(2, 'https://b.example', 'camera', 'deny')
+    db.prepare('UPDATE workspace SET position = CASE id WHEN 1 THEN 1 ELSE 0 END').run()
+    db.close()
+
+    const { app } = await launchApp(undefined, { userDataDir: first.userDataDir })
+    const window = await appWindow(app)
+    await app.evaluate(({ Menu }) =>
+      Menu.getApplicationMenu()!.getMenuItemById('open-settings')!.click()
+    )
+    const section = window.getByRole('group', { name: 'サイトの権限' })
+    const rows = section.getByRole('listitem')
+    await expect(rows).toHaveCount(2)
+    await expect(rows.first()).toContainText('案件B')
+    await expect(rows.last()).toContainText('案件A')
+    await section.scrollIntoViewIfNeeded()
+    await window.screenshot({ path: `test-results/settings-permissions-${process.platform}.png` })
+
+    // 取り消すと、行が消え、フォーカスは残りの行のボタンへ
+    await section
+      .getByRole('button', { name: '案件B の https://b.example の「カメラ」の記憶を取り消す' })
+      .click()
+    await expect(rows).toHaveCount(1)
+    await expect(section.getByRole('button', { name: /案件A/ })).toBeFocused()
+    // 最後の1件を取り消すと、空の知らせが出て、フォーカスはまとまりへ
+    await section.getByRole('button', { name: /案件A/ }).click()
+    await expect(section.getByText('記憶しているサイトの権限はありません。')).toBeVisible()
+    await expect(section).toBeFocused()
+    const left = await window.evaluate(async () => {
+      const r = await (
+        window as unknown as { trueful: Window['trueful'] }
+      ).trueful.permission.list()
+      return r.ok ? r.value.length : -1
+    })
+    expect(left).toBe(0)
+    await app.close()
+  } finally {
+    first.cleanup()
+  }
+})

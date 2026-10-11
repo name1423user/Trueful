@@ -408,6 +408,7 @@ function App(): React.JSX.Element {
         ) : showSettings ? (
           <SettingsScreen
             focusRequest={settingsRequest}
+            workspaces={state.workspaces}
             onClose={() => {
               setSettingsOpen(false)
               // 閉じたら、フォーカスを今の Workspace の行へ（キーボードで続けて操作できるように）

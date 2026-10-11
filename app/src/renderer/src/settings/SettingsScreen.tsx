@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ShortcutsEditor } from './ShortcutsEditor'
+import { SitePermissions } from './SitePermissions'
 import { useSettings, type Settings } from './useSettings'
 
 // 設定の画面（F14）。Cmd/Ctrl+, で開き、ページを隠した中央に出す。変えたらすぐ settings.json に書く
@@ -10,6 +11,7 @@ import { useSettings, type Settings } from './useSettings'
 // focusRequest が変わるたび（開いたとき・開いたまま Cmd/Ctrl+, を押したとき）、見出しへフォーカスを移す
 export function SettingsScreen(props: {
   focusRequest: number
+  workspaces: { id: number; name: string }[]
   onClose: () => void
 }): React.JSX.Element {
   const { t } = useTranslation()
@@ -115,6 +117,7 @@ export function SettingsScreen(props: {
             disabled={locked}
             onSave={(shortcuts) => save({ shortcuts })}
           />
+          <SitePermissions workspaces={props.workspaces} disabled={locked} />
           <fieldset disabled={locked}>
             <legend>{t('settings.tabs')}</legend>
             <label>
