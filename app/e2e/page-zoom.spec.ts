@@ -62,6 +62,25 @@ test('ページの拡大・縮小（F02）: メニューで段階ごとに変わ
       page.sendInputEvent({ type: 'keyDown', keyCode: '=', modifiers })
     }, origin)
     await expect.poll(async () => (await factors()).page).toBe(1.1)
+
+    // UI（アドレスバー）にフォーカスがあるときも、Cmd/Ctrl + = と - でページの倍率が変わり、UI は変わらない
+    await address.focus()
+    const pressInUi = (keyCode: string): Promise<void> =>
+      app.evaluate(
+        ({ webContents }, { prefix, keyCode }) => {
+          const ui = webContents.getAllWebContents().find((wc) => !wc.getURL().startsWith(prefix))!
+          const modifiers = [process.platform === 'darwin' ? 'meta' : 'control'] as (
+            'meta' | 'control'
+          )[]
+          ui.sendInputEvent({ type: 'keyDown', keyCode, modifiers })
+        },
+        { prefix: origin, keyCode }
+      )
+    await pressInUi('=')
+    await expect.poll(async () => (await factors()).page).toBe(1.25)
+    await pressInUi('-')
+    await expect.poll(async () => (await factors()).page).toBe(1.1)
+    expect((await factors()).ui).toBe(1)
   } finally {
     await app.close()
     cleanup()
