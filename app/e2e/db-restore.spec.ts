@@ -32,7 +32,8 @@ test('DB が壊れていたら、バックアップから戻して知らせる�
       await expect(notice).toContainText('trueful.db.broken-')
       await window.screenshot({ path: `test-results/db-restore-${process.platform}.png` })
       await window.getByRole('button', { name: 'データを戻したことの知らせを閉じる' }).click()
-      await expect(notice).toHaveCount(0)
+      // 見える知らせの行が消える（読み上げの文は、閉じても読み直さないよう残す）
+      await expect(window.locator('.startup-notice')).toHaveCount(0)
       await app.close()
     }
     expect(readdirSync(first.userDataDir).some((n) => n.startsWith('trueful.db.broken-'))).toBe(

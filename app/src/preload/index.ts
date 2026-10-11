@@ -10,7 +10,7 @@ import type { PageState } from '../main/tab/services/tabViews'
 import type { Bookmark } from '../main/bookmark/services/bookmarkDB'
 import type { BookmarkImportOutcome } from '../main/ipc/bookmarkChannels'
 import type { Download } from '../main/download/services/downloadDB'
-import type { DatabaseRecovery } from '../main/db/flows/recoverDatabase'
+import type { StartupNotice } from '../main/ipc/startupChannels'
 import type { OmniboxCandidate } from '../main/omnibox/flows/omniboxSuggest'
 import type { PermissionPrompt } from '../main/permission/flows/permissionPrompts'
 import type { SitePermission } from '../main/permission/services/permissionDB'
@@ -36,7 +36,7 @@ const api = {
     mode: (): Promise<IpcResult<'restore' | 'developer-home' | 'crash'>> =>
       ipcRenderer.invoke(channelNames.startupMode),
     // 起動のときに知らせること（壊れた DB をバックアップから戻した・新しく作った。F12）
-    notices: (): Promise<IpcResult<DatabaseRecovery[]>> =>
+    notices: (): Promise<IpcResult<StartupNotice[]>> =>
       ipcRenderer.invoke(channelNames.startupNotices)
   },
   settings: {

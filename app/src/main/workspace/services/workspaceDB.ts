@@ -67,6 +67,12 @@ export function skipWorkspaceId(db: DatabaseSync, id: number): void {
   }
 }
 
+// これまでに確定した一番大きい id（AUTOINCREMENT の記録。まだ作っていなければ 0）
+export function lastWorkspaceId(db: DatabaseSync): number {
+  const row = db.prepare("SELECT seq FROM sqlite_sequence WHERE name = 'workspace'").get()
+  return row ? Number(row.seq) : 0
+}
+
 export function touchWorkspace(db: DatabaseSync, id: number, now: number): boolean {
   return (
     db.prepare('UPDATE workspace SET last_used_time_ms = ? WHERE id = ?').run(now, id).changes === 1

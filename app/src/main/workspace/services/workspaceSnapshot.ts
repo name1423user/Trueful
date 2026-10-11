@@ -34,6 +34,12 @@ export function insertSnapshot(
   ).run(workspaceId, JSON.stringify(snapshot), now)
 }
 
+// スナップショットが残っている（30 日以内に削除した）Workspace の id
+export function deletedWorkspaceIds(db: DatabaseSync): Set<number> {
+  const rows = db.prepare('SELECT workspace_id FROM workspace_snapshot').all()
+  return new Set(rows.map((r) => Number(r.workspace_id)))
+}
+
 // 期限を過ぎたものを消す。消した数を返す
 export function purgeExpiredSnapshots(db: DatabaseSync, now: number): number {
   const result = db
