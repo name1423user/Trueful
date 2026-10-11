@@ -8,7 +8,7 @@ const css = readFileSync(join(__dirname, 'main.css'), 'utf8')
 function tokens(block: string): Record<string, string> {
   return Object.fromEntries(
     // 書体と文字の大きさ（--font-*）は色ではないので、typography.test.ts で確かめる
-    [...block.matchAll(/--(?!font-)([\w-]+):\s*([^;]+);/g)].map((m) => {
+    [...block.matchAll(/--(?!font-(?:ui|mono|size-))([\w-]+):\s*([^;]+);/g)].map((m) => {
       const value = m[2]!.trim().toLowerCase()
       if (!/^#[0-9a-f]{6}$/.test(value)) throw new Error(`--${m[1]} は #rrggbb で書く: ${value}`)
       return [m[1]!, value]

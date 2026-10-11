@@ -28,7 +28,14 @@ describe('書体', () => {
 
   it('部品では書体を直接書かず、変数を通す', () => {
     const families = [...rules.matchAll(/font-family:\s*([^;]+);/g)].map((m) => m[1]!.trim())
+    expect(families.length).toBeGreaterThan(0)
     for (const f of families) expect(f).toMatch(/^var\(--font-(ui|mono)\)$/)
+    // 一括指定（font:）で書体を書くと上の検査から漏れるので、inherit だけにする
+    for (const m of rules.matchAll(/\bfont:\s*([^;]+);/g)) expect(m[1]!.trim()).toBe('inherit')
+  })
+
+  it('URL の欄は等幅（1 と l、0 と O を見分けやすくする）', () => {
+    expect(rules).toMatch(/\.address-bar input \{[^}]*font-family: var\(--font-mono\);/)
   })
 })
 

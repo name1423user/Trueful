@@ -12,3 +12,9 @@ files:
 mac:
   notarize: false
 npmRebuild: false
+# 同梱の書体（IBM Plex）は SIL OFL 1.1。配布物に許諾文を添える（ADR-009）
+extraResources:
+  - from: node_modules/@fontsource/ibm-plex-sans-jp/LICENSE
+    to: licenses/IBM-Plex-Sans-JP-OFL.txt
+  - from: node_modules/@fontsource/ibm-plex-mono/LICENSE
+    to: licenses/IBM-Plex-Mono-OFL.txt
