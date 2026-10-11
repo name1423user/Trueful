@@ -36,6 +36,12 @@ describe('書体', () => {
 
   it('URL の欄は等幅（1 と l、0 と O を見分けやすくする）', () => {
     expect(rules).toMatch(/\.address-bar input \{[^}]*font-family: var\(--font-mono\);/)
+    // 案内文は日本語なので等幅にしない（語の間が空きすぎる）
+    expect(rules).toMatch(/\.address-bar input::placeholder \{[^}]*font-family: var\(--font-ui\);/)
+  })
+
+  it('見出しは、かなを詰める（palt）', () => {
+    expect(rules).toMatch(/h1,\s*h2,\s*h3 \{[^}]*font-feature-settings: 'palt';/)
   })
 })
 
