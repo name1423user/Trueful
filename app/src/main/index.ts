@@ -3,7 +3,7 @@ import { existsSync, readdirSync } from 'node:fs'
 import type { DatabaseSync } from 'node:sqlite'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
-import { openOrRecoverDatabase, type DatabaseRecovery } from './db/flows/recoverDatabase'
+import { openOrRecoverDatabase } from './db/flows/recoverDatabase'
 import { channelNames } from './ipc/channelNames'
 import { createIpc, isFromAppMainFrame } from './ipc/handle'
 import { IpcHandlerError } from './ipc/channels'
@@ -63,7 +63,7 @@ import { PermissionPrompts } from './permission/flows/permissionPrompts'
 import { originOf } from './permission/services/permissionMap'
 import { omniboxCopy, omniboxSuggest } from './ipc/omniboxChannels'
 import { suggest } from './omnibox/flows/omniboxSuggest'
-import { startupMode, startupNotices } from './ipc/startupChannels'
+import { startupMode, startupNotices, type StartupNotice } from './ipc/startupChannels'
 import {
   decideStartupMode,
   beginSession,
@@ -87,6 +87,7 @@ import { purgeExpiredSnapshots } from './workspace/services/workspaceSnapshot'
 import {
   cleanupDeletedWorkspaceFiles,
   ensureComManifests,
+  sweepUnfinishedWorkspaces,
   prepareWorkspaceFiles,
   purgeWorkspaceTrash
 } from './workspace/flows/workspaceFileFlows'
@@ -219,9 +220,10 @@ app.whenReady().then(() => {
       if (errors.length > 0) console.warn('[main] 片付け用のフォルダを消せなかった', errors)
     })
   // 壊れていたら、壊れたファイルを残してバックアップから戻す（F12）。戻したことは画面で知らせる
-  let databaseRecovery: DatabaseRecovery | undefined
+  // 起動のときに知らせること（F12）。DB の準備の中で集める
+  const notices: StartupNotice[] = []
   const databaseReady = openOrRecoverDatabase(userData).then(({ db, recovery }) => {
-    databaseRecovery = recovery
+    if (recovery) notices.push(recovery)
     if (recovery) console.warn('[main] 壊れた DB を戻した', recovery)
     return db
   })
@@ -236,10 +238,22 @@ app.whenReady().then(() => {
       database = db
       // Workspace の COM 側のマニフェストをそろえる（ない・壊れているものを書き直す。ADR-013）。
       // 前回消しきれなかった片付け用のフォルダも消す（ADR-011 の起動時クリーンアップ）
+      // ADR-012 の3パターンは、画面でも知らせる（DB を戻したときは、その知らせだけにする。
+      // 戻すと、その後に作った Workspace のフォルダが「作りかけ」に見えるため）
       try {
-        const { repaired, failed } = ensureComManifests(db, workspaceRoots)
+        const unfinished = sweepUnfinishedWorkspaces(db, workspaceRoots)
+        const { repaired, missing, failed } = ensureComManifests(db, workspaceRoots)
         if (repaired.length > 0) console.warn('[main] マニフェストを書き直した', repaired)
         if (failed.length > 0) console.error('[main] マニフェストを書けなかった', failed)
+        if (notices.length === 0) {
+          const name = (id: number): string =>
+            listWorkspaces(db).find((w) => w.id === id)?.name ?? String(id)
+          const fixed = repaired.filter((id) => !missing.includes(id))
+          if (fixed.length > 0) notices.push({ kind: 'manifestRepaired', names: fixed.map(name) })
+          if (unfinished.length > 0) notices.push({ kind: 'unfinishedCreate' })
+          for (const id of missing)
+            notices.push({ kind: 'filesMissing', workspaceId: id, name: name(id) })
+        }
       } catch (e) {
         console.error('[main] マニフェストをそろえられなかった', e)
       }
@@ -298,7 +312,7 @@ app.whenReady().then(() => {
   handle(startupNotices, async () => {
     await databaseReady.catch(() => undefined)
     // 何度聞かれても同じ答えを返す（読んだ画面が捨てられても、知らせが消えないように。再読み込みでは、また出る）
-    return databaseRecovery ? [databaseRecovery] : []
+    return notices
   })
   handle(startupMode, async () => {
     const m = await mode

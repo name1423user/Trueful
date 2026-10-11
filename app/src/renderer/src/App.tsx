@@ -251,8 +251,19 @@ function App(): React.JSX.Element {
             </button>
           )}
         </div>
-        {/* 起動のときの知らせ（壊れた DB を戻した。F12） */}
-        <StartupNotice />
+        {/* 起動のときの知らせ（壊れた DB を戻した、ADR-012 の3パターン。F12） */}
+        <StartupNotice
+          onCreate={() => {
+            setSwitchError(undefined)
+            setDeletingId(null)
+            setAdding(true)
+          }}
+          onDelete={(id) => {
+            setSwitchError(undefined)
+            setAdding(false)
+            setDeletingId(id)
+          }}
+        />
         {/* 権限の確認が出たことの読み上げ（領域は常に置き、中身だけ入れ替える） */}
         <p role="status" aria-live="polite" className="visually-hidden">
           {permission.prompt &&

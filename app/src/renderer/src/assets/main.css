@@ -826,10 +826,25 @@ h1[tabindex='-1']:focus {
   font-weight: 600;
 }
 
-/* 起動のときの知らせは、上端の2段目に全幅で出す（アドレスバーを押し縮めない） */
-.startup-notice {
+/* 起動のときの知らせは、上端の2段目に全幅で1件ずつ出す（アドレスバーを押し縮めない）。
+   空のときは並びから外す（読み上げの領域としては残す） */
+.startup-notices {
   flex-basis: 100%;
   margin-bottom: 8px;
+}
+
+.startup-notices > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.startup-notices > div:has(.startup-notice) + div:has(.startup-notice) {
+  margin-top: 4px;
+}
+
+.startup-notices:not(:has(.startup-notice)) {
+  position: absolute;
 }
 
 /* 統合検索欄の候補の一覧（F10）。中央の列の先頭に置き、その分ページの領域が下がる。

@@ -1,3 +1,5 @@
+import { existsSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import { listWorkspaces, type Workspace } from '../services/workspaceDB'
 import {
@@ -78,15 +80,20 @@ export async function cleanupDeletedWorkspaceFiles(
 
 // 起動時に、DB にある Workspace の COM 側のマニフェストをそろえる。
 // ない・壊れている・id が合わないものは書き直す（中身は { id } だけで、DB の id から作り直せる。ADR-013）。
-// 新しい版のアプリが書いたものには触らない。1つが書けなくても、ほかは続ける
+// 新しい版のアプリが書いたものには触らない。1つが書けなくても、ほかは続ける。
+// missing は、Workspace のフォルダもパーティションもなかったもの（手で消した・移した。ADR-012 のパターン③。
+// ログインとサイトのデータは戻せない）。フォルダだけ消えたものは、ログインが残っているので書き直すだけ（パターン①）
 export function ensureComManifests(
   db: DatabaseSync,
   roots: WorkspaceRoots
-): { repaired: number[]; failed: { id: number; error: unknown }[] } {
+): { repaired: number[]; missing: number[]; failed: { id: number; error: unknown }[] } {
   const repaired: number[] = []
+  const missing: number[] = []
   const failed: { id: number; error: unknown }[] = []
   for (const { id } of listWorkspaces(db)) {
     if (readComManifest(roots, id) !== 'broken') continue
+    if (!existsSync(workspaceDir(roots, id)) && !existsSync(partitionDir(roots, id)))
+      missing.push(id)
     try {
       writeComManifest(roots, id)
       repaired.push(id)
@@ -94,5 +101,37 @@ export function ensureComManifests(
       failed.push({ id, error })
     }
   }
-  return { repaired, failed }
+  return { repaired, missing, failed }
+}
+
+// DB にない番号の Workspace のフォルダ（作成のトランザクションの中でファイルを書いた後、確定する前に終わった。
+// ADR-012 のパターン②）を、パーティションといっしょに片付け用の場所へ移し、その番号を返す。
+// DB をバックアップから戻したときにも残るが、その Workspace は一覧にないので、同じく片付ける
+export function sweepUnfinishedWorkspaces(
+  db: DatabaseSync,
+  roots: WorkspaceRoots,
+  now: () => number = Date.now
+): number[] {
+  const known = new Set(listWorkspaces(db).map((w) => w.id))
+  let names: string[]
+  try {
+    names = readdirSync(join(roots.userData, 'workspaces'))
+  } catch {
+    return []
+  }
+  const [workspacesTrash, partitionsTrash] = trashDirs(roots)
+  const swept: number[] = []
+  for (const name of names) {
+    if (!/^[1-9]\d*$/.test(name) || known.has(Number(name))) continue
+    const id = Number(name)
+    try {
+      moveToTrash(partitionDir(roots, id), partitionsTrash!, now())
+      moveToTrash(workspaceDir(roots, id), workspacesTrash!, now())
+      swept.push(id)
+    } catch (e) {
+      // 移せなくても、ほかは続ける（次の起動でもう一度片付ける）
+      console.error('[workspace] 作りかけのフォルダを片付けられなかった', id, e)
+    }
+  }
+  return swept
 }

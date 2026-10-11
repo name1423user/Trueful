@@ -17,6 +17,7 @@ import {
 import {
   cleanupDeletedWorkspaceFiles,
   ensureComManifests,
+  sweepUnfinishedWorkspaces,
   prepareWorkspaceFiles,
   purgeWorkspaceTrash
 } from './workspaceFileFlows'
@@ -78,10 +79,14 @@ describe('起動時にマニフェストをそろえる', () => {
     const newer = JSON.stringify({ schemaVersion: 9 })
     writeFileSync(comManifestPath(roots, d!.id), newer)
 
-    expect(ensureComManifests(db, roots)).toEqual({ repaired: [b!.id, c!.id], failed: [] })
+    expect(ensureComManifests(db, roots)).toEqual({
+      repaired: [b!.id, c!.id],
+      missing: [b!.id],
+      failed: []
+    })
     for (const w of [a!, b!, c!]) expect(readComManifest(roots, w.id)).toBe('ok')
     expect(readComManifest(roots, d!.id)).toBe('newer')
-    expect(ensureComManifests(db, roots)).toEqual({ repaired: [], failed: [] })
+    expect(ensureComManifests(db, roots)).toEqual({ repaired: [], missing: [], failed: [] })
   })
 
   it('書けないものがあっても、ほかは続けて、書けなかった id を返す', () => {
@@ -126,5 +131,49 @@ describe('削除した Workspace のファイルの片付け（F01）', () => {
 
   it('フォルダがなくても失敗しない', async () => {
     expect(await cleanupDeletedWorkspaceFiles(roots, 9, async () => {})).toEqual([])
+  })
+})
+
+// ADR-012 の3パターン（F12）。① json が読めない → 書き直して軽く知らせる、
+// ② 作成の途中で終わった（DB にない Workspace のフォルダ）→ 片付けて作成へ誘導、③ フォルダが消えた → 強く知らせる
+describe('ADR-012 の3パターン', () => {
+  it('① マニフェストが読めない: 書き直し、repaired に入る（フォルダが消えたことにはしない）', () => {
+    const a = insertWorkspace(db, { name: 'A', mode: 'custom' }, 1)
+    prepareWorkspaceFiles(roots)(a)
+    writeFileSync(comManifestPath(roots, a.id), '{"id":')
+    expect(ensureComManifests(db, roots)).toEqual({ repaired: [a.id], missing: [], failed: [] })
+    expect(readComManifest(roots, a.id)).toBe('ok')
+  })
+
+  it('② DB にない番号のフォルダ（作成の途中で終わった）は片付け用の場所へ移し、その番号を返す', () => {
+    const a = insertWorkspace(db, { name: 'A', mode: 'custom' }, 1)
+    prepareWorkspaceFiles(roots)(a)
+    // 作成のトランザクションの中でファイルを書いた後、確定する前に終わった（番号 2 は DB にない）
+    prepareWorkspaceFiles(roots)({ ...a, id: 2 })
+    mkdirSync(partitionDir(roots, 2), { recursive: true })
+    // 番号でない名前（片付け用の場所など）には触らない
+    mkdirSync(trashDirs(roots)[0]!, { recursive: true })
+    expect(sweepUnfinishedWorkspaces(db, roots)).toEqual([2])
+    expect(existsSync(workspaceDir(roots, 2))).toBe(false)
+    expect(existsSync(partitionDir(roots, 2))).toBe(false)
+    expect(existsSync(workspaceDir(roots, a.id))).toBe(true)
+    expect(existsSync(trashDirs(roots)[0]!)).toBe(true)
+    expect(sweepUnfinishedWorkspaces(db, roots)).toEqual([])
+  })
+
+  it('② フォルダがまだなければ、何もしない', () => {
+    expect(sweepUnfinishedWorkspaces(db, roots)).toEqual([])
+  })
+
+  it('③ Workspace のフォルダもパーティションもない: 書き直し、missing に入る', () => {
+    const a = insertWorkspace(db, { name: 'A', mode: 'custom' }, 1)
+    const b = insertWorkspace(db, { name: 'B', mode: 'custom' }, 2)
+    // b はフォルダだけ消えた（ログインはパーティションに残っている）ので、① と同じく直すだけ
+    mkdirSync(partitionDir(roots, b.id), { recursive: true })
+    expect(ensureComManifests(db, roots)).toEqual({
+      repaired: [a.id, b.id],
+      missing: [a.id],
+      failed: []
+    })
   })
 })
