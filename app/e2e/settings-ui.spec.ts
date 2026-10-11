@@ -127,7 +127,8 @@ test('設定の画面: 近道を足す・消す。正しくない近道は理由
     expect(keywords()).toEqual(['gh', 'npm', 'mdn'])
 
     // 正しいものは足し、欄を空にする
-    await keyword.fill('docs')
+    // 大文字は小文字にして足す（統合検索欄は小文字で照らし合わせる）
+    await keyword.fill('Docs')
     await url.press('Enter')
     await expect.poll(keywords).toEqual(['gh', 'npm', 'mdn', 'docs'])
     await expect(keyword).toHaveValue('')
@@ -137,6 +138,8 @@ test('設定の画面: 近道を足す・消す。正しくない近道は理由
     await window.getByRole('button', { name: '近道「gh」を削除' }).click()
     await expect.poll(keywords).toEqual(['npm', 'mdn', 'docs'])
     await expect(window.getByRole('button', { name: '近道「gh」を削除' })).toHaveCount(0)
+    // フォーカスは次の行の削除ボタンへ
+    await expect(window.getByRole('button', { name: '近道「npm」を削除' })).toBeFocused()
     await window.screenshot({ path: `test-results/settings-shortcuts-${process.platform}.png` })
   } finally {
     await app.close()

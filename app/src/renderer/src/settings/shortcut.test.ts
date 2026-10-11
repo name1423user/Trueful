@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { settingsFields } from '../../../main/settings/services/settingsSchema'
 import { shortcutProblem } from './shortcut'
 
 describe('近道の入力の検査（settings.json の検証と同じ規則）', () => {
@@ -27,5 +28,27 @@ describe('近道の入力の検査（settings.json の検証と同じ規則）',
   it('50 個まで', () => {
     const many = Array.from({ length: 50 }, (_, i) => ({ keyword: `k${i}`, urlTemplate: url }))
     expect(shortcutProblem('x', url, many)).toBe('tooMany')
+  })
+  it('Main の検証（settings.json）と同じ判定になる', () => {
+    const urls = [
+      'https://example.com/?q=%s',
+      'HTTPS://example.com/?q=%s',
+      'https://example.com/a b?q=%s',
+      'https:example.com/%s',
+      'http:/example.com/%s',
+      'https://exa mple.com/%s',
+      'https://example.com/?q=%S',
+      'ftp://example.com/%s'
+    ]
+    for (const keyword of ['docs', 'Docs', '8080', 'a-b', 'gh']) {
+      for (const urlTemplate of urls) {
+        const list = [...existing, { keyword, urlTemplate }]
+        const server = settingsFields.shortcuts.safeParse(list).success
+        expect(
+          shortcutProblem(keyword, urlTemplate, existing) === undefined,
+          `${keyword} ${urlTemplate}`
+        ).toBe(server)
+      }
+    }
   })
 })

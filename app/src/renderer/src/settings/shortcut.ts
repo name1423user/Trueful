@@ -14,7 +14,8 @@ export function shortcutProblem(
   // 数字だけは、組み込みの localhost の近道とぶつかる
   if (/^\d+$/.test(keyword)) return 'keywordDigits'
   if (existing.some((s) => s.keyword === keyword)) return 'keywordDuplicate'
-  if (!URL.canParse(urlTemplate) || !/^https?:$/.test(new URL(urlTemplate).protocol)) return 'url'
+  // http:// か https:// で始める（「https:example.com」のような書き方は、Main の検証が断る）
+  if (!/^https?:\/\//i.test(urlTemplate) || !URL.canParse(urlTemplate)) return 'url'
   if (!urlTemplate.includes('%s')) return 'url'
   return undefined
 }
