@@ -1088,3 +1088,26 @@ h1[tabindex='-1']:focus {
   align-items: end;
   gap: 8px;
 }
+
+/* 記憶したサイトの権限。Workspace・サイト・権限・許可かブロック・取り消すを1行に */
+.site-permission-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-permission-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.site-permission-origin {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -243,6 +243,12 @@
     "shortcutAdd": "追加",
     "shortcutRemove": "削除",
     "shortcutRemoveLabel": "近道「{{keyword}}」を削除",
+    "sitePermissions": "サイトの権限",
+    "sitePermissionsEmpty": "記憶しているサイトの権限はありません。",
+    "sitePermissionsFailed": "サイトの権限を読み込めない・取り消せませんでした。",
+    "decision": { "allow": "許可", "deny": "ブロック" },
+    "revoke": "取り消す",
+    "revokeLabel": "{{workspace}} の {{origin}} の「{{permission}}」の記憶を取り消す",
     "shortcutProblem": {
       "tooMany": "近道は 50 個までです。",
       "keyword": "キーワードは、英小文字・数字・ハイフンの 1〜20 文字にしてください。",
