@@ -358,7 +358,8 @@ body {
 
 .workspace-create .actions,
 .workspace-delete .actions,
-.crash-restore .actions {
+.crash-restore .actions,
+.settings-screen .actions {
   display: flex;
   gap: 8px;
 }
@@ -1033,6 +1034,11 @@ h1[tabindex='-1']:focus {
 .settings-screen select {
   /* チェックとラジオの印もグレー系（Blue は Production の Mode 色だけ） */
   accent-color: var(--text-muted);
+}
+
+.settings-screen :is(input, select, button):focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
 }
 
 .settings-screen input[type='number'] {

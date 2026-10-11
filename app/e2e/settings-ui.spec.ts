@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync, writeFileSync } from 'node:fs'
+import { DatabaseSync } from 'node:sqlite'
 import { join } from 'node:path'
 import { appWindow, launchApp } from './launchApp'
 
@@ -38,9 +39,15 @@ test('設定の画面: Cmd/Ctrl+, で開き、変えるとすぐ settings.json �
     await days.fill('30')
     await days.press('Enter')
     await expect.poll(() => saved().historyRetentionDays).toBe(30)
+    // 書いた後もフォーカスは欄に残る
+    await expect(days).toBeFocused()
+    // 打っている途中（空）では知らせない
+    await days.fill('')
+    await expect(days).not.toHaveAttribute('aria-invalid', 'true')
     await days.fill('0')
     await days.press('Enter')
-    await expect(window.getByRole('alert')).toContainText('1〜3650')
+    await expect(window.getByText('1〜3650 の整数で入力してください。')).toBeVisible()
+    await expect(days).toHaveAttribute('aria-invalid', 'true')
     expect(saved().historyRetentionDays).toBe(30)
 
     // 手で編集したら、画面も変わる
@@ -55,11 +62,42 @@ test('設定の画面: Cmd/Ctrl+, で開き、変えるとすぐ settings.json �
     await expect(window.locator('html')).toHaveAttribute('data-theme', 'light')
 
     // Esc で閉じると、ページの画面に戻り、フォーカスは今の Workspace の行へ
-    await heading.press('Escape')
+    await window.keyboard.press('Escape')
     await expect(heading).toHaveCount(0)
     await expect(window.locator('.workspace-row[aria-current="true"]')).toBeFocused()
   } finally {
     await app.close()
     cleanup()
+  }
+})
+
+test('設定の画面: Developer Home の上で開いてもタブ列は出さず、閉じると Developer Home に戻る', async () => {
+  const first = await launchApp()
+  try {
+    {
+      const window = await appWindow(first.app)
+      await window.getByLabel('名前').fill('案件A')
+      await window.getByRole('button', { name: '作成' }).click()
+      await expect(window.locator('.workspace-row')).toHaveCount(1)
+      await first.app.close()
+    }
+    // 前回の終了を 2 時間前にして、Developer Home の起動にする
+    const db = new DatabaseSync(join(first.userDataDir, 'trueful.db'))
+    db.prepare('UPDATE app_state SET last_quit_time_ms = ?').run(Date.now() - 120 * 60_000)
+    db.close()
+    const { app } = await launchApp(undefined, { userDataDir: first.userDataDir })
+    const window = await appWindow(app)
+    const home = window.getByRole('region', { name: 'Developer Home' })
+    await expect(home).toBeVisible()
+    await app.evaluate(({ Menu }) =>
+      Menu.getApplicationMenu()!.getMenuItemById('open-settings')!.click()
+    )
+    await expect(window.getByRole('heading', { name: '設定' })).toBeVisible()
+    await expect(window.locator('.tab-row')).toHaveCount(0)
+    await window.keyboard.press('Escape')
+    await expect(home).toBeVisible()
+    await app.close()
+  } finally {
+    first.cleanup()
   }
 })
