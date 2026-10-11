@@ -219,7 +219,13 @@
       "restored": "データを戻したことの知らせを閉じる",
       "recreated": "データを新しく作ったことの知らせを閉じる",
       "manifestRepaired": "設定ファイルを作り直したことの知らせを閉じる",
-      "unfinishedCreate": "作りかけを片付けたことの知らせを閉じる"
+      "unfinishedCreate": "作りかけを片付けたことの知らせを閉じる",
+      "settings": "設定の問題の知らせを閉じる"
+    },
+    "settings": {
+      "invalid-json": "settings.json が壊れていたので、既定の設定で起動しました。壊れたファイルは「{{file}}」として残しています。",
+      "invalid-values": "settings.json に正しくない値があったので、その項目だけ既定の値にしました。",
+      "unavailable": "settings.json を読み書きできないため、既定の設定で起動しました。設定は保存されません。"
     }
   }
 }
