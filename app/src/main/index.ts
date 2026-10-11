@@ -396,10 +396,14 @@ app.whenReady().then(() => {
     if (
       command === 'toggle-side-panel' ||
       command === 'bookmark-page' ||
+      command === 'open-settings' ||
       command.startsWith('workspace-switch-')
     ) {
       // 切り替えのあと、キー入力が見えなくなったページに残らないよう、フォーカスを UI に移す
-      if (command.startsWith('workspace-switch-')) target.webContents.focus()
+      // 設定の画面もページを隠すので、同じく UI へ
+      if (command.startsWith('workspace-switch-') || command === 'open-settings') {
+        target.webContents.focus()
+      }
       target.webContents.send(channelNames.uiCommand, command)
       return
     }

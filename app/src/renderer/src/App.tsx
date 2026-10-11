@@ -10,6 +10,7 @@ import { StartupNotice } from './home/StartupNotice'
 import { DeveloperHome } from './home/DeveloperHome'
 import { useStartupView } from './home/useStartupMode'
 import { ActivityBar, type PanelView } from './panel/ActivityBar'
+import { SettingsScreen } from './settings/SettingsScreen'
 import { permissionMessage } from './permission/message'
 import { PermissionBar } from './permission/PermissionBar'
 import { usePermissionPrompt } from './permission/usePermissionPrompts'
@@ -33,6 +34,8 @@ function App(): React.JSX.Element {
   const { t } = useTranslation()
   const { state, create, switchTo, remove, refresh, notice, dismissNotice } = useWorkspaces()
   const [adding, setAdding] = useState(false)
+  // 設定の画面（F14）を出しているか
+  const [settingsOpen, setSettingsOpen] = useState(false)
   // 削除の確認を出している Workspace の id
   const [deletingId, setDeletingId] = useState<number | null>(null)
   // 起動したときの表示（F11）。Developer Home は、Workspace を選ぶ・作るまで出す
@@ -101,6 +104,7 @@ function App(): React.JSX.Element {
   const switchWorkspace = async (id: number): Promise<void> => {
     setAdding(false)
     setDeletingId(null)
+    setSettingsOpen(false)
     const code = await switchTo(id)
     // Developer Home は、開けてから閉じる（失敗したら Home に留めて知らせる）
     if (!code) finishStartup()
@@ -165,6 +169,7 @@ function App(): React.JSX.Element {
     () =>
       window.trueful.ui.onCommand((command) => {
         if (command === 'bookmark-page') void addCurrentPageRef.current()
+        if (command === 'open-settings') setSettingsOpen(true)
         const n = /^workspace-switch-([1-9])$/.exec(command)?.[1]
         if (n) switchByNumberRef.current(Number(n))
       }),
@@ -199,11 +204,16 @@ function App(): React.JSX.Element {
     refocus.current = focusId
     setDeletingId(null)
   }
+  // 設定の画面は、作成画面・削除の確認の後ろ、起動の画面の前に出す
+  const showSettings = settingsOpen && !showCreate && deleting === undefined
   const showHome =
-    (startup === 'home' || startup === 'home-after-crash') && !showCreate && deleting === undefined
-  const showCrash = startup === 'crash' && !showCreate && deleting === undefined
-  // 作成画面・削除の確認・Developer Home を出している間と、起動の表示が決まるまでは、ページを隠す
-  const pageHidden = showCreate || deleting !== undefined || startup !== 'done'
+    (startup === 'home' || startup === 'home-after-crash') &&
+    !showCreate &&
+    deleting === undefined &&
+    !showSettings
+  const showCrash = startup === 'crash' && !showCreate && deleting === undefined && !showSettings
+  // 作成画面・削除の確認・設定・Developer Home を出している間と、起動の表示が決まるまでは、ページを隠す
+  const pageHidden = showCreate || deleting !== undefined || showSettings || startup !== 'done'
 
   const activePage = activeTab && tabs.pages[activeTab.id]
   return (
@@ -384,6 +394,14 @@ function App(): React.JSX.Element {
               return undefined
             }}
             onCancel={state.workspaces.length > 0 ? () => closeCreate(state.currentId) : undefined}
+          />
+        ) : showSettings ? (
+          <SettingsScreen
+            onClose={() => {
+              setSettingsOpen(false)
+              // 閉じたら、フォーカスを今の Workspace の行へ（キーボードで続けて操作できるように）
+              refocus.current = state.currentId
+            }}
           />
         ) : showCrash ? (
           <CrashRestorePrompt
