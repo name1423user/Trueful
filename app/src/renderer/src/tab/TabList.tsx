@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Workspace } from '../workspace/useWorkspaces'
 import { TabContextMenu } from './TabContextMenu'
@@ -23,10 +23,22 @@ export function TabList(props: {
   const [menu, setMenu] = useState<{ tab: Tab; x: number; y: number } | null>(null)
   // メニューを開いたタブ（Esc で閉じたとき、フォーカスを戻す）
   const opener = useRef<HTMLElement | null>(null)
+  // × で閉じたら、消えたボタンの代わりに同じ位置（なければ前）のタブへフォーカスを移す（タブ列を読み直した後に。
+  // タブがなければ「新しいタブ」）。body に落とすと、キーボードで続けて操作できない
+  const list = useRef<HTMLUListElement>(null)
+  const newTab = useRef<HTMLButtonElement>(null)
+  const focusAfterClose = useRef<number | null>(null)
+  useEffect(() => {
+    const index = focusAfterClose.current
+    if (index === null) return
+    focusAfterClose.current = null
+    const rows = list.current?.querySelectorAll<HTMLElement>('.tab-row') ?? []
+    ;(rows[Math.min(index, rows.length - 1)] ?? newTab.current)?.focus()
+  }, [props.tabs])
   return (
     <section className="tab-section" aria-label={t('tab.listLabel')}>
-      <ul className="tab-list">
-        {props.tabs.map((tab) => {
+      <ul className="tab-list" ref={list}>
+        {props.tabs.map((tab, index) => {
           const title = tabTitle(t, tab)
           const discarded = props.discardedIds.includes(tab.id)
           return (
@@ -65,7 +77,10 @@ export function TabList(props: {
                 type="button"
                 className="tab-close"
                 aria-label={t('tab.close', { title })}
-                onClick={() => props.onClose(tab.id)}
+                onClick={() => {
+                  focusAfterClose.current = index
+                  props.onClose(tab.id)
+                }}
               >
                 <span aria-hidden="true">×</span>
               </button>
@@ -73,7 +88,7 @@ export function TabList(props: {
           )
         })}
       </ul>
-      <button type="button" className="tab-new" onClick={props.onCreate}>
+      <button type="button" className="tab-new" ref={newTab} onClick={props.onCreate}>
         <span aria-hidden="true">+ </span>
         {t('tab.newTab')}
       </button>
