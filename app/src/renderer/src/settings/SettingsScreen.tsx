@@ -11,7 +11,7 @@ import { useSettings, type Settings } from './useSettings'
 // focusRequest が変わるたび（開いたとき・開いたまま Cmd/Ctrl+, を押したとき）、見出しへフォーカスを移す
 export function SettingsScreen(props: {
   focusRequest: number
-  workspaceName: (id: number) => string | undefined
+  workspaces: { id: number; name: string }[]
   onClose: () => void
 }): React.JSX.Element {
   const { t } = useTranslation()
@@ -117,7 +117,7 @@ export function SettingsScreen(props: {
             disabled={locked}
             onSave={(shortcuts) => save({ shortcuts })}
           />
-          <SitePermissions workspaceName={props.workspaceName} disabled={locked} />
+          <SitePermissions workspaces={props.workspaces} disabled={locked} />
           <fieldset disabled={locked}>
             <legend>{t('settings.tabs')}</legend>
             <label>

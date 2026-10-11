@@ -1104,6 +1104,11 @@ h1[tabindex='-1']:focus {
   gap: 8px;
 }
 
+/* 最後の1件を取り消したときのフォーカスの移り先（見出しと同じく枠は出さない） */
+.settings-screen fieldset[tabindex='-1']:focus {
+  outline: none;
+}
+
 .site-permission-origin {
   flex: 1;
   min-width: 0;
