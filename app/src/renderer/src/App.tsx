@@ -11,6 +11,7 @@ import { DeveloperHome } from './home/DeveloperHome'
 import { useStartupView } from './home/useStartupMode'
 import { ActivityBar, type PanelView } from './panel/ActivityBar'
 import { SettingsScreen } from './settings/SettingsScreen'
+import { useSettings } from './settings/useSettings'
 import { permissionMessage } from './permission/message'
 import { PermissionBar } from './permission/PermissionBar'
 import { usePermissionPrompt } from './permission/usePermissionPrompts'
@@ -19,6 +20,7 @@ import type { Candidate } from './omnibox/useSuggestions'
 import { ErrorScreen } from './tab/ErrorScreen'
 import { PageArea } from './tab/PageArea'
 import { MoveTabConfirm } from './tab/MoveTabConfirm'
+import { RecentTabsStrip } from './tab/RecentTabsStrip'
 import { TabList } from './tab/TabList'
 import { tabTitle } from './tab/tabTitle'
 import { useMoveTab } from './tab/useMoveTab'
@@ -50,6 +52,8 @@ function App(): React.JSX.Element {
     panelView === 'downloads' && !collapsed
   )
   const bookmarks = useBookmarks()
+  // 最近使ったタブ列の枚数（設定 recentTabsCount）
+  const settings = useSettings()
   const [bookmarkMessage, setBookmarkMessage] = useState<string>()
   const tabs = useTabs(state.status === 'ready' ? state.currentId : null)
   // タブを別の Workspace へ移す（F17）。終わったら、タブ列と Workspace の一覧を読み直す
@@ -450,6 +454,17 @@ function App(): React.JSX.Element {
         ) : startup === 'pending' ? null : (
           <>
             <div ref={setOmniboxSlot} />
+            {collapsed && (
+              <RecentTabsStrip
+                tabs={tabs.tabs}
+                activeId={tabs.activeId}
+                discardedIds={tabs.discardedIds}
+                // 設定を読むまでは、既定値（settingsSchema と同じ 5）
+                count={settings.snapshot?.settings.recentTabsCount ?? 5}
+                onActivate={(id) => void tabs.run((api, ws) => api.activate(ws, id))}
+                onClose={(id) => void tabs.run((api, ws) => api.close(ws, id))}
+              />
+            )}
             {permission.prompt && (
               <PermissionBar
                 key={permission.prompt.id}
