@@ -27,6 +27,14 @@ describe('ページに奪わせないショートカット', () => {
     expect(reservedShortcut(key('w', { control: true }), 'linux')).toBe('tab-close')
   })
 
+  it('ページの拡大・縮小（Cmd/Ctrl + = か +・-・0）は、ページにフォーカスがあっても Trueful が受ける', () => {
+    expect(reservedShortcut(key('=', { meta: true }), 'darwin')).toBe('page-zoom-in')
+    expect(reservedShortcut(key('+', { meta: true, shift: true }), 'darwin')).toBe('page-zoom-in')
+    expect(reservedShortcut(key('-', { control: true }), 'win32')).toBe('page-zoom-out')
+    expect(reservedShortcut(key('0', { control: true }), 'linux')).toBe('page-zoom-reset')
+    expect(reservedShortcut(key('0', { control: true }), 'darwin')).toBeUndefined()
+  })
+
   it('ほかのキーや修飾キーの組み合わせ、keyUp は奪わない', () => {
     expect(reservedShortcut(key('t', { control: true }), 'darwin')).toBeUndefined()
     expect(reservedShortcut(key('t', { meta: true }), 'win32')).toBeUndefined()
@@ -57,8 +65,9 @@ describe('ページに奪わせないショートカット', () => {
         'workspace-switch-5'
       )
     })
-    it('0・Shift つき・余分な修飾キー・数字でないキーは奪わない', () => {
-      expect(reservedShortcut(key('0', { meta: true }), 'darwin', 'ctrl')).toBeUndefined()
+    it('0 はタブ・Workspace にしない（ページの実際のサイズ）。Shift つき・余分な修飾キー・数字でないキーは奪わない', () => {
+      expect(reservedShortcut(key('0', { meta: true }), 'darwin', 'ctrl')).toBe('page-zoom-reset')
+      expect(reservedShortcut(key('0', { control: true }), 'darwin', 'ctrl')).toBeUndefined()
       expect(
         reservedShortcut(key('1', { meta: true, shift: true }), 'darwin', 'ctrl')
       ).toBeUndefined()

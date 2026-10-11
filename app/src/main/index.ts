@@ -76,6 +76,7 @@ import { deleteHistory, purgeExpiredHistory, searchHistory } from './history/ser
 import { TabFlows, TabNotFoundError } from './tab/flows/tabFlows'
 import { TabPages } from './tab/flows/tabPages'
 import { TabViews } from './tab/services/tabViews'
+import { nextZoomFactor } from './tab/services/zoom'
 import {
   createWorkspaceFlow,
   deleteWorkspaceFlow,
@@ -369,6 +370,11 @@ app.whenReady().then(() => {
     tabsChanged: (workspaceId) =>
       mainWindow?.webContents.send(channelNames.tabListChanged, workspaceId)
   })
+  const zoomDirections = {
+    'page-zoom-in': 'in',
+    'page-zoom-out': 'out',
+    'page-zoom-reset': 'reset'
+  } as const
   // メニューのショートカット（F02・F10）。ページにフォーカスがあっても効く
   // macOS ではウィンドウを閉じてもメニューのキーが効くので、ウィンドウがないときは何もしない
   const runMenuCommand = (command: MenuCommand): void => {
@@ -392,6 +398,17 @@ app.whenReady().then(() => {
     }
     if (command === 'page-devtools') {
       views.shownWebContents()?.toggleDevTools()
+      return
+    }
+    // 表示中のページの拡大・縮小（F02）。Chromium は同じサイト（同じパーティション）の倍率をそろえる（Chrome と同じ）。
+    // shortcut: 倍率は再起動で 100% に戻る。残すなら、サイトごとの倍率を DB に記憶する
+    if (
+      command === 'page-zoom-in' ||
+      command === 'page-zoom-out' ||
+      command === 'page-zoom-reset'
+    ) {
+      const page = views.shownWebContents()
+      page?.setZoomFactor(nextZoomFactor(page.getZoomFactor(), zoomDirections[command]))
       return
     }
     const db = database
