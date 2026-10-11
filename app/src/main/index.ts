@@ -1,4 +1,14 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, session, shell } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  ipcMain,
+  Menu,
+  nativeTheme,
+  session,
+  shell
+} from 'electron'
 import { existsSync, readdirSync } from 'node:fs'
 import type { DatabaseSync } from 'node:sqlite'
 import { join } from 'path'
@@ -270,9 +280,12 @@ app.whenReady().then(() => {
   let rebuildMenu: () => void = () => {}
   const store = SettingsStore.open(userData, (snapshot) => {
     mainWindow?.webContents.send(channelNames.settingsChanged, snapshot)
+    nativeTheme.themeSource = snapshot.settings.theme
     rebuildMenu()
   })
   settingsStore = store
+  // テーマ（F14）。ページと標準の部品に効く（UI は画面が html の data-theme で切り替える。theme.ts）
+  nativeTheme.themeSource = store.get().settings.theme
   const problem = store.get().problem
   if (problem) console.warn('[main] settings.json に問題があった', problem)
 

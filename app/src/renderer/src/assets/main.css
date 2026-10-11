@@ -1,6 +1,6 @@
 :root {
-  /* 入力欄やボタンなどの標準部品も、OS のライト・ダークに合わせる */
-  color-scheme: light dark;
+  /* 入力欄やボタンなどの標準部品も、テーマ（設定 theme、F14）に合わせる */
+  color-scheme: light;
   --bg: #f4f4f5;
   --surface: #ffffff;
   --border: #d4d4d8;
@@ -23,25 +23,25 @@
   color: var(--text);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #18181b;
-    --surface: #27272a;
-    --border: #3f3f46;
-    --text: #f4f4f5;
-    /* 選択中の背景（--selected）の上でも 4.5:1 以上 */
-    --text-muted: #b0b0b8;
-    --selected: #3f3f46;
-    --danger: #f87171;
-    --mode-production: #60a5fa;
-    --mode-development: #4ade80;
-    --mode-testing: #fbbf24;
-    --mode-custom: #a1a1aa;
-    --on-mode-production: #18181b;
-    --on-mode-development: #18181b;
-    --on-mode-testing: #18181b;
-    --on-mode-custom: #18181b;
-  }
+/* ダーク。html の data-theme は、設定 theme（OS に合わせるなら OS のライト・ダーク）から画面が決める（theme.ts） */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #18181b;
+  --surface: #27272a;
+  --border: #3f3f46;
+  --text: #f4f4f5;
+  /* 選択中の背景（--selected）の上でも 4.5:1 以上 */
+  --text-muted: #b0b0b8;
+  --selected: #3f3f46;
+  --danger: #f87171;
+  --mode-production: #60a5fa;
+  --mode-development: #4ade80;
+  --mode-testing: #fbbf24;
+  --mode-custom: #a1a1aa;
+  --on-mode-production: #18181b;
+  --on-mode-development: #18181b;
+  --on-mode-testing: #18181b;
+  --on-mode-custom: #18181b;
 }
 
 html,
