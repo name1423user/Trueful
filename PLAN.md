@@ -240,6 +240,7 @@
 
 ### T5-3 OSS文書
 - 受け入れ条件: LICENSE（GPL-3.0、メンバーの同意を得た後）、SECURITY.md、CONTRIBUTING.md、READMEの開発体制と未署名アプリの起動方法、threat-model.mdの追記、ADR-006の改訂、ADR-015（Command Paletteの廃止）、Design System v1.2（左パネルの構成、選択色）、`roadmap/mvp-scope.md` と `tools/command-palette-tools.md` の更新が揃っている。
+- 進み（2026-10-11）: T5-3a として README（開発の手順・開発体制・未署名アプリの起動方法）、SECURITY.md、CONTRIBUTING.md を書いた。threat-model・ADR-006 の改訂・ADR-015・Design System・mvp-scope・command-palette-tools は、元の文書が本リポジトリにない（`docs-ja/architecture/` だけを取り込んだ）ので、取り込みと合わせて残り。
 - 依存: なし（LICENSE部分のみ、るりあの同意取得後）
 
 ### T5-4 監査と試用開始
