@@ -458,6 +458,8 @@ function App(): React.JSX.Element {
               <RecentTabsStrip
                 tabs={tabs.tabs}
                 activeId={tabs.activeId}
+                discardedIds={tabs.discardedIds}
+                // 設定を読むまでは、既定値（settingsSchema と同じ 5）
                 count={settings.snapshot?.settings.recentTabsCount ?? 5}
                 onActivate={(id) => void tabs.run((api, ws) => api.activate(ws, id))}
                 onClose={(id) => void tabs.run((api, ws) => api.close(ws, id))}

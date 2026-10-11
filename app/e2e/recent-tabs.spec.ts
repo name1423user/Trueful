@@ -29,7 +29,9 @@ test('最近使ったタブ列（F15）: 2段目を畳んだときだけ、最�
     await window.screenshot({ path: `test-results/recent-tabs-${process.platform}.png` })
 
     // 2枚目（ひとつ前に見たタブ）を選ぶと、それが先頭になる
+    const second = await items.nth(1).getAttribute('data-tab-id')
     await items.nth(1).click()
+    await expect(items.first()).toHaveAttribute('data-tab-id', second!)
     await expect(items.first()).toHaveAttribute('aria-current', 'true')
     // × で閉じると、残りの2枚が出る
     await strip
@@ -37,6 +39,8 @@ test('最近使ったタブ列（F15）: 2段目を畳んだときだけ、最�
       .first()
       .click()
     await expect(items).toHaveCount(2)
+    // フォーカスは同じ位置のタブへ（body に落とさない）
+    await expect(items.first()).toBeFocused()
     const left = await window.evaluate(async () => {
       const api = (window as unknown as { trueful: Window['trueful'] }).trueful
       const list = await api.workspace.list()

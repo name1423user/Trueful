@@ -149,7 +149,6 @@
   "panel": {
     "railLabel": "パネルの切り替え",
     "tabs": "タブ",
-    "recentTabsCount": "最近使ったタブ列の枚数（左パネルの2段目を畳んだときに出す）",
     "downloads": "ダウンロード",
     "bookmarks": "ブックマーク"
   },

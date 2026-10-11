@@ -7,7 +7,7 @@ import { useSettings, type Settings } from './useSettings'
 // 設定の画面（F14）。Cmd/Ctrl+, で開き、ページを隠した中央に出す。変えたらすぐ settings.json に書く
 // （手で編集したときも、Main の知らせで表示を読み直す）。Esc か「閉じる」で閉じる。
 // settings.json を読み書きできないときは、変えられない（Main が保存を断るため）。
-// まだ機能がない項目（拡張の配置・最近使ったタブ列・広告ブロック・Sentry など）は、その機能と一緒に足す。
+// まだ機能がない項目（拡張の配置・広告ブロック・Sentry など）は、その機能と一緒に足す。
 // focusRequest が変わるたび（開いたとき・開いたまま Cmd/Ctrl+, を押したとき）、見出しへフォーカスを移す
 export function SettingsScreen(props: {
   focusRequest: number

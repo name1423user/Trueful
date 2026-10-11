@@ -1121,6 +1121,9 @@ h1[tabindex='-1']:focus {
 .recent-tabs {
   display: flex;
   flex: none;
+  align-items: center;
+  box-sizing: border-box;
+  height: 34px;
   gap: 4px;
   padding: 4px 8px;
   overflow: hidden;
