@@ -26,15 +26,21 @@ test('① 壊れたマニフェストは直して軽く知らせ、② 作りか
 
     const { app } = await launchApp(undefined, { userDataDir: first.userDataDir })
     const ui = await appWindow(app)
-    await expect(ui.getByRole('status').filter({ hasText: '案件A」の設定ファイル' })).toBeVisible()
-    await expect(ui.getByRole('status').filter({ hasText: '作成が終わる前' })).toBeVisible()
-    const missing = ui.getByRole('alert').filter({ hasText: '案件B」のファイルが見つかりません' })
-    await expect(missing).toBeVisible()
+    // 読み上げ（自動で直したものは status、戻せないものは alert）と、見える知らせの行
+    await expect(ui.getByRole('status').filter({ hasText: '案件A」の設定ファイル' })).toHaveCount(1)
+    await expect(ui.getByRole('status').filter({ hasText: '作成が終わる前' })).toHaveCount(1)
+    await expect(ui.getByRole('alert')).toContainText('案件B」のファイルが見つかりません')
+    const missing = ui.locator('.startup-notice.severe')
+    await expect(missing).toContainText('案件B」のファイルが見つかりません')
     await ui.screenshot({ path: `test-results/workspace-file-notices-${process.platform}.png` })
 
-    // ③ 「削除する」で削除の確認が出る（やめても知らせは戻らない）
-    await missing.getByRole('button', { name: '削除する' }).click()
-    await expect(ui.getByRole('button', { name: '削除する', exact: true })).toHaveCount(1)
+    // ① 閉じると、フォーカスは次の知らせのボタンへ
+    await ui.getByRole('button', { name: '設定ファイルを作り直したことの知らせを閉じる' }).click()
+    await expect(ui.getByRole('button', { name: 'Workspace を作る' })).toBeFocused()
+
+    // ③ 「削除する」で削除の確認が出る（知らせは消える）
+    await ui.getByRole('button', { name: '「案件B」を削除する' }).click()
+    await expect(ui.getByRole('alertdialog')).toBeVisible()
     await expect(missing).toHaveCount(0)
     await ui.getByRole('button', { name: 'やめる' }).click()
 

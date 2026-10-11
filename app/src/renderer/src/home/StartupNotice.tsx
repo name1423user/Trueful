@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 type Notice = Extract<
@@ -17,63 +17,34 @@ export function StartupNotice(props: {
 }): React.JSX.Element {
   const { t } = useTranslation()
   const [notices, setNotices] = useState<Notice[]>([])
+  // 読み上げる文。最初に受け取ったときに1回だけ決める（閉じるたびに残りを読み直さない）
+  const [announced, setAnnounced] = useState<Notice[]>([])
   useEffect(() => {
     let alive = true
     window.trueful.startup.notices().then(
-      (result) => alive && result.ok && setNotices(result.value),
+      (result) => {
+        if (!alive || !result.ok) return
+        setNotices(result.value)
+        setAnnounced(result.value)
+      },
       () => undefined
     )
     return () => {
       alive = false
     }
   }, [])
-  const dismiss = (notice: Notice): void => setNotices((list) => list.filter((n) => n !== notice))
-
-  const row = (notice: Notice, index: number): React.JSX.Element => {
-    return (
-      <div key={index} className={`startup-notice${isSevere(notice) ? ' severe' : ''}`}>
-        <p>{message(notice)}</p>
-        {notice.kind === 'unfinishedCreate' && (
-          <button
-            type="button"
-            className="dormant-notice-close"
-            onClick={() => {
-              dismiss(notice)
-              props.onCreate()
-            }}
-          >
-            {t('startupNotice.create')}
-          </button>
-        )}
-        {notice.kind === 'filesMissing' ? (
-          <>
-            <button type="button" className="dormant-notice-close" onClick={() => dismiss(notice)}>
-              {t('startupNotice.keep')}
-            </button>
-            <button
-              type="button"
-              className="dormant-notice-close"
-              onClick={() => {
-                dismiss(notice)
-                props.onDelete(notice.workspaceId)
-              }}
-            >
-              {t('startupNotice.delete')}
-            </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            className="dormant-notice-close"
-            aria-label={t('startupNotice.closeLabel')}
-            onClick={() => dismiss(notice)}
-          >
-            {t('startupNotice.close')}
-          </button>
-        )}
-      </div>
+  const container = useRef<HTMLDivElement>(null)
+  // 閉じたら、フォーカスを次の知らせのボタンへ（なければ1段目。body に落とさない）
+  const dismiss = (notice: Notice): void => {
+    setNotices((list) => list.filter((n) => n !== notice))
+    requestAnimationFrame(() =>
+      (
+        container.current?.querySelector<HTMLElement>('button') ??
+        document.querySelector<HTMLElement>('.activity-button')
+      )?.focus()
     )
   }
+
   const message = (notice: Notice): string => {
     switch (notice.kind) {
       case 'restored':
@@ -89,13 +60,62 @@ export function StartupNotice(props: {
         return t('startupNotice.filesMissing', { name: notice.name })
     }
   }
+  const button = (label: string, onClick: () => void, ariaLabel?: string): React.JSX.Element => (
+    <button type="button" className="dormant-notice-close" aria-label={ariaLabel} onClick={onClick}>
+      {label}
+    </button>
+  )
   const isSevere = (n: Notice): boolean => n.kind === 'recreated' || n.kind === 'filesMissing'
+  const announce = (severe: boolean): string =>
+    announced
+      .filter((n) => isSevere(n) === severe)
+      .map(message)
+      .join(' ')
   return (
-    <div className="startup-notices">
-      <div role="status" aria-live="polite">
-        {notices.map((n, i) => !isSevere(n) && row(n, i))}
-      </div>
-      <div role="alert">{notices.map((n, i) => isSevere(n) && row(n, i))}</div>
+    <div className="startup-notices" ref={container}>
+      {/* 読み上げの領域は常に置き、文だけを入れる（ボタンは領域の外） */}
+      <p role="status" aria-live="polite" className="visually-hidden">
+        {announce(false)}
+      </p>
+      <p role="alert" className="visually-hidden">
+        {announce(true)}
+      </p>
+      {notices.map((notice) => (
+        <div
+          key={`${notice.kind}-${'workspaceId' in notice ? notice.workspaceId : ''}`}
+          className={`startup-notice${isSevere(notice) ? ' severe' : ''}`}
+        >
+          <p>{message(notice)}</p>
+          {notice.kind === 'unfinishedCreate' &&
+            button(t('startupNotice.create'), () => {
+              dismiss(notice)
+              props.onCreate()
+            })}
+          {notice.kind === 'filesMissing' ? (
+            <>
+              {button(
+                t('startupNotice.keep'),
+                () => dismiss(notice),
+                t('startupNotice.keepLabel', { name: notice.name })
+              )}
+              {button(
+                t('startupNotice.delete'),
+                () => {
+                  dismiss(notice)
+                  props.onDelete(notice.workspaceId)
+                },
+                t('startupNotice.deleteLabel', { name: notice.name })
+              )}
+            </>
+          ) : (
+            button(
+              t('startupNotice.close'),
+              () => dismiss(notice),
+              t(`startupNotice.closeLabel.${notice.kind}`)
+            )
+          )}
+        </div>
+      ))}
     </div>
   )
 }

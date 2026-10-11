@@ -833,14 +833,10 @@ h1[tabindex='-1']:focus {
   margin-bottom: 8px;
 }
 
-.startup-notices > div {
+.startup-notices {
   display: flex;
   flex-direction: column;
   gap: 4px;
-}
-
-.startup-notices > div:has(.startup-notice) + div:has(.startup-notice) {
-  margin-top: 4px;
 }
 
 .startup-notices:not(:has(.startup-notice)) {

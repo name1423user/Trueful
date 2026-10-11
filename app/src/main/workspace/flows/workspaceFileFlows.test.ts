@@ -5,7 +5,12 @@ import { DatabaseSync } from 'node:sqlite'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { migrations } from '../../db/migrations'
 import { migrate } from '../../db/services/migrate'
-import { insertWorkspace, listWorkspaces } from '../services/workspaceDB'
+import {
+  insertWorkspace,
+  lastWorkspaceId,
+  listWorkspaces,
+  skipWorkspaceId
+} from '../services/workspaceDB'
 import {
   comManifestPath,
   partitionDir,
@@ -14,8 +19,10 @@ import {
   workspaceDir,
   type WorkspaceRoots
 } from '../services/workspaceFiles'
+import { insertSnapshot } from '../services/workspaceSnapshot'
 import {
   cleanupDeletedWorkspaceFiles,
+  collectWorkspaceNotices,
   ensureComManifests,
   sweepUnfinishedWorkspaces,
   prepareWorkspaceFiles,
@@ -175,5 +182,55 @@ describe('ADR-012 の3パターン', () => {
       missing: [a.id],
       failed: []
     })
+  })
+})
+
+describe('残ったフォルダの片付けと、起動の知らせ', () => {
+  const leave = (id: number): void => {
+    mkdirSync(workspaceDir(roots, id), { recursive: true })
+    mkdirSync(partitionDir(roots, id), { recursive: true })
+  }
+
+  it('削除した Workspace の残り（スナップショットがある）は、黙って片付ける', () => {
+    skipWorkspaceId(db, 3)
+    insertSnapshot(db, 3, { name: 'C', mode: 'custom', tabs: [] }, 1)
+    leave(3)
+    expect(sweepUnfinishedWorkspaces(db, roots)).toEqual([])
+    expect(existsSync(workspaceDir(roots, 3))).toBe(false)
+    expect(existsSync(partitionDir(roots, 3))).toBe(false)
+  })
+
+  it('確定したことのある番号の残り（DB を戻して一覧から消えた）には触らない', () => {
+    skipWorkspaceId(db, 4)
+    leave(4)
+    expect(sweepUnfinishedWorkspaces(db, roots)).toEqual([])
+    expect(existsSync(partitionDir(roots, 4))).toBe(true)
+  })
+
+  it('DB を戻した起動では、フォルダを残し、知らせず、その番号を作りかけと見なさなくする', () => {
+    const a = insertWorkspace(db, { name: 'A', mode: 'custom' }, 1)
+    prepareWorkspaceFiles(roots)(a)
+    leave(5) // バックアップの後に作った Workspace（戻した DB にはない）
+    expect(collectWorkspaceNotices(db, roots, true)).toEqual([])
+    expect(existsSync(partitionDir(roots, 5))).toBe(true)
+    expect(lastWorkspaceId(db)).toBe(5)
+    // 次の起動でも、作りかけとして知らせず、残す
+    expect(collectWorkspaceNotices(db, roots, false)).toEqual([])
+    expect(existsSync(partitionDir(roots, 5))).toBe(true)
+  })
+
+  it('3パターンを、名前つきで知らせる（直したものと消えたものは分ける）', () => {
+    const [a, b, c] = ['A', 'B', 'C'].map((name, i) =>
+      insertWorkspace(db, { name, mode: 'custom' }, i)
+    )
+    for (const w of [a!, b!]) prepareWorkspaceFiles(roots)(w)
+    writeFileSync(comManifestPath(roots, a!.id), '{')
+    leave(9)
+    expect(collectWorkspaceNotices(db, roots, false)).toEqual([
+      { kind: 'manifestRepaired', names: ['A'] },
+      { kind: 'unfinishedCreate' },
+      { kind: 'filesMissing', workspaceId: c!.id, name: 'C' }
+    ])
+    expect(collectWorkspaceNotices(db, roots, false)).toEqual([])
   })
 })

@@ -86,8 +86,7 @@ import {
 import { purgeExpiredSnapshots } from './workspace/services/workspaceSnapshot'
 import {
   cleanupDeletedWorkspaceFiles,
-  ensureComManifests,
-  sweepUnfinishedWorkspaces,
+  collectWorkspaceNotices,
   prepareWorkspaceFiles,
   purgeWorkspaceTrash
 } from './workspace/flows/workspaceFileFlows'
@@ -238,24 +237,11 @@ app.whenReady().then(() => {
       database = db
       // Workspace の COM 側のマニフェストをそろえる（ない・壊れているものを書き直す。ADR-013）。
       // 前回消しきれなかった片付け用のフォルダも消す（ADR-011 の起動時クリーンアップ）
-      // ADR-012 の3パターンは、画面でも知らせる（DB を戻したときは、その知らせだけにする。
-      // 戻すと、その後に作った Workspace のフォルダが「作りかけ」に見えるため）
+      // ADR-012 の3パターンは、画面でも知らせる（DB を戻したときは、DB の知らせだけ）
       try {
-        const unfinished = sweepUnfinishedWorkspaces(db, workspaceRoots)
-        const { repaired, missing, failed } = ensureComManifests(db, workspaceRoots)
-        if (repaired.length > 0) console.warn('[main] マニフェストを書き直した', repaired)
-        if (failed.length > 0) console.error('[main] マニフェストを書けなかった', failed)
-        if (notices.length === 0) {
-          const name = (id: number): string =>
-            listWorkspaces(db).find((w) => w.id === id)?.name ?? String(id)
-          const fixed = repaired.filter((id) => !missing.includes(id))
-          if (fixed.length > 0) notices.push({ kind: 'manifestRepaired', names: fixed.map(name) })
-          if (unfinished.length > 0) notices.push({ kind: 'unfinishedCreate' })
-          for (const id of missing)
-            notices.push({ kind: 'filesMissing', workspaceId: id, name: name(id) })
-        }
+        notices.push(...collectWorkspaceNotices(db, workspaceRoots, notices.length > 0))
       } catch (e) {
-        console.error('[main] マニフェストをそろえられなかった', e)
+        console.error('[main] Workspace のファイルを確かめられなかった', e)
       }
       purgeTrash()
       // 削除前のスナップショットのうち、30 日たったものを消す（data-schema.md）
@@ -310,6 +296,7 @@ app.whenReady().then(() => {
   let startupShown = false
   // 起動のときに知らせること（壊れた DB を戻した、など）。DB の準備を待ってから返す
   handle(startupNotices, async () => {
+    // 知らせを集める処理（上の databaseReady.then）は、ここより先に登録した同期の処理なので、先に終わっている
     await databaseReady.catch(() => undefined)
     // 何度聞かれても同じ答えを返す（読んだ画面が捨てられても、知らせが消えないように。再読み込みでは、また出る）
     return notices
