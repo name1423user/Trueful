@@ -12,6 +12,8 @@ export default defineConfig({
         '@renderer': resolve('src/renderer/src')
       }
     },
-    plugins: [react()]
+    plugins: [react()],
+    // 小さい書体ファイルも data: にせず、別ファイルで出す。CSP（default-src 'self'）は data: の書体を止めるため
+    build: { assetsInlineLimit: (file) => (/\.woff2?$/.test(file) ? false : undefined) }
   }
 })
