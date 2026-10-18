@@ -12,6 +12,9 @@ export type MenuCommand =
   | 'tab-reopen'
   | 'page-reload'
   | 'page-devtools'
+  | 'page-zoom-in'
+  | 'page-zoom-out'
+  | 'page-zoom-reset'
   | 'focus-address-bar'
   | 'focus-search'
   | 'toggle-side-panel'
@@ -45,8 +48,8 @@ export function resolveWorkspaceModifier(
 // 標準のメニューのうち、次のものは使わない（ぶつかるため、中身を自分で書く）:
 // - Cmd/Ctrl+W（ウィンドウを閉じる）→ タブを閉じる。ウィンドウを閉じるのは Cmd/Ctrl+Shift+W
 // - Cmd/Ctrl+R（UI の再読み込み）→ ページの再読み込み
-// - 拡大・縮小（UI の倍率が変わると、ページの表示位置がずれる。ipc-spec の view:setBounds）。
-//   ページの拡大・縮小は後のタスクで、ページに対する項目として足す
+// - 拡大・縮小（UI の倍率が変わると、ページの表示位置がずれる。ipc-spec の view:setBounds）
+//   → 表示中のページの拡大・縮小
 // - 開発者ツール（UI に開く）→ 表示中のページに開く
 export function appMenuTemplate(
   platform: NodeJS.Platform,
@@ -130,6 +133,11 @@ export function appMenuTemplate(
       label: labels['view-menu'],
       submenu: [
         item('page-reload', 'CmdOrCtrl+R'),
+        // ページの拡大・縮小（UI の倍率は変えない）。ページにフォーカスがあるときは、ページ側でも = を受ける
+        item('page-zoom-in', 'CmdOrCtrl+Plus'),
+        item('page-zoom-out', 'CmdOrCtrl+-'),
+        item('page-zoom-reset', 'CmdOrCtrl+0'),
+        { type: 'separator' },
         // 左パネルの2段目を畳む・開く（F15）
         item('toggle-side-panel', 'CmdOrCtrl+B'),
         // 開発者ツールは、UI ではなく表示中のページに対して開く
