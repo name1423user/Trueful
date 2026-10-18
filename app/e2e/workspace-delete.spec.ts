@@ -83,7 +83,10 @@ test('Workspace を削除すると、ページとフォルダが消え、今の 
     // 今でない Workspace を消す。フォルダは片付けて消える
     const c = await create(window, 'C')
     expect(await del(window, a.ws)).toMatchObject({ ok: true, value: { currentId: c.ws } })
-    await expect.poll(() => existsSync(join(userDataDir, 'workspaces', String(a.ws)))).toBe(false)
+    // Windows の CI では、セッションのデータを消す（clearStorageData）のに数秒かかることがある
+    await expect
+      .poll(() => existsSync(join(userDataDir, 'workspaces', String(a.ws))), { timeout: 15_000 })
+      .toBe(false)
     expect(existsSync(join(userDataDir, 'workspaces', '.trash'))).toBe(false)
 
     // ない id、不正な引数
