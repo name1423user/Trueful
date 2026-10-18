@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { launchApp } from './launchApp'
+import { appWindow, launchApp } from './launchApp'
 
 test('UI から settings の取得と更新ができ、不正な更新はエラーが返る', async () => {
   const { app, cleanup } = await launchApp()
@@ -38,6 +38,12 @@ test('settings.json が壊れていたら、既定値で起動し、問題を Re
       ok: true,
       value: { settings: { theme: 'system' }, problem: { kind: 'invalid-json' } }
     })
+    // 画面の上端でも知らせる（壊れたファイルの名前つき）。閉じられる
+    const ui = await appWindow(app)
+    const notice = ui.locator('.startup-notice').filter({ hasText: 'settings.json が壊れていた' })
+    await expect(notice).toContainText('settings.json.broken-')
+    await ui.getByRole('button', { name: '設定の問題の知らせを閉じる' }).click()
+    await expect(notice).toHaveCount(0)
   } finally {
     await app.close()
     cleanup()

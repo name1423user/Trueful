@@ -239,7 +239,13 @@ app.whenReady().then(() => {
       // 前回消しきれなかった片付け用のフォルダも消す（ADR-011 の起動時クリーンアップ）
       // ADR-012 の3パターンは、画面でも知らせる（DB を戻したときは、DB の知らせだけ）
       try {
-        notices.push(...collectWorkspaceNotices(db, workspaceRoots, notices.length > 0))
+        notices.push(
+          ...collectWorkspaceNotices(
+            db,
+            workspaceRoots,
+            notices.some((n) => n.kind === 'restored' || n.kind === 'recreated')
+          )
+        )
       } catch (e) {
         console.error('[main] Workspace のファイルを確かめられなかった', e)
       }
@@ -274,7 +280,10 @@ app.whenReady().then(() => {
   })
   settingsStore = store
   const problem = store.get().problem
-  if (problem) console.warn('[main] settings.json に問題があった', problem)
+  if (problem) {
+    console.warn('[main] settings.json に問題があった', problem)
+    notices.push({ kind: 'settings', problem })
+  }
 
   const handle = createIpc(ipcMain, (event) =>
     isFromAppMainFrame(event, mainWindow?.webContents, (url) => isAppUrl(url, getAppUrl()))

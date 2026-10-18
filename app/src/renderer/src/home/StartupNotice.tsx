@@ -58,6 +58,14 @@ export function StartupNotice(props: {
         return t('startupNotice.unfinishedCreate')
       case 'filesMissing':
         return t('startupNotice.filesMissing', { name: notice.name })
+      case 'settings':
+        return t(`startupNotice.settings.${notice.problem.kind}`, {
+          // 保存場所の中のファイル名だけを出す（DB の知らせと同じ）
+          file:
+            notice.problem.kind === 'invalid-json'
+              ? notice.problem.brokenFile.split(/[\\/]/).pop()
+              : undefined
+        })
     }
   }
   const button = (label: string, onClick: () => void, ariaLabel?: string): React.JSX.Element => (
