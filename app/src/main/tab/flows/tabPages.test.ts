@@ -152,6 +152,7 @@ describe('TabPages', () => {
     expect(actions).toEqual(['back', 'forward', 'reload', 'stop'])
     const other = insertWorkspace(db, { name: 'B', mode: 'custom' }, 0).id
     expect(() => pages.control(db, other, a.id, 'back')).toThrow(TabNotFoundError)
+    expect(() => pages.control(db, ws, 999, 'back')).toThrow(TabNotFoundError)
   })
 
   it('ショートカットは今の Workspace に対して行い、タブ列の変化を知らせる', () => {

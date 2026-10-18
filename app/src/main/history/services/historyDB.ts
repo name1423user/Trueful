@@ -44,17 +44,17 @@ export function recordVisit(
   if (!isHistoryUrl(input.url)) return
   const url = historyUrl(input.url)
   inTransaction(db, () => {
-    db.prepare(
-      `INSERT INTO history_url (workspace_id, url, title, visit_count, last_visited_time_ms)
-       VALUES (?, ?, ?, 1, ?)
-       ON CONFLICT (workspace_id, url) DO UPDATE SET
-         visit_count = visit_count + 1,
-         last_visited_time_ms = excluded.last_visited_time_ms,
-         title = CASE WHEN excluded.title <> '' THEN excluded.title ELSE title END`
-    ).run(input.workspaceId, url, input.title, input.now)
     const id = db
-      .prepare('SELECT id FROM history_url WHERE workspace_id = ? AND url = ?')
-      .get(input.workspaceId, url)?.['id']
+      .prepare(
+        `INSERT INTO history_url (workspace_id, url, title, visit_count, last_visited_time_ms)
+         VALUES (?, ?, ?, 1, ?)
+         ON CONFLICT (workspace_id, url) DO UPDATE SET
+           visit_count = visit_count + 1,
+           last_visited_time_ms = excluded.last_visited_time_ms,
+           title = CASE WHEN excluded.title <> '' THEN excluded.title ELSE title END
+         RETURNING id`
+      )
+      .get(input.workspaceId, url, input.title, input.now)?.['id']
     db.prepare('INSERT INTO history_visit (url_id, visited_time_ms) VALUES (?, ?)').run(
       id as number,
       input.now

@@ -36,8 +36,8 @@ test('preload の API で Workspace を作り、一覧し、切り替えられ�
     expect(r.listed.ok && r.listed.value.workspaces.map((w) => w.name)).toEqual(['案件A', '案件B'])
     expect(r.listed.ok && r.b.ok && r.listed.value.currentId).toBe(r.b.ok && r.b.value.id)
     expect(r.switched).toMatchObject({ ok: true, value: { name: '案件A' } })
-    expect(r.switchMs).toBeLessThan(300)
     expect(r.missing).toMatchObject({ ok: false, error: { code: 'not-found' } })
+    expect(r.switchMs).toBeLessThan(300)
     expect(r.blank).toMatchObject({ ok: false, error: { code: 'invalid-args' } })
   } finally {
     await app.close()

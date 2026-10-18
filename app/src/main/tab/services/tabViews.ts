@@ -272,20 +272,20 @@ export class TabViews {
   }
 
   private create(tabId: number, workspaceId: number): WebContentsView {
+    const partition = `persist:workspace-${workspaceId}`
     const view = new WebContentsView({
       webPreferences: {
         // セキュリティの設定は無効にしない（CLAUDE.md）。ページには preload を渡さない
         sandbox: true,
         contextIsolation: true,
         nodeIntegration: false,
-        partition: `persist:workspace-${workspaceId}`
+        partition
       }
     })
     // ページは角丸の面に載せる（main.css の .content の内側の角丸、T4-5b）
     view.setBorderRadius(PAGE_RADIUS)
     const wc = view.webContents
     // ページのカメラ・通知などの権限（F16。パーティションごとに1回）
-    const partition = `persist:workspace-${workspaceId}`
     if (!this.guarded.has(partition)) {
       // 権限は、Workspace とサイトごとに記憶した答えで決める（決めていなければ確認を出す。確認できないときは拒否）
       wc.session.setPermissionRequestHandler((requester, permission, callback, details) => {

@@ -212,4 +212,10 @@ describe('Chrome の HTML エクスポートの取り込み（F08）', () => {
   it('ブックマークの HTML でないものは例外', () => {
     expect(() => parseHtmlBookmarks('<html><body>hello</body></html>')).toThrow()
   })
+
+  it('閉じない <A を大量に並べた HTML でも長く固まらない', () => {
+    const start = Date.now()
+    parseHtmlBookmarks('<DL>' + '<A x'.repeat(1_000_000))
+    expect(Date.now() - start).toBeLessThan(1000)
+  })
 })
